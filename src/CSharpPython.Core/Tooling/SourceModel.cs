@@ -4,7 +4,7 @@ using CSharpPython.Syntax;
 
 namespace CSharpPython.Editor
 {
-    internal enum DefinitionKind
+    public enum DefinitionKind
     {
         Variable,
         Parameter,
@@ -74,6 +74,26 @@ namespace CSharpPython.Editor
                 else if (type != d.Type) type = null;
             }
             return type;
+        }
+
+        /// <summary>
+        /// The definition a use of <paramref name="name"/> at <paramref name="offset"/> most likely refers to: the
+        /// innermost function's own names first, then the enclosing scopes', preferring the latest one before the
+        /// offset. Null when the script does not define it.
+        /// </summary>
+        public Definition Resolve(string name, int offset)
+        {
+            Definition best = null;
+            foreach (var d in VisibleAt(offset))
+            {
+                if (d.Name != name) continue;
+                if (best == null) { best = d; continue; }
+                int depthBest = best.Scope == null ? -1 : best.Scope.Start;
+                int depth = d.Scope == null ? -1 : d.Scope.Start;
+                if (depth > depthBest) best = d;
+                else if (depth == depthBest && d.TokenStart <= offset && (best.TokenStart > offset || d.TokenStart > best.TokenStart)) best = d;
+            }
+            return best;
         }
 
         // ---- Construction ---------------------------------------------------------------------------------------
@@ -162,7 +182,9 @@ namespace CSharpPython.Editor
                         if (paren == 0) def.Signature = Normalize(Source.Substring(open0, Math.Max(0, p.Start - open0)));
                     }
                     else if (p.Kind == TokenKind.Name && paren == 1 &&
-                             (Tokens[j - 1].Kind == TokenKind.LParen || Tokens[j - 1].Kind == TokenKind.Comma))
+                             (Tokens[j - 1].Kind == TokenKind.LParen || Tokens[j - 1].Kind == TokenKind.Comma ||
+                              ((Tokens[j - 1].Kind == TokenKind.Star || Tokens[j - 1].Kind == TokenKind.DoubleStar) &&
+                               (Tokens[j - 2].Kind == TokenKind.LParen || Tokens[j - 2].Kind == TokenKind.Comma))))
                     {
                         Definitions.Add(new Definition { Name = p.Text, Kind = DefinitionKind.Parameter, TokenStart = p.Start, Scope = scope });
                     }

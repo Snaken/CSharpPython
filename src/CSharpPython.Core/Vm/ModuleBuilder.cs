@@ -27,6 +27,17 @@ namespace CSharpPython
             return this;
         }
 
+        /// <summary>
+        /// Gives a function already added to this module a parameter list for the editor's signature help, such as
+        /// <c>"target, speed=1.0"</c>. Does nothing when there is no such function.
+        /// </summary>
+        public ModuleBuilder Describe(string name, string signature)
+        {
+            if (Module.Members.TryGetValue(name, out var member) && member.Kind == ValueKind.Native)
+                ((NativeFunction)member.RawObject).Signature = signature;
+            return this;
+        }
+
         public ModuleBuilder Function(string name, Func<Value> fn) =>
             Native(name, (ctx, a) => fn(), 0, 0);
 

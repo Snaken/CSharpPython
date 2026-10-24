@@ -168,46 +168,11 @@ namespace CSharpPython.Editor
 
         private static void AddMembers(SourceModel model, List<Token> before, int dot, int offset, PyVm vm, List<CompletionItem> items)
         {
-            if (dot == 0) return;
-            var p = before[dot - 1];
-            ValueKind? type = null;
-            switch (p.Kind)
+            if (!ResolveReceiver(model, before, dot, offset, out var module, out var type)) return;
+            if (module != null)
             {
-                case TokenKind.Name:
-                    if (dot >= 2 && before[dot - 2].Kind == TokenKind.Dot) return; // a.b.c: unknown
-                    type = model.TypeOf(p.Text, offset, out var module);
-                    if (module != null)
-                    {
-                        if (vm.Modules.TryGetValue(module.Module, out var m)) AddModuleMembers(m, items);
-                        return;
-                    }
-                    break;
-                case TokenKind.String:
-                case TokenKind.FString:
-                    type = ValueKind.Str;
-                    break;
-                case TokenKind.RBracket:
-                {
-                    int open = SourceModel.MatchBackward(before, dot - 1);
-                    if (open < 0) return;
-                    // 'xs[0].' is a subscript, whose type is unknown; '[1, 2].' is a list literal.
-                    if (!IsValueEnd(open > 0 ? before[open - 1].Kind : TokenKind.Newline)) type = ValueKind.List;
-                    break;
-                }
-                case TokenKind.RBrace:
-                    type = SourceModel.MatchBackward(before, dot - 1) >= 0 ? ValueKind.Dict : (ValueKind?)null;
-                    break;
-                case TokenKind.RParen:
-                {
-                    int open = SourceModel.MatchBackward(before, dot - 1);
-                    if (open > 0 && before[open - 1].Kind == TokenKind.Name && !(open > 1 && before[open - 2].Kind == TokenKind.Dot))
-                        type = SourceModel.ConstructorType(before[open - 1].Text);
-                    else if (open == 0 || !IsValueEnd(before[open - 1].Kind))
-                        type = SourceModel.InferTypeAt(before, open);
-                    break;
-                }
-                default:
-                    return;
+                if (vm.Modules.TryGetValue(module.Module, out var m)) AddModuleMembers(m, items);
+                return;
             }
 
             if (type.HasValue)
@@ -220,6 +185,49 @@ namespace CSharpPython.Editor
             foreach (var kind in MethodKinds)
                 foreach (var name in Methods.NamesOf(kind).OrderBy(n => n, StringComparer.Ordinal))
                     if (seen.Add(name)) items.Add(MethodItem(kind, name));
+        }
+
+        // What is to the left of the dot at token index 'dot': an imported module, a value of an obvious type, or
+        // something unknown. Returns false when nothing sensible can be said, such as for 'a.b.c'.
+        internal static bool ResolveReceiver(SourceModel model, List<Token> before, int dot, int offset, out Definition module, out ValueKind? type)
+        {
+            module = null;
+            type = null;
+            if (dot == 0) return false;
+            var p = before[dot - 1];
+            switch (p.Kind)
+            {
+                case TokenKind.Name:
+                    if (dot >= 2 && before[dot - 2].Kind == TokenKind.Dot) return false; // a.b.c: unknown
+                    type = model.TypeOf(p.Text, offset, out module);
+                    return true;
+                case TokenKind.String:
+                case TokenKind.FString:
+                    type = ValueKind.Str;
+                    return true;
+                case TokenKind.RBracket:
+                {
+                    int open = SourceModel.MatchBackward(before, dot - 1);
+                    if (open < 0) return false;
+                    // 'xs[0].' is a subscript, whose type is unknown; '[1, 2].' is a list literal.
+                    if (!IsValueEnd(open > 0 ? before[open - 1].Kind : TokenKind.Newline)) type = ValueKind.List;
+                    return true;
+                }
+                case TokenKind.RBrace:
+                    type = SourceModel.MatchBackward(before, dot - 1) >= 0 ? ValueKind.Dict : (ValueKind?)null;
+                    return true;
+                case TokenKind.RParen:
+                {
+                    int open = SourceModel.MatchBackward(before, dot - 1);
+                    if (open > 0 && before[open - 1].Kind == TokenKind.Name && !(open > 1 && before[open - 2].Kind == TokenKind.Dot))
+                        type = SourceModel.ConstructorType(before[open - 1].Text);
+                    else if (open == 0 || !IsValueEnd(before[open - 1].Kind))
+                        type = SourceModel.InferTypeAt(before, open);
+                    return true;
+                }
+                default:
+                    return false;
+            }
         }
 
         private static void AddMethods(ValueKind kind, List<CompletionItem> items)
@@ -349,14 +357,14 @@ namespace CSharpPython.Editor
             k == TokenKind.KwTrue || k == TokenKind.KwFalse || k == TokenKind.KwNone;
 
         // The tokens of the logical line the cursor is on, up to the cursor.
-        private static List<Token> CurrentLine(List<Token> before)
+        internal static List<Token> CurrentLine(List<Token> before)
         {
             int start = before.Count;
             while (start > 0 && before[start - 1].Kind != TokenKind.Newline) start--;
             return before.GetRange(start, before.Count - start);
         }
 
-        private static bool InsideStringOrComment(string source, int offset)
+        internal static bool InsideStringOrComment(string source, int offset)
         {
             var spans = SyntaxHighlighter.Highlight(source.Substring(0, offset));
             if (spans.Count == 0) return false;

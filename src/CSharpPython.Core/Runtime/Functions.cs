@@ -21,6 +21,12 @@ namespace CSharpPython
 
         public readonly bool AcceptsKeywords;
 
+        /// <summary>
+        /// The parameter list as an editor should show it, such as <c>"x, y=0, *rest"</c>. When null, the editor
+        /// makes one up from the argument counts.
+        /// </summary>
+        public string Signature { get; set; }
+
         public NativeFunction(string name, NativeFn fn, int minArgs = 0, int maxArgs = -1, bool acceptsKeywords = false)
         {
             Name = name;
