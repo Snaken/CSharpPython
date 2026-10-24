@@ -339,7 +339,7 @@ namespace CSharpPython
                 throw Ops.TypeError("'" + v.TypeName + "' object is not reversible");
             var items = Ops.ToList(v);
             items.Reverse();
-            return Value.FromIterator(new ListIterator(items));
+            return Value.FromIterator(new ListIterator(new PyList(items)));
         }
 
         // ---- math -----------------------------------------------------------------------------------------------

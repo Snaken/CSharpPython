@@ -15,6 +15,11 @@ namespace CSharpPython
         private long _index;
         private readonly long _length;
 
+        public PyRange Range => _range;
+
+        /// <summary>How many values have been produced. Settable so a snapshot can resume mid-way.</summary>
+        public long Index { get => _index; set => _index = value; }
+
         public RangeIterator(PyRange range)
         {
             _range = range;
@@ -31,30 +36,38 @@ namespace CSharpPython
 
     internal sealed class ListIterator : PyIterator
     {
-        private readonly List<Value> _items;
+        private readonly PyList _list;
         private int _index;
 
-        public ListIterator(List<Value> items) { _items = items; }
+        public ListIterator(PyList list) { _list = list; }
+
+        public PyList List => _list;
+
+        public int Index { get => _index; set => _index = value; }
 
         public override bool Next(out Value value)
         {
-            if (_index >= _items.Count) { value = default; return false; }
-            value = _items[_index++];
+            if (_index >= _list.Items.Count) { value = default; return false; }
+            value = _list.Items[_index++];
             return true;
         }
     }
 
     internal sealed class TupleIterator : PyIterator
     {
-        private readonly Value[] _items;
+        private readonly PyTuple _tuple;
         private int _index;
 
-        public TupleIterator(Value[] items) { _items = items; }
+        public TupleIterator(PyTuple tuple) { _tuple = tuple; }
+
+        public PyTuple Tuple => _tuple;
+
+        public int Index { get => _index; set => _index = value; }
 
         public override bool Next(out Value value)
         {
-            if (_index >= _items.Length) { value = default; return false; }
-            value = _items[_index++];
+            if (_index >= _tuple.Items.Length) { value = default; return false; }
+            value = _tuple.Items[_index++];
             return true;
         }
     }
@@ -65,6 +78,10 @@ namespace CSharpPython
         private int _index;
 
         public StringIterator(string text) { _text = text; }
+
+        public string Text => _text;
+
+        public int Index { get => _index; set => _index = value; }
 
         public override bool Next(out Value value)
         {
@@ -77,15 +94,48 @@ namespace CSharpPython
     internal sealed class DictKeyIterator : PyIterator
     {
         private readonly PyDict _dict;
-        private readonly int _version;
-        private readonly int _count;
+        private int _version;
+        private int _count;
         private int _slot;
+        private bool _staleOnRestore;
 
         public DictKeyIterator(PyDict dict)
         {
             _dict = dict;
             _version = dict.Version;
             _count = dict.Count;
+        }
+
+        // Restores an iterator over a rebuilt (tombstone-free) dict that has already produced 'produced' keys.
+        // The dict is still being filled when this is called, so <see cref="FinishRestore"/> must follow.
+        public DictKeyIterator(PyDict dict, int produced, bool stale)
+        {
+            _dict = dict;
+            _slot = produced;
+            _staleOnRestore = stale;
+        }
+
+        public void FinishRestore()
+        {
+            _version = _dict.Version;
+            _count = _staleOnRestore ? -1 : _dict.Count;
+        }
+
+        public PyDict Dict => _dict;
+
+        /// <summary>True if the dict was modified since the iterator was made, so the next step raises.</summary>
+        public bool IsStale => _dict.Count != _count || _dict.Version != _version;
+
+        /// <summary>How many keys have been produced (the number of live entries before the cursor).</summary>
+        public int Produced
+        {
+            get
+            {
+                int n = 0;
+                for (int i = 0; i < _slot && i < _dict.SlotCount; i++)
+                    if (_dict.TryGetEntry(i, out _, out _)) n++;
+                return n;
+            }
         }
 
         public override bool Next(out Value value)
@@ -114,6 +164,10 @@ namespace CSharpPython
             _index = start;
         }
 
+        public PyIterator Source => _source;
+
+        public long Index => _index;
+
         public override bool Next(out Value value)
         {
             if (!_source.Next(out Value item)) { value = default; return false; }
@@ -127,6 +181,8 @@ namespace CSharpPython
         private readonly PyIterator[] _sources;
 
         public ZipIterator(PyIterator[] sources) { _sources = sources; }
+
+        public PyIterator[] Sources => _sources;
 
         public override bool Next(out Value value)
         {

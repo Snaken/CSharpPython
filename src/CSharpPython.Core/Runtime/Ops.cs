@@ -633,8 +633,8 @@ namespace CSharpPython
         {
             switch (v.Kind)
             {
-                case ValueKind.List: return new ListIterator(((PyList)v.RawObject).Items);
-                case ValueKind.Tuple: return new TupleIterator(((PyTuple)v.RawObject).Items);
+                case ValueKind.List: return new ListIterator((PyList)v.RawObject);
+                case ValueKind.Tuple: return new TupleIterator((PyTuple)v.RawObject);
                 case ValueKind.Str: return new StringIterator((string)v.RawObject);
                 case ValueKind.Dict: return new DictKeyIterator((PyDict)v.RawObject);
                 case ValueKind.Range: return new RangeIterator((PyRange)v.RawObject);
