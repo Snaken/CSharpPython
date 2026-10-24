@@ -14,7 +14,7 @@ A Python-style language parser, compiler and bytecode VM written in plain C#, de
 - Host-defined events: the host queues an event by name and the script's `def` of that name handles it.
 - Host API: register modules of native functions and constants; host objects are passed as plain-data handles (type id + id).
 - Python-style tracebacks with line numbers, and an error-tolerant lexer for editor tooling.
-- Editor tooling for in-game script editors: syntax highlighting, auto-complete and diagnostics that work on half-typed code.
+- Editor tooling for in-game script editors: syntax highlighting, auto-complete, signature help, go-to-definition and diagnostics that work on half-typed code.
 - Blocks: a Blueprint-style node graph (execution and value pins, user-made blocks) that compiles to ordinary Python source, with a source map back to the blocks.
 - Optional save and resume of a running task (globals, call stack, waits, queued events), for offline progress and save games.
 
@@ -90,12 +90,22 @@ foreach (HighlightSpan span in SyntaxHighlighter.Highlight(source, vm))
 // Suggestions at a cursor offset (a list of items plus the range of text they replace).
 CompletionList list = Completer.Complete(source, cursorOffset, vm);
 
+// The signature of the call the cursor is inside, and which parameter is being typed (null if unknown).
+SignatureHelp help = SignatureHelper.Get(source, cursorOffset, vm);
+if (help != null) Show(help.Label, help.Parameters, help.ActiveParameter);   // move(target, speed=1.0)
+
+// Where the name under the cursor is defined in the script (null for built-ins, members and unknown names).
+DefinitionLocation def = Navigator.FindDefinition(source, cursorOffset);
+if (def != null) MoveCursorTo(def.Offset);                                    // also def.Line, def.Column, def.Kind
+
 // Problems to underline: every lexical error, otherwise the first syntax or scoping error.
 foreach (var problem in Analyzer.Analyze(source))
     Underline(problem.Line, problem.Column, problem.Length, problem.Message);
 ```
 
 Passing the `PyVm` makes built-ins and host modules known: `game.` completes to the functions and constants of your `game` module, and `print` is coloured as a built-in. Completion offers the script's own names (respecting function scope), built-ins, keywords that make sense at that position, module names after `import`, members after `from m import`, and methods after a dot when the value's type is obvious from a literal, a constructor call or an assignment (otherwise every method name is offered).
+
+Signature help covers the script's own functions (including `*args`, `**kwargs` and keyword-only parameters), built-ins, standard modules, methods of values whose type is obvious, and host module functions. Native functions don't carry parameter names, so give yours a description with `module.Describe("spawn", "kind, count=1")` (or `NativeFunction.Signature`); without one the editor shows a made-up list such as `arg1, arg2=...` from the argument counts.
 
 ## Blocks
 
@@ -203,7 +213,7 @@ The test suite is large and uses CPython 3 as an oracle for language semantics; 
 ## Roadmap
 
 - Blocks: graph serialization helpers, a block palette generated from host modules, comments and more block kinds.
-- Editor tooling: signature help and go-to-definition.
+- Editor tooling: references and rename, hover documentation.
 - Language: classes, `type`/`isinstance`, set literals and comprehensions, lazy generators (`yield`), dict views, slice assignment, big ints.
 
 ## License
