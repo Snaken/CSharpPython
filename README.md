@@ -54,6 +54,8 @@ Native functions that need to pause the script take a `CallContext`
 (`ctx.Wait(ticks, result)`). Register custom exception types with
 `vm.RegisterExceptionType("GameError")` so scripts can raise and catch them.
 
+A native function can call back into the script with `ctx.Call(callee, args...)` (a script function, built-in or bound method), for example to apply a callback or a sort key. The call runs to completion before `Call` returns, so the callee cannot wait (it gets a `RuntimeError`); it counts towards `MaxSteps`, and an exception it raises continues up through the script as usual.
+
 ## Saving and resuming tasks
 
 Snapshots are off by default. Turn them on with `new PyVm(new VmOptions { EnableSnapshots = true })`.
@@ -157,6 +159,7 @@ Not supported yet: comprehensions and generator expressions, loop `else`, type a
 
 - Integers are 64-bit and checked; there are no big ints.
 - `dict.keys()/values()/items()` return lists, not views.
+- `sorted`, `list.sort`, `min` and `max` accept `key=` (and `min`/`max` accept `default=`), but a key function runs to completion and cannot wait.
 - `return`, `break` and `continue` are not allowed inside a `finally` block (they are in `try`, `except` and `else`, and run the enclosing `finally` blocks).
 - A negative base with a fractional power raises `ValueError` (no complex numbers).
 
@@ -199,7 +202,7 @@ The test suite is large and uses CPython 3 as an oracle for language semantics; 
 
 - Blocks: graph serialization helpers, a block palette generated from host modules, comments and more block kinds.
 - Editor tooling: signature help and go-to-definition.
-- Language: `key=` for `sorted`/`sort`, classes, comprehensions, `type`/`isinstance`, `*args`/`**kwargs`, nested functions and lambdas, dict views, slice assignment, big ints.
+- Language: classes, comprehensions, `type`/`isinstance`, `*args`/`**kwargs`, nested functions and lambdas, dict views, slice assignment, big ints.
 
 ## License
 
