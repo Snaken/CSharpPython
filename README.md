@@ -144,19 +144,20 @@ Supported:
 | Area | Details |
 | --- | --- |
 | Types | `int` (64-bit, overflow raises `OverflowError`), `float`, `str`, `bool`, `None`, `list`, `tuple`, `dict`, `range`, host handles |
-| Statements | assignment (chained, tuple unpacking, augmented), `if/elif/else`, `while`, `for`, `break`, `continue`, `pass`, `return`, `global`, `import`/`from ... import`, `def`, `try/except`, `raise` |
+| Statements | assignment (chained, tuple unpacking, augmented), `if/elif/else`, `while`, `for`, `break`, `continue`, `pass`, `return`, `global`, `import`/`from ... import`, `def`, `try/except/else/finally`, `raise` |
 | Expressions | arithmetic, comparison chains, `and/or/not`, `in`, `is`, conditional expressions, subscripts and slices, f-strings, keyword and default arguments |
 
 Builtins: `print len range int float str bool repr abs min max sum round sorted list tuple dict enumerate zip reversed any all chr ord divmod pow format`, the standard exception classes, and a `math` module (`pi e tau inf nan sqrt log log2 log10 floor ceil trunc isnan isinf sin cos tan asin acos atan atan2 exp fabs hypot radians degrees pow`).
 
 Methods: `str` (upper, lower, strip, lstrip, rstrip, split, join, replace, startswith, endswith, find, rfind, index, count, isdigit, isalpha, isalnum, isspace, isupper, islower, capitalize, title, format, zfill, ljust, rjust, center, splitlines), `list` (append, extend, insert, pop, remove, index, count, sort, reverse, clear, copy), `dict` (get, keys, values, items, pop, setdefault, update, clear, copy), `tuple` (index, count).
 
-Not supported yet: comprehensions and generator expressions, `finally`, `try/else`, loop `else`, type annotations, `*args`/`**kwargs`, decorators, walrus, nested functions, classes, `lambda`, `yield`, `with`, `del`, `assert`, `nonlocal`, `async`/`await`, set literals, dict unpacking, bit operators, dotted imports, bytes/complex literals, nested format specs in f-strings, `str % args`, `type`/`isinstance`, slice assignment.
+Not supported yet: comprehensions and generator expressions, loop `else`, type annotations, `*args`/`**kwargs`, decorators, walrus, nested functions, classes, `lambda`, `yield`, `with`, `del`, `assert`, `nonlocal`, `async`/`await`, set literals, dict unpacking, bit operators, dotted imports, bytes/complex literals, nested format specs in f-strings, `str % args`, `type`/`isinstance`, slice assignment.
 
 ### Differences from CPython
 
 - Integers are 64-bit and checked; there are no big ints.
 - `dict.keys()/values()/items()` return lists, not views.
+- `return`, `break` and `continue` are not allowed inside a `finally` block (they are in `try`, `except` and `else`, and run the enclosing `finally` blocks).
 - A negative base with a fractional power raises `ValueError` (no complex numbers).
 
 ## Limits and safety
@@ -198,7 +199,7 @@ The test suite is large and uses CPython 3 as an oracle for language semantics; 
 
 - Blocks: graph serialization helpers, a block palette generated from host modules, comments and more block kinds.
 - Editor tooling: signature help and go-to-definition.
-- Language: `key=` for `sorted`/`sort`, classes, comprehensions, `type`/`isinstance`, `finally`/`try-else`, `*args`/`**kwargs`, nested functions and lambdas, dict views, slice assignment, big ints.
+- Language: `key=` for `sorted`/`sort`, classes, comprehensions, `type`/`isinstance`, `*args`/`**kwargs`, nested functions and lambdas, dict views, slice assignment, big ints.
 
 ## License
 
