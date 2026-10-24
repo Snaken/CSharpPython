@@ -624,10 +624,10 @@ namespace CSharpPython.Tests.Syntax
         [Test]
         public void TryErrors()
         {
-            Assert.That(Fails("try:\n    a\n").Problem, Does.Contain("expected an 'except' block"));
-            Assert.That(Fails("try:\n    a\nfinally:\n    b\n").Problem, Does.Contain("'finally'"));
-            Assert.That(Fails("try:\n    a\nexcept:\n    b\nfinally:\n    c\n").Problem, Does.Contain("'finally'"));
-            Assert.That(Fails("try:\n    a\nexcept:\n    b\nelse:\n    c\n").Problem, Does.Contain("'else' on a try"));
+            Assert.That(Fails("try:\n    a\n").Problem, Does.Contain("expected an 'except' or 'finally' block"));
+            Assert.That(Fails("try:\n    a\nelse:\n    b\n").Problem, Does.Contain("'else' needs an 'except' block"));
+            Assert.That(Fails("try:\n    a\nfinally\n").Problem, Does.Contain("':'"));
+            Assert.That(Fails("try:\n    a\nexcept:\n    b\nelse\n").Problem, Does.Contain("':'"));
             Assert.That(Fails("try:\n    a\nexcept:\n    b\nexcept ValueError:\n    c\n").Problem, Does.Contain("default 'except:' must be last"));
         }
 

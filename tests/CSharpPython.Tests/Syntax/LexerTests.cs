@@ -59,7 +59,6 @@ namespace CSharpPython.Tests.Syntax
         [TestCase("nonlocal")]
         [TestCase("async")]
         [TestCase("await")]
-        [TestCase("finally")]
         public void UnsupportedKeywordsAreFlagged(string word)
         {
             Assert.That(Lex(word)[0].Kind, Is.EqualTo(TokenKind.KwUnsupported));
