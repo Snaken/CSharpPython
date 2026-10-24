@@ -93,6 +93,8 @@ namespace CSharpPython.Compilation
                         if (h.Name != null) Bind(h.Name);
                         VisitBody(h.Body);
                     }
+                    VisitBody(t.Else);
+                    if (t.Finally != null) VisitBody(t.Finally);
                     break;
                 case RaiseStmt r:
                     if (r.Value != null) VisitExpr(r.Value);

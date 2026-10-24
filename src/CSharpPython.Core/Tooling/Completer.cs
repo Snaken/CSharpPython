@@ -64,7 +64,7 @@ namespace CSharpPython.Editor
         private static readonly string[] StatementKeywords =
         {
             "def", "if", "elif", "else", "while", "for", "return", "break", "continue", "pass", "global",
-            "try", "except", "raise", "import", "from",
+            "try", "except", "finally", "raise", "import", "from",
         };
 
         private static readonly string[] ExpressionKeywords = { "and", "or", "not", "in", "is", "if", "else" };

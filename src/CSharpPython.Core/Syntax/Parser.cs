@@ -293,15 +293,21 @@ namespace CSharpPython.Syntax
                     throw new PySyntaxError("default 'except:' must be last", handler.Line, handler.Column);
                 node.Handlers.Add(handler);
             }
-            if (node.Handlers.Count == 0)
+            if (Cur.Kind == TokenKind.KwElse)
             {
-                if (Cur.Kind == TokenKind.KwUnsupported && Cur.Text == "finally")
-                    throw Error("'finally' is not supported yet", Cur);
-                throw Error("expected an 'except' block after 'try'", Cur);
+                if (node.Handlers.Count == 0) throw Error("'else' needs an 'except' block before it", Cur);
+                Advance();
+                Expect(TokenKind.Colon, "':'");
+                node.Else = ParseBlock("'else' clause");
             }
-            if (Cur.Kind == TokenKind.KwElse) throw Error("'else' on a try statement is not supported yet", Cur);
-            if (Cur.Kind == TokenKind.KwUnsupported && Cur.Text == "finally")
-                throw Error("'finally' is not supported yet", Cur);
+            if (Cur.Kind == TokenKind.KwFinally)
+            {
+                Advance();
+                Expect(TokenKind.Colon, "':'");
+                node.Finally = ParseBlock("'finally' clause");
+            }
+            if (node.Handlers.Count == 0 && node.Finally == null)
+                throw Error("expected an 'except' or 'finally' block after 'try'", Cur);
             return node;
         }
 

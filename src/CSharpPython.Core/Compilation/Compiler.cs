@@ -13,6 +13,15 @@ namespace CSharpPython.Compilation
             public readonly List<int> BreakJumps = new List<int>();
             public bool IsFor;
             public int TryDepth;
+            public int FinallyLevel;
+        }
+
+        // A try statement with a finally block that the code being compiled is currently inside.
+        private sealed class Guard
+        {
+            public List<Stmt> Body;
+            // The number of active handlers once this guard's own handler is set up.
+            public int Depth;
         }
 
         // The code being generated for one module or function.
@@ -28,6 +37,9 @@ namespace CSharpPython.Compilation
             public readonly Dictionary<string, int> NameIndex = new Dictionary<string, int>();
             public readonly List<Code> Functions = new List<Code>();
             public readonly List<Loop> Loops = new List<Loop>();
+            public readonly List<Guard> Guards = new List<Guard>();
+            // Greater than zero while compiling a copy of a finally block.
+            public int InFinally;
             public int TryDepth;
             public int HandlerDepth;
             public int Line = 1;
@@ -181,13 +193,15 @@ namespace CSharpPython.Compilation
                 case ForStmt f: CompileFor(f); break;
                 case DefStmt d: CompileDef(d); break;
                 case ReturnStmt r:
+                    if (_unit.InFinally > 0) throw Error("'return' inside a 'finally' block is not supported", r);
                     if (r.Value != null) CompileExpr(r.Value);
                     else Emit(Op.LoadConst, Constant(Value.None));
                     SetLine(stmt);
+                    RunGuards(0, false);
                     Emit(Op.Return);
                     break;
-                case BreakStmt _: CompileBreak(); break;
-                case ContinueStmt _: CompileContinue(); break;
+                case BreakStmt b: CompileBreak(b); break;
+                case ContinueStmt c: CompileContinue(c); break;
                 case TryStmt t: CompileTry(t); break;
                 case RaiseStmt r: CompileRaise(r); break;
                 case ImportStmt i:
@@ -307,7 +321,7 @@ namespace CSharpPython.Compilation
             int top = Here;
             CompileExpr(w.Test);
             int toEnd = Emit(Op.JumpIfFalse);
-            var loop = new Loop { ContinueTarget = top, TryDepth = _unit.TryDepth };
+            var loop = new Loop { ContinueTarget = top, TryDepth = _unit.TryDepth, FinallyLevel = _unit.InFinally };
             _unit.Loops.Add(loop);
             CompileBody(w.Body);
             _unit.Loops.RemoveAt(_unit.Loops.Count - 1);
@@ -324,7 +338,7 @@ namespace CSharpPython.Compilation
             int top = Here;
             int forIter = Emit(Op.ForIter);
             CompileStore(f.Target);
-            var loop = new Loop { ContinueTarget = top, IsFor = true, TryDepth = _unit.TryDepth };
+            var loop = new Loop { ContinueTarget = top, IsFor = true, TryDepth = _unit.TryDepth, FinallyLevel = _unit.InFinally };
             _unit.Loops.Add(loop);
             CompileBody(f.Body);
             _unit.Loops.RemoveAt(_unit.Loops.Count - 1);
@@ -333,18 +347,20 @@ namespace CSharpPython.Compilation
             foreach (int b in loop.BreakJumps) Patch(b);
         }
 
-        private void CompileBreak()
+        private void CompileBreak(Stmt at)
         {
             var loop = _unit.Loops[_unit.Loops.Count - 1];
-            for (int i = _unit.TryDepth; i > loop.TryDepth; i--) Emit(Op.PopTry);
+            if (loop.FinallyLevel != _unit.InFinally) throw Error("'break' cannot leave a 'finally' block", at);
+            RunGuards(loop.TryDepth, true);
             if (loop.IsFor) Emit(Op.Pop); // discard the iterator
             loop.BreakJumps.Add(Emit(Op.Jump));
         }
 
-        private void CompileContinue()
+        private void CompileContinue(Stmt at)
         {
             var loop = _unit.Loops[_unit.Loops.Count - 1];
-            for (int i = _unit.TryDepth; i > loop.TryDepth; i--) Emit(Op.PopTry);
+            if (loop.FinallyLevel != _unit.InFinally) throw Error("'continue' cannot leave a 'finally' block", at);
+            RunGuards(loop.TryDepth, true);
             Emit(Op.Jump, loop.ContinueTarget);
         }
 
@@ -373,13 +389,71 @@ namespace CSharpPython.Compilation
             StoreName(d.Name);
         }
 
+        // Leaves the handlers above depth `target` before a jump or return, running the finally block of every
+        // guarded try statement that is being left. A copy of each finally block is compiled right here, outside
+        // its own guard, so an exception in it reaches the enclosing handlers.
+        private void RunGuards(int target, bool popRest)
+        {
+            int depth = _unit.TryDepth;
+            var guards = new List<Guard>(_unit.Guards);
+            for (int k = guards.Count - 1; k >= 0 && guards[k].Depth > target; k--)
+            {
+                var g = guards[k];
+                for (; depth >= g.Depth; depth--) Emit(Op.PopTry);
+                int savedDepth = _unit.TryDepth;
+                _unit.TryDepth = depth;
+                _unit.Guards.RemoveRange(k, _unit.Guards.Count - k);
+                _unit.InFinally++;
+                CompileBody(g.Body);
+                _unit.InFinally--;
+                _unit.Guards.AddRange(guards.GetRange(k, guards.Count - k));
+                _unit.TryDepth = savedDepth;
+            }
+            if (popRest)
+                for (; depth > target; depth--) Emit(Op.PopTry);
+        }
+
         private void CompileTry(TryStmt t)
         {
+            if (t.Finally == null)
+            {
+                CompileTryExcept(t);
+                return;
+            }
+
+            int setup = Emit(Op.SetupTry);
+            _unit.TryDepth++;
+            var guard = new Guard { Body = t.Finally, Depth = _unit.TryDepth };
+            _unit.Guards.Add(guard);
+            CompileTryExcept(t);
+            _unit.Guards.RemoveAt(_unit.Guards.Count - 1);
+            _unit.TryDepth--;
+            Emit(Op.PopTry);
+            _unit.InFinally++;
+            CompileBody(t.Finally);
+            var toEnd = Emit(Op.Jump);
+
+            // An exception got past the body and handlers: it is on the stack. Run the finally block, then raise it again.
+            Patch(setup);
+            CompileBody(t.Finally);
+            _unit.InFinally--;
+            Emit(Op.Reraise);
+            Patch(toEnd);
+        }
+
+        private void CompileTryExcept(TryStmt t)
+        {
+            if (t.Handlers.Count == 0)
+            {
+                CompileBody(t.Body);
+                return;
+            }
             int setup = Emit(Op.SetupTry);
             _unit.TryDepth++;
             CompileBody(t.Body);
             _unit.TryDepth--;
             Emit(Op.PopTry);
+            CompileBody(t.Else);
             var toEnd = new List<int> { Emit(Op.Jump) };
 
             Patch(setup);

@@ -208,6 +208,12 @@ namespace CSharpPython.Syntax
     {
         public List<Stmt> Body = new List<Stmt>();
         public List<ExceptHandler> Handlers = new List<ExceptHandler>();
+
+        /// <summary>The <c>else</c> block, run when the body raised nothing. Empty when absent.</summary>
+        public List<Stmt> Else = new List<Stmt>();
+
+        /// <summary>The <c>finally</c> block, or null when absent.</summary>
+        public List<Stmt> Finally;
     }
 
     public sealed class RaiseStmt : Stmt
