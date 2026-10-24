@@ -14,6 +14,7 @@ A Python-style language parser, compiler and bytecode VM written in plain C#, de
 - Host-defined events: the host queues an event by name and the script's `def` of that name handles it.
 - Host API: register modules of native functions and constants; host objects are passed as plain-data handles (type id + id).
 - Python-style tracebacks with line numbers, and an error-tolerant lexer for editor tooling.
+- Editor tooling for in-game script editors: syntax highlighting, auto-complete and diagnostics that work on half-typed code.
 - Optional save and resume of a running task (globals, call stack, waits, queued events), for offline progress and save games.
 
 ## Quick start
@@ -72,6 +73,27 @@ task2.FastForward(ticksSinceSave);                // skips quickly over waits to
 - `Owner` is not saved; reattach it after restoring.
 - Damaged or foreign data always raises `SnapshotException`; it never crashes the host. The format is versioned.
 
+## Editor tooling
+
+The `CSharpPython.Editor` namespace has what an in-game code editor needs. All of it works on code that does not parse yet, never throws, and has no UnityEngine dependency.
+
+```csharp
+using CSharpPython.Editor;
+
+// Colour spans: sorted, non-overlapping offsets into the text. Whitespace is not covered.
+foreach (HighlightSpan span in SyntaxHighlighter.Highlight(source, vm))
+    Paint(span.Start, span.Length, span.Kind);          // Keyword, String, Comment, Builtin, FunctionName, ...
+
+// Suggestions at a cursor offset (a list of items plus the range of text they replace).
+CompletionList list = Completer.Complete(source, cursorOffset, vm);
+
+// Problems to underline: every lexical error, otherwise the first syntax or scoping error.
+foreach (var problem in Analyzer.Analyze(source))
+    Underline(problem.Line, problem.Column, problem.Length, problem.Message);
+```
+
+Passing the `PyVm` makes built-ins and host modules known: `game.` completes to the functions and constants of your `game` module, and `print` is coloured as a built-in. Completion offers the script's own names (respecting function scope), built-ins, keywords that make sense at that position, module names after `import`, members after `from m import`, and methods after a dot when the value's type is obvious from a literal, a constructor call or an assignment (otherwise every method name is offered).
+
 ## Language support
 
 Supported:
@@ -124,13 +146,14 @@ The test suite is large and uses CPython 3 as an oracle for language semantics; 
 - `src/CSharpPython.Core/Syntax` lexer, parser, AST
 - `src/CSharpPython.Core/Compilation` resolver, compiler, bytecode
 - `src/CSharpPython.Core/Runtime` values, operators, builtins, methods
-- `src/CSharpPython.Core/Vm` `PyVm`, `PyTask`, host module API
+- `src/CSharpPython.Core/Vm` `PyVm`, `PyTask`, host module API, snapshots
+- `src/CSharpPython.Core/Tooling` syntax highlighting, completion, diagnostics
 - `tests/CSharpPython.Tests` NUnit tests
 
 ## Roadmap
 
 - Blocks module: a Blueprint-style node graph that compiles to Python source with a source map; user-made blocks become `def`s.
-- Editor tooling: syntax highlighting and autocomplete on the tolerant lexer.
+- Editor tooling: signature help and go-to-definition.
 - Language: `key=` for `sorted`/`sort`, classes, comprehensions, `type`/`isinstance`, `finally`/`try-else`, `*args`/`**kwargs`, nested functions and lambdas, dict views, slice assignment, big ints.
 
 ## License
