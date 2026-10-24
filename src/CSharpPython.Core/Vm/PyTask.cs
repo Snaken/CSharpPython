@@ -26,12 +26,20 @@ namespace CSharpPython
             public int Base;        // stack index of local slot 0
             public int CalleeIndex; // stack index to restore when the frame returns
             public bool IsEvent;
+            public bool IsBoundary; // the entry frame of a call made by a native function (see CallSync)
             public Handler[] Handlers = new Handler[4];
             public int HandlerCount;
             public Value ExcInfo;   // the exception being handled, for a bare 'raise'
         }
 
         // Raised by 'raise' so that it travels the same path as errors thrown by native code.
+        // Thrown when a call made by a native function runs past MaxSteps; the task then fails with StepLimitExceeded.
+        private sealed class StepLimitSignal : Exception
+        {
+        }
+
+        private const int MaxNestedCalls = 40;
+
         private sealed class ScriptRaise : Exception
         {
             public readonly PyExceptionValue Exception;
@@ -65,6 +73,10 @@ namespace CSharpPython
         private bool _inEvent;
         private bool _moduleDone;
         private long _budget;
+        private long _sliceSize, _sliceSpent; // the current slice's budget, and steps used by earlier refills within it
+        private int _nested;                   // how many native-initiated calls (CallSync) are in progress
+        private bool _boundaryHit;
+        private Value _boundaryResult;
         private long _totalSteps;
         private Value _result;
         private PyRuntimeError _error;
@@ -177,8 +189,11 @@ namespace CSharpPython
             long max = Vm.Options.MaxSteps;
             if (max > 0) slice = Math.Min(slice, Math.Max(max - _totalSteps, 0));
             _budget = slice;
+            _sliceSize = slice;
+            _sliceSpent = 0;
             var result = Execute();
-            _totalSteps += slice - Math.Max(_budget, 0);
+            _totalSteps += _sliceSpent + _sliceSize - Math.Max(_budget, 0);
+            _sliceSpent = 0;
             if (result == TaskState.Running && max > 0 && _totalSteps >= max)
             {
                 Fail(new PyRuntimeError("StepLimitExceeded",
@@ -259,6 +274,12 @@ namespace CSharpPython
                 catch (ScriptRaise r)
                 {
                     if (!Unwind(r.Exception)) return TaskState.Error;
+                }
+                catch (StepLimitSignal)
+                {
+                    Fail(new PyRuntimeError("StepLimitExceeded",
+                        "the script ran more than " + Vm.Options.MaxSteps + " steps and was stopped", _script.Name, CurrentTrace()));
+                    return TaskState.Error;
                 }
                 catch (Exception e) when (!(e is OutOfMemoryException))
                 {
@@ -620,6 +641,12 @@ namespace CSharpPython
                         bool wasEvent = frame.IsEvent;
                         _sp = frame.CalleeIndex;
                         _frameCount--;
+                        if (frame.IsBoundary)
+                        {
+                            _boundaryResult = result;
+                            _boundaryHit = true;
+                            return TaskState.Running;
+                        }
                         if (code.IsModule) _moduleDone = true;
 
                         if (wasEvent)
@@ -943,10 +970,12 @@ namespace CSharpPython
         // ---- Exceptions -----------------------------------------------------------------------------------------
 
         // Finds a handler for the exception, unwinding frames as needed. Returns false if the task failed.
-        private bool Unwind(PyExceptionValue exc)
+        // With a floor, only frames above it are unwound and the task does not fail: false means the exception
+        // left the call made by a native function and must continue through that native.
+        private bool Unwind(PyExceptionValue exc, int floor = 0)
         {
             if (exc.Trace.Count == 0) exc.Trace = CurrentTrace();
-            while (_frameCount > 0)
+            while (_frameCount > floor)
             {
                 Frame f = _frames[_frameCount - 1];
                 if (f.HandlerCount > 0)
@@ -963,6 +992,7 @@ namespace CSharpPython
                 _sp = f.CalleeIndex;
                 _frameCount--;
             }
+            if (floor > 0) return false;
             Fail(FromError(exc));
             return false;
         }
@@ -993,6 +1023,114 @@ namespace CSharpPython
             _events.Clear();
         }
 
+        // ---- Calls made by native functions ---------------------------------------------------------------------
+
+        /// <summary>
+        /// Calls a script function (or built-in) from inside a native function and returns its result. The call runs to
+        /// completion before this returns, so the function cannot wait. An exception it raises propagates through the
+        /// caller as a script exception.
+        /// </summary>
+        internal Value CallSync(Value callee, Value[] args)
+        {
+            if (_nested >= MaxNestedCalls) throw new PyError("RecursionError", "maximum recursion depth exceeded");
+            int savedPositional = _ctx.PositionalCount;
+            string[] savedKeywords = _ctx.KeywordNames;
+            int calleeIndex = _sp;
+            int argc = args.Length;
+            int argStart = calleeIndex + 1;
+            EnsureStack(argStart + argc + 8);
+            Push(callee);
+            foreach (var a in args) Push(a);
+
+            _nested++;
+            try
+            {
+                int status;
+                switch (callee.Kind)
+                {
+                    case ValueKind.Function:
+                        CallFunction((PyFunction)callee.RawObject, calleeIndex, argStart, argc, argc, null);
+                        status = CallFrame;
+                        break;
+                    case ValueKind.Native:
+                        status = CallNative((NativeFunction)callee.RawObject, calleeIndex, argStart, argc, argc, null, 0);
+                        break;
+                    case ValueKind.BoundMethod:
+                    {
+                        var bound = (BoundMethod)callee.RawObject;
+                        _stack[argStart - 1] = bound.Self;
+                        status = CallNative(bound.Function, calleeIndex, argStart - 1, argc + 1, argc + 1, null, 1);
+                        break;
+                    }
+                    default:
+                        _sp = calleeIndex;
+                        throw new PyError("TypeError", "'" + callee.TypeName + "' object is not callable");
+                }
+
+                if (status == CallDone) return _stack[--_sp];
+                if (status == CallWait) return CancelWait(calleeIndex);
+
+                int floor = _frameCount - 1;
+                _frames[floor].IsBoundary = true;
+                while (true)
+                {
+                    try
+                    {
+                        var state = Loop();
+                        if (_boundaryHit)
+                        {
+                            _boundaryHit = false;
+                            Value result = _boundaryResult;
+                            _boundaryResult = default;
+                            return result;
+                        }
+                        if (state == TaskState.Waiting) return CancelWait(calleeIndex, floor);
+                        RefillBudget();
+                    }
+                    catch (PyError e)
+                    {
+                        var exc = new PyExceptionValue(ExceptionTypes.GetOrCreate(e.TypeName), e.Problem);
+                        if (!Unwind(exc, floor)) throw new ScriptRaise(exc);
+                    }
+                    catch (ScriptRaise r)
+                    {
+                        if (!Unwind(r.Exception, floor)) throw;
+                    }
+                }
+            }
+            finally
+            {
+                _nested--;
+                _ctx.SetCall(savedPositional, savedKeywords);
+            }
+        }
+
+        // The called function asked to wait, which a call made by a native function cannot do.
+        private Value CancelWait(int calleeIndex, int floor = -1)
+        {
+            if (floor >= 0) _frameCount = floor;
+            _sp = calleeIndex;
+            _state = TaskState.Running;
+            _waitTicks = 0;
+            throw new PyError("RuntimeError", "a function called from a built-in such as sorted() cannot wait");
+        }
+
+        // The slice ran out in the middle of a nested call: keep going, but still stop at MaxSteps.
+        private void RefillBudget()
+        {
+            long size = Vm.Options.StepsPerSlice < 1 ? 1 : Vm.Options.StepsPerSlice;
+            long max = Vm.Options.MaxSteps;
+            _sliceSpent += _sliceSize;
+            if (max > 0)
+            {
+                long left = max - _totalSteps - _sliceSpent;
+                if (left <= 0) throw new StepLimitSignal();
+                size = Math.Min(size, left);
+            }
+            _sliceSize = size;
+            _budget = size;
+        }
+
         // ---- Stack and frames -----------------------------------------------------------------------------------
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1020,6 +1158,7 @@ namespace CSharpPython
             f.Base = bas;
             f.CalleeIndex = calleeIndex;
             f.IsEvent = false;
+            f.IsBoundary = false;
             f.HandlerCount = 0;
             f.ExcInfo = default;
         }
