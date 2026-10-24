@@ -90,6 +90,14 @@ namespace CSharpPython.Compilation
 
         Import,       // -> module; arg = name index
         ImportFrom,   // module -> module value; arg = name index
+
+        // Calls with *iterable and **mapping arguments: the positional arguments are collected in a list and the
+        // keyword arguments in a dict, then CallEx spreads them out and calls as usual.
+        ListAppend,   // list value -> list
+        ListExtend,   // list iterable -> list
+        DictSetUnique, // dict key value -> dict; refuses a repeated key
+        DictMerge,    // dict mapping -> dict; refuses repeated keys
+        CallEx,       // callable [self] args-list [kwargs-dict] -> result; arg bit 0 = has kwargs dict, bit 1 = method call
     }
 
     internal readonly struct Instruction
@@ -122,7 +130,28 @@ namespace CSharpPython.Compilation
         public Code[] Functions;
         public int NumLocals;
         public int NumParams;
+
+        /// <summary>The number of default values, positional ones first and then those of keyword-only parameters.</summary>
         public int NumDefaults;
+
+        /// <summary>How many of <see cref="NumDefaults"/> belong to positional parameters.</summary>
+        public int NumPosDefaults;
+
+        /// <summary>
+        /// Keyword-only parameters follow the positional ones in the local slots, then the *args slot, then the
+        /// **kwargs slot.
+        /// </summary>
+        public int NumKwOnly;
+        public bool HasVarArgs;
+        public bool HasVarKeywords;
+
+        /// <summary>For each keyword-only parameter, the index of its default among the keyword-only defaults, or -1.</summary>
+        public int[] KwDefaultIndex;
+
+        /// <summary>Whether calls need the general argument binding rather than the positional fast path.</summary>
+        public bool IsComplex => NumKwOnly > 0 || HasVarArgs || HasVarKeywords;
+
+        /// <summary>The names of the positional and keyword-only parameters, in slot order.</summary>
         public string[] ParamNames;
 
         /// <summary>The name of each local slot, used in error messages.</summary>
@@ -189,6 +218,10 @@ namespace CSharpPython.Compilation
                     case Op.StoreIndex:
                     case Op.BuildSlice:
                     case Op.GetIter:
+                    case Op.ListAppend:
+                    case Op.ListExtend:
+                    case Op.DictSetUnique:
+                    case Op.DictMerge:
                     case Op.Return:
                     case Op.PopTry:
                     case Op.Raise:

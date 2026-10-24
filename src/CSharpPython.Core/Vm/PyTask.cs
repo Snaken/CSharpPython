@@ -473,6 +473,50 @@ namespace CSharpPython
                         Push(Value.FromDict(dict));
                         break;
                     }
+                    case Op.ListAppend:
+                    {
+                        Value item = _stack[--_sp];
+                        var list = (PyList)_stack[_sp - 1].RawObject;
+                        if (list.Count >= Ops.MaxSequenceLength) throw new PyError("MemoryError", "sequence too long");
+                        list.Items.Add(item);
+                        break;
+                    }
+                    case Op.ListExtend:
+                    {
+                        Value source = _stack[--_sp];
+                        if (source.Kind != ValueKind.List && source.Kind != ValueKind.Tuple && source.Kind != ValueKind.Str
+                            && source.Kind != ValueKind.Range && source.Kind != ValueKind.Dict && source.Kind != ValueKind.Iterator)
+                            throw new PyError("TypeError", "argument after * must be an iterable, not " + source.TypeName);
+                        var list = (PyList)_stack[_sp - 1].RawObject;
+                        list.Items.AddRange(Ops.ToList(source));
+                        if (list.Count > Ops.MaxSequenceLength) throw new PyError("MemoryError", "sequence too long");
+                        break;
+                    }
+                    case Op.DictSetUnique:
+                    {
+                        Value val = _stack[--_sp];
+                        Value key = _stack[--_sp];
+                        var dict = (PyDict)_stack[_sp - 1].RawObject;
+                        if (dict.ContainsKey(key))
+                            throw new PyError("TypeError", "got multiple values for keyword argument '" + (string)key.RawObject + "'");
+                        dict.Set(key, val);
+                        break;
+                    }
+                    case Op.DictMerge:
+                    {
+                        Value source = _stack[--_sp];
+                        if (source.Kind != ValueKind.Dict)
+                            throw new PyError("TypeError", "argument after ** must be a mapping, not " + source.TypeName);
+                        var dict = (PyDict)_stack[_sp - 1].RawObject;
+                        foreach (var pair in ((PyDict)source.RawObject).Pairs())
+                        {
+                            if (pair.Key.Kind != ValueKind.Str) throw new PyError("TypeError", "keywords must be strings");
+                            if (dict.ContainsKey(pair.Key))
+                                throw new PyError("TypeError", "got multiple values for keyword argument '" + (string)pair.Key.RawObject + "'");
+                            dict.Set(pair.Key, pair.Value);
+                        }
+                        break;
+                    }
                     case Op.BuildString:
                     {
                         int start = _sp - ins.Arg;
@@ -651,6 +695,7 @@ namespace CSharpPython
                     case Op.CallKw:
                     case Op.CallMethod:
                     case Op.CallMethodKw:
+                    case Op.CallEx:
                     {
                         int outcome = DoCall(ins);
                         if (outcome == CallFrame)
@@ -837,14 +882,35 @@ namespace CSharpPython
         {
             bool method = ins.Op == Op.CallMethod || ins.Op == Op.CallMethodKw;
             string[] kwNames = null;
+            int argc = ins.Arg;
             if (ins.Op == Op.CallKw || ins.Op == Op.CallMethodKw)
             {
                 var names = ((PyTuple)_stack[--_sp].RawObject).Items;
                 kwNames = new string[names.Length];
                 for (int i = 0; i < names.Length; i++) kwNames[i] = (string)names[i].RawObject;
             }
+            else if (ins.Op == Op.CallEx)
+            {
+                // Spread the collected arguments back onto the stack as an ordinary call would have left them.
+                method = (ins.Arg & 2) != 0;
+                PyDict kwargs = (ins.Arg & 1) != 0 ? (PyDict)_stack[--_sp].RawObject : null;
+                var positionalArgs = ((PyList)_stack[--_sp].RawObject).Items;
+                int keywordCount = kwargs?.Count ?? 0;
+                argc = positionalArgs.Count + keywordCount;
+                EnsureStack(_sp + argc + 8);
+                foreach (var item in positionalArgs) Push(item);
+                if (keywordCount > 0)
+                {
+                    kwNames = new string[keywordCount];
+                    int k = 0;
+                    foreach (var pair in kwargs.Pairs())
+                    {
+                        kwNames[k++] = (string)pair.Key.RawObject;
+                        Push(pair.Value);
+                    }
+                }
+            }
 
-            int argc = ins.Arg;
             int positional = argc - (kwNames == null ? 0 : kwNames.Length);
             int calleeIndex = _sp - argc - (method ? 2 : 1);
             int argStart = calleeIndex + (method ? 2 : 1);
@@ -929,7 +995,11 @@ namespace CSharpPython
             int np = c.NumParams;
             EnsureStack(argStart + c.NumLocals + 8);
 
-            if (kwNames == null)
+            if (c.IsComplex)
+            {
+                BindGeneral(fn, argStart, positional, kwNames);
+            }
+            else if (kwNames == null)
             {
                 if (argc > np) throw new PyError("TypeError", TooManyPositional(fn, argc));
                 if (argc < np)
@@ -953,6 +1023,64 @@ namespace CSharpPython
             _sp = argStart + c.NumLocals;
             PushFrame(c, argStart, calleeIndex);
             _frames[_frameCount - 1].Closure = fn.Closure;
+        }
+
+        // Argument binding for functions with keyword-only parameters, *args or **kwargs.
+        private void BindGeneral(PyFunction fn, int argStart, int positional, string[] kwNames)
+        {
+            Code c = fn.Code;
+            int np = c.NumParams, nk = c.NumKwOnly;
+            int kwCount = kwNames == null ? 0 : kwNames.Length;
+            if (positional > np && !c.HasVarArgs) throw new PyError("TypeError", TooManyPositional(fn, positional));
+
+            PyTuple extras = null;
+            if (c.HasVarArgs)
+            {
+                var items = new Value[Math.Max(0, positional - np)];
+                Array.Copy(_stack, argStart + np, items, 0, items.Length);
+                extras = new PyTuple(items);
+            }
+            var kwValues = new Value[kwCount];
+            Array.Copy(_stack, argStart + positional, kwValues, 0, kwCount);
+            for (int i = Math.Min(positional, np); i < c.NumLocals; i++) _stack[argStart + i] = Value.Unbound;
+
+            PyDict leftover = c.HasVarKeywords ? new PyDict() : null;
+            for (int k = 0; k < kwCount; k++)
+            {
+                int index = Array.IndexOf(c.ParamNames, kwNames[k]);
+                if (index < 0)
+                {
+                    if (leftover == null)
+                        throw new PyError("TypeError", fn.Name + "() got an unexpected keyword argument '" + kwNames[k] + "'");
+                    leftover.Set(Value.FromString(kwNames[k]), kwValues[k]);
+                    continue;
+                }
+                if (_stack[argStart + index].Kind != ValueKind.Unbound)
+                    throw new PyError("TypeError", fn.Name + "() got multiple values for argument '" + kwNames[k] + "'");
+                _stack[argStart + index] = kwValues[k];
+            }
+
+            int firstDefault = np - c.NumPosDefaults;
+            List<string> missing = null;
+            for (int i = Math.Min(positional, np); i < np; i++)
+            {
+                if (_stack[argStart + i].Kind != ValueKind.Unbound) continue;
+                if (i >= firstDefault) _stack[argStart + i] = fn.Defaults[i - firstDefault];
+                else (missing ?? (missing = new List<string>())).Add(c.ParamNames[i]);
+            }
+            if (missing != null) throw new PyError("TypeError", MissingArguments(fn, missing, "positional"));
+
+            for (int j = 0; j < nk; j++)
+            {
+                if (_stack[argStart + np + j].Kind != ValueKind.Unbound) continue;
+                if (c.KwDefaultIndex[j] >= 0) _stack[argStart + np + j] = fn.Defaults[c.NumPosDefaults + c.KwDefaultIndex[j]];
+                else (missing ?? (missing = new List<string>())).Add(c.ParamNames[np + j]);
+            }
+            if (missing != null) throw new PyError("TypeError", MissingArguments(fn, missing, "keyword-only"));
+
+            int slot = argStart + np + nk;
+            if (c.HasVarArgs) _stack[slot++] = Value.FromTuple(extras);
+            if (c.HasVarKeywords) _stack[slot] = Value.FromDict(leftover);
         }
 
         private void BindKeywords(PyFunction fn, int argStart, int positional, string[] kwNames)
@@ -989,15 +1117,16 @@ namespace CSharpPython
         private static string TooManyPositional(PyFunction fn, int given)
         {
             int np = fn.Code.NumParams;
-            string expected = fn.Code.NumDefaults == 0 ? np.ToString() : (np - fn.Code.NumDefaults) + " to " + np;
-            return fn.Name + "() takes " + expected + " positional argument" + (np == 1 && fn.Code.NumDefaults == 0 ? "" : "s")
+            int defaults = fn.Code.NumPosDefaults;
+            string expected = defaults == 0 ? np.ToString() : "from " + (np - defaults) + " to " + np;
+            return fn.Name + "() takes " + expected + " positional argument" + (np == 1 && defaults == 0 ? "" : "s")
                    + " but " + given + (given == 1 ? " was" : " were") + " given";
         }
 
-        private static string MissingArguments(PyFunction fn, List<string> names)
+        private static string MissingArguments(PyFunction fn, List<string> names, string kind = "positional")
         {
             var sb = new StringBuilder(fn.Name).Append("() missing ").Append(names.Count)
-                .Append(" required positional argument").Append(names.Count == 1 ? "" : "s").Append(": ");
+                .Append(" required ").Append(kind).Append(" argument").Append(names.Count == 1 ? "" : "s").Append(": ");
             for (int i = 0; i < names.Count; i++)
             {
                 if (i > 0) sb.Append(names.Count == 2 ? " and " : i == names.Count - 1 ? ", and " : ", ");

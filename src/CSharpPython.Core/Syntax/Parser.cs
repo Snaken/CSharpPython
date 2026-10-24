@@ -211,26 +211,64 @@ namespace CSharpPython.Syntax
         private void ParseParameters(DefStmt def, TokenKind end)
         {
             bool seenDefault = false;
+            bool keywordOnly = false;
             while (Cur.Kind != end)
             {
-                if (Cur.Kind == TokenKind.Star || Cur.Kind == TokenKind.DoubleStar)
-                    throw Error("variable arguments (*args / **kwargs) are not supported yet", Cur);
-                var pname = Expect(TokenKind.Name, "a parameter name");
-                var param = new Param { Name = pname.Text, Line = LineOf(pname), Column = ColumnOf(pname) };
-                if (end == TokenKind.RParen && Cur.Kind == TokenKind.Colon)
-                    throw Error("type annotations are not supported yet", Cur);
-                if (Accept(TokenKind.Assign))
+                if (def.VarKeywords != null)
+                    throw Error("arguments cannot follow var-keyword argument", Cur);
+                if (Cur.Kind == TokenKind.Star)
                 {
-                    param.Default = ParseTernary();
-                    seenDefault = true;
+                    var star = Advance();
+                    if (keywordOnly) throw Error("* argument may appear only once", star);
+                    keywordOnly = true;
+                    if (Cur.Kind == TokenKind.Name)
+                    {
+                        def.VarArgs = ParseParameterName(end);
+                    }
+                    else if (Cur.Kind == TokenKind.Comma || Cur.Kind == end)
+                    {
+                        // A bare '*' only has to be followed by a keyword-only parameter.
+                        if (Cur.Kind == end || PeekAt(1).Kind == end || PeekAt(1).Kind == TokenKind.DoubleStar)
+                            throw Error("named arguments must follow bare *", star);
+                    }
+                    else
+                    {
+                        throw Error("expected a parameter name", Cur);
+                    }
                 }
-                else if (seenDefault)
+                else if (Cur.Kind == TokenKind.DoubleStar)
                 {
-                    throw Error("non-default argument '" + param.Name + "' follows default argument", pname);
+                    Advance();
+                    def.VarKeywords = ParseParameterName(end);
+                    if (Cur.Kind == TokenKind.Assign) throw Error("var-keyword argument cannot have default value", Cur);
                 }
-                def.Params.Add(param);
+                else
+                {
+                    var pname = Cur;
+                    var param = ParseParameterName(end);
+                    if (Accept(TokenKind.Assign))
+                    {
+                        param.Default = ParseTernary();
+                        if (!keywordOnly) seenDefault = true;
+                    }
+                    else if (seenDefault && !keywordOnly)
+                    {
+                        throw Error("non-default argument '" + param.Name + "' follows default argument", pname);
+                    }
+                    (keywordOnly ? def.KeywordOnly : def.Params).Add(param);
+                }
                 if (!Accept(TokenKind.Comma)) break;
             }
+            if (def.VarArgs != null && Cur.Kind == TokenKind.Assign)
+                throw Error("var-positional argument cannot have default value", Cur);
+        }
+
+        private Param ParseParameterName(TokenKind end)
+        {
+            var pname = Expect(TokenKind.Name, "a parameter name");
+            if (end == TokenKind.RParen && Cur.Kind == TokenKind.Colon)
+                throw Error("type annotations are not supported yet", Cur);
+            return new Param { Name = pname.Text, Line = LineOf(pname), Column = ColumnOf(pname) };
         }
 
         private Expr ParseLambda()
@@ -722,9 +760,20 @@ namespace CSharpPython.Syntax
             var call = At(new CallExpr { Func = func }, open);
             while (Cur.Kind != TokenKind.RParen)
             {
-                if (Cur.Kind == TokenKind.Star || Cur.Kind == TokenKind.DoubleStar)
-                    throw Error("argument unpacking (*args / **kwargs) is not supported yet", Cur);
-                if (Cur.Kind == TokenKind.Name && PeekAt(1).Kind == TokenKind.Assign)
+                if (Cur.Kind == TokenKind.Star)
+                {
+                    var starTok = Advance();
+                    if (call.KeywordNames.Count > 0)
+                        throw Error("iterable argument unpacking follows keyword argument", starTok);
+                    call.Args.Add(At(new StarExpr { Value = ParseTernary() }, starTok));
+                }
+                else if (Cur.Kind == TokenKind.DoubleStar)
+                {
+                    Advance();
+                    call.KeywordNames.Add(null);
+                    call.KeywordValues.Add(ParseTernary());
+                }
+                else if (Cur.Kind == TokenKind.Name && PeekAt(1).Kind == TokenKind.Assign)
                 {
                     var nameTok = Advance();
                     Advance();

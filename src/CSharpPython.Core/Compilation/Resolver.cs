@@ -134,7 +134,7 @@ namespace CSharpPython.Compilation
             if (_scope.IsModule) throw Error("nonlocal declaration not allowed at module level", n);
             foreach (string name in n.Names)
             {
-                if (_scope.Function.Params.Exists(p => p.Name == name))
+                if (new List<Param>(_scope.Function.AllParams()).Exists(p => p.Name == name))
                     throw Error("name '" + name + "' is parameter and nonlocal", n);
                 if (_scope.IsLocal(name))
                     throw Error("name '" + name + "' is assigned to before nonlocal declaration", n);
@@ -158,9 +158,11 @@ namespace CSharpPython.Compilation
         {
             foreach (var p in d.Params)
                 if (p.Default != null) VisitExpr(p.Default);
+            foreach (var p in d.KeywordOnly)
+                if (p.Default != null) VisitExpr(p.Default);
 
             var scope = new Scope(d, _scope);
-            foreach (var p in d.Params)
+            foreach (var p in d.AllParams())
             {
                 if (scope.IsLocal(p.Name))
                     throw new PySyntaxError("duplicate argument '" + p.Name + "' in function definition", p.Line, p.Column);
@@ -284,6 +286,9 @@ namespace CSharpPython.Compilation
                     VisitExpr(c.Func);
                     foreach (var a in c.Args) VisitExpr(a);
                     foreach (var v in c.KeywordValues) VisitExpr(v);
+                    break;
+                case StarExpr star:
+                    VisitExpr(star.Value);
                     break;
                 case AttributeExpr a:
                     VisitExpr(a.Target);

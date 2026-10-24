@@ -61,9 +61,18 @@ namespace CSharpPython.Syntax
     {
         public Expr Func;
         public List<Expr> Args = new List<Expr>();
-        /// <summary>Names of keyword arguments, parallel to <see cref="KeywordValues"/>.</summary>
+        /// <summary>
+        /// Names of keyword arguments, parallel to <see cref="KeywordValues"/>. A null name marks a <c>**mapping</c>
+        /// argument. <see cref="Args"/> may contain <see cref="StarExpr"/> items for <c>*iterable</c> arguments.
+        /// </summary>
         public List<string> KeywordNames = new List<string>();
         public List<Expr> KeywordValues = new List<Expr>();
+    }
+
+    /// <summary>A <c>*iterable</c> argument in a call.</summary>
+    public sealed class StarExpr : Expr
+    {
+        public Expr Value;
     }
 
     public sealed class AttributeExpr : Expr
@@ -182,6 +191,22 @@ namespace CSharpPython.Syntax
     {
         public string Name;
         public List<Param> Params = new List<Param>();
+
+        /// <summary>Parameters after <c>*args</c> or a bare <c>*</c>; they can only be given by keyword.</summary>
+        public List<Param> KeywordOnly = new List<Param>();
+
+        /// <summary>The <c>*args</c> and <c>**kwargs</c> parameters, or null.</summary>
+        public Param VarArgs, VarKeywords;
+
+        /// <summary>Every parameter in local-slot order: positional, keyword-only, *args, **kwargs.</summary>
+        public IEnumerable<Param> AllParams()
+        {
+            foreach (var p in Params) yield return p;
+            foreach (var p in KeywordOnly) yield return p;
+            if (VarArgs != null) yield return VarArgs;
+            if (VarKeywords != null) yield return VarKeywords;
+        }
+
         public List<Stmt> Body = new List<Stmt>();
     }
 

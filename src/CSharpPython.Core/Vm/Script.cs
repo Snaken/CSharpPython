@@ -71,6 +71,10 @@ namespace CSharpPython
             h.Add(code.NumLocals);
             h.Add(code.NumParams);
             h.Add(code.NumDefaults);
+            h.Add(code.NumPosDefaults);
+            h.Add(code.NumKwOnly);
+            h.Add(code.HasVarArgs ? 1 : 0);
+            h.Add(code.HasVarKeywords ? 1 : 0);
             foreach (var n in code.ParamNames ?? System.Array.Empty<string>()) h.Add(n);
             foreach (var n in code.LocalNames ?? System.Array.Empty<string>()) h.Add(n);
             foreach (var n in code.Names ?? System.Array.Empty<string>()) h.Add(n);

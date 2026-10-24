@@ -74,10 +74,10 @@ namespace CSharpPython.Compilation
             CompileBody(_resolved.Module.Body);
             Emit(Op.LoadConst, Constant(Value.None));
             Emit(Op.Return);
-            return Finish(true, null, 0);
+            return Finish(true, null, 0, 0);
         }
 
-        private Code Finish(bool isModule, DefStmt def, int numDefaults)
+        private Code Finish(bool isModule, DefStmt def, int numDefaults, int numPosDefaults)
         {
             var u = _unit;
             var code = new Code
@@ -94,16 +94,28 @@ namespace CSharpPython.Compilation
                 FreeNames = u.Scope.FreeVars.ToArray(),
                 IsModule = isModule,
                 NumDefaults = numDefaults,
+                NumPosDefaults = numPosDefaults,
             };
             if (def != null)
             {
                 code.NumParams = def.Params.Count;
-                code.ParamNames = new string[def.Params.Count];
+                code.NumKwOnly = def.KeywordOnly.Count;
+                code.HasVarArgs = def.VarArgs != null;
+                code.HasVarKeywords = def.VarKeywords != null;
+                code.ParamNames = new string[def.Params.Count + def.KeywordOnly.Count];
                 for (int i = 0; i < def.Params.Count; i++) code.ParamNames[i] = def.Params[i].Name;
+                code.KwDefaultIndex = new int[def.KeywordOnly.Count];
+                int kwDefaults = 0;
+                for (int i = 0; i < def.KeywordOnly.Count; i++)
+                {
+                    code.ParamNames[def.Params.Count + i] = def.KeywordOnly[i].Name;
+                    code.KwDefaultIndex[i] = def.KeywordOnly[i].Default != null ? kwDefaults++ : -1;
+                }
             }
             else
             {
                 code.ParamNames = System.Array.Empty<string>();
+                code.KwDefaultIndex = System.Array.Empty<int>();
             }
             return code;
         }
@@ -387,6 +399,13 @@ namespace CSharpPython.Compilation
                 CompileExpr(p.Default);
                 numDefaults++;
             }
+            int numPosDefaults = numDefaults;
+            foreach (var p in d.KeywordOnly)
+            {
+                if (p.Default == null) continue;
+                CompileExpr(p.Default);
+                numDefaults++;
+            }
 
             // The cells of the enclosing function's variables that this function uses.
             foreach (var name in scope.FreeVars)
@@ -409,7 +428,7 @@ namespace CSharpPython.Compilation
             CompileBody(d.Body);
             Emit(Op.LoadConst, Constant(Value.None));
             Emit(Op.Return);
-            var code = Finish(false, d, numDefaults);
+            var code = Finish(false, d, numDefaults, numPosDefaults);
             _unit = outer;
 
             outer.Functions.Add(code);
@@ -709,6 +728,12 @@ namespace CSharpPython.Compilation
                 CompileExpr(c.Func);
             }
 
+            if (c.Args.Exists(a => a is StarExpr) || c.KeywordNames.Contains(null))
+            {
+                CompileSpreadCall(c, method);
+                return;
+            }
+
             foreach (var a in c.Args) CompileExpr(a);
             int argc = c.Args.Count + c.KeywordValues.Count;
             if (c.KeywordNames.Count > 0)
@@ -725,6 +750,51 @@ namespace CSharpPython.Compilation
                 SetLine(c);
                 Emit(method ? Op.CallMethod : Op.Call, argc);
             }
+        }
+
+        // A call with *iterable or **mapping arguments, with the callee already on the stack.
+        private void CompileSpreadCall(CallExpr c, bool method)
+        {
+            Emit(Op.BuildList, 0);
+            foreach (var a in c.Args)
+            {
+                if (a is StarExpr star)
+                {
+                    CompileExpr(star.Value);
+                    SetLine(star);
+                    Emit(Op.ListExtend);
+                }
+                else
+                {
+                    CompileExpr(a);
+                    Emit(Op.ListAppend);
+                }
+            }
+
+            bool keywords = c.KeywordNames.Count > 0;
+            if (keywords)
+            {
+                Emit(Op.BuildDict, 0);
+                for (int i = 0; i < c.KeywordNames.Count; i++)
+                {
+                    if (c.KeywordNames[i] != null)
+                    {
+                        Emit(Op.LoadConst, Constant(Value.FromString(c.KeywordNames[i])));
+                        CompileExpr(c.KeywordValues[i]);
+                        SetLine(c);
+                        Emit(Op.DictSetUnique);
+                    }
+                    else
+                    {
+                        CompileExpr(c.KeywordValues[i]);
+                        SetLine(c);
+                        Emit(Op.DictMerge);
+                    }
+                }
+            }
+
+            SetLine(c);
+            Emit(Op.CallEx, (keywords ? 1 : 0) | (method ? 2 : 0));
         }
 
         private void CompileFString(FStringExpr f)
