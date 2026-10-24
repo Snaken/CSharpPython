@@ -123,17 +123,15 @@ namespace CSharpPython.Tests.Compilation
         }
 
         [Test]
-        public void NestedFunctionsAreNotSupported()
+        public void NestedFunctionsAreResolved()
         {
-            var ex = Fails("def f():\n    def g():\n        pass\n");
-            Assert.That(ex.Problem, Does.Contain("nested functions"));
-            Assert.That(ex.Line, Is.EqualTo(2));
+            Assert.DoesNotThrow(() => Resolve("def f():\n    def g():\n        pass\n"));
         }
 
         [Test]
-        public void FunctionInsideLoopInsideFunctionIsNested()
+        public void FunctionInsideLoopInsideFunctionIsResolved()
         {
-            Assert.That(Fails("def f():\n    while x:\n        def g():\n            pass\n").Problem, Does.Contain("nested"));
+            Assert.DoesNotThrow(() => Resolve("def f():\n    while x:\n        def g():\n            pass\n"));
         }
 
         [Test]

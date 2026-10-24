@@ -28,6 +28,13 @@ namespace CSharpPython.Tests.Editor
         private static string[] Names(string marked, PyVm vm = null) => At(marked, vm).Items.Select(i => i.Text).ToArray();
 
         [Test]
+        public void SuggestsNonlocalAndLambdaKeywords()
+        {
+            Assert.That(Names("nonl|"), Does.Contain("nonlocal"));
+            Assert.That(Names("f = lamb|"), Does.Contain("lambda"));
+        }
+
+        [Test]
         public void SuggestsBuiltinsByPrefix()
         {
             var list = At("pri|");

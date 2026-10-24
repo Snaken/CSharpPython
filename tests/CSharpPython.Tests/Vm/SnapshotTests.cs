@@ -107,6 +107,15 @@ namespace CSharpPython.Tests.Vm
             "n = None\nb = True\nf = 2.5e-3\nbig = 2 ** 62\nprint(n, b, f, big, -big)",
             "s = 'naïve ✓'\nprint(s, len(s))",
             "def counter():\n    return [0]\nc = counter()\nc[0] += 1\nprint(c)",
+            "def make():\n    n = 0\n    def inc():\n        nonlocal n\n        n += 1\n        return n\n    return inc\nc = make()\nd = make()\nc()\nc()\nprint(c(), d())",
+            "import game\ndef make():\n    n = 0\n    def inc():\n        nonlocal n\n        game.wait(1)\n        n += 1\n        return n\n    return inc\nc = make()\nprint(c(), c(), c())",
+            "def outer(n):\n    def fact(k):\n        return 1 if k <= 1 else k * fact(k - 1)\n    return fact(n)\nprint(outer(8))",
+            "def make():\n    xs = []\n    def add(v):\n        xs.append(v)\n        return xs\n    def get():\n        return xs\n    return add, get\nadd, get = make()\nadd(1)\nadd(2)\nprint(get(), get() is get())",
+            "def a():\n    x = 1\n    def b():\n        def c():\n            nonlocal x\n            x += 10\n            return x\n        return c\n    return b()\nf = a()\nprint(f(), f())",
+            "fs = []\nfor i in range(3):\n    fs.append(lambda i=i: i * 2)\nprint(fs[0](), fs[1](), fs[2]())",
+            "print(sorted([3, -5, 1], key=lambda v: abs(v)))",
+            "def f():\n    cell = []\n    def g():\n        return cell\n    cell.append(g)\n    return g\nh = f()\nprint(h()[0] is h)",
+            "def f():\n    try:\n        n = 0\n        def g():\n            nonlocal n\n            n += 1\n        g()\n        raise ValueError('x')\n    except ValueError:\n        g()\n    finally:\n        g()\n    return n\nprint(f())",
         };
 
         [TestCaseSource(nameof(Scripts))]

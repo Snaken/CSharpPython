@@ -503,12 +503,10 @@ namespace CSharpPython.Tests.Syntax
         // ---- Errors -------------------------------------------------------------------------------------------
 
         [TestCase("class A: pass", "'class' is not supported yet")]
-        [TestCase("x = lambda: 1", "'lambda' is not supported yet")]
         [TestCase("with a: pass", "'with' is not supported yet")]
         [TestCase("del x", "'del' is not supported yet")]
         [TestCase("assert x", "'assert' is not supported yet")]
         [TestCase("yield 1", "'yield' is not supported yet")]
-        [TestCase("nonlocal x", "'nonlocal' is not supported yet")]
         public void UnsupportedKeywordsAreRejected(string src, string message)
         {
             Assert.That(Fails(src + "\n").Problem, Is.EqualTo(message));

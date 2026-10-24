@@ -51,18 +51,23 @@ namespace CSharpPython.Tests.Syntax
         }
 
         [TestCase("class")]
-        [TestCase("lambda")]
         [TestCase("yield")]
         [TestCase("with")]
         [TestCase("del")]
         [TestCase("assert")]
-        [TestCase("nonlocal")]
         [TestCase("async")]
         [TestCase("await")]
         public void UnsupportedKeywordsAreFlagged(string word)
         {
             Assert.That(Lex(word)[0].Kind, Is.EqualTo(TokenKind.KwUnsupported));
             Assert.That(Lex(word)[0].Text, Is.EqualTo(word));
+        }
+
+        [Test]
+        public void LambdaAndNonlocalAreKeywords()
+        {
+            var t = Lex("lambda nonlocal");
+            Assert.That(t.Take(2).Select(x => x.Kind), Is.EqualTo(new[] { TokenKind.KwLambda, TokenKind.KwNonlocal }));
         }
 
         [Test]
