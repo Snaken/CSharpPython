@@ -14,6 +14,7 @@ A Python-style language parser, compiler and bytecode VM written in plain C#, de
 - Host-defined events: the host queues an event by name and the script's `def` of that name handles it.
 - Host API: register modules of native functions and constants; host objects are passed as plain-data handles (type id + id).
 - Python-style tracebacks with line numbers, and an error-tolerant lexer for editor tooling.
+- Optional save and resume of a running task (globals, call stack, waits, queued events), for offline progress and save games.
 
 ## Quick start
 
@@ -50,6 +51,26 @@ while (task.Update() != TaskState.Finished)   // call once per game tick
 Native functions that need to pause the script take a `CallContext`
 (`ctx.Wait(ticks, result)`). Register custom exception types with
 `vm.RegisterExceptionType("GameError")` so scripts can raise and catch them.
+
+## Saving and resuming tasks
+
+Snapshots are off by default. Turn them on with `new PyVm(new VmOptions { EnableSnapshots = true })`.
+
+```csharp
+byte[] bytes = task.Save();                       // globals, call stack, waits, queued events, iterators in progress
+
+// later, even in a new session: compile the same script, register the same host API, then
+var vm2 = new PyVm(new VmOptions { EnableSnapshots = true });
+vm2.RegisterModule("game", ...);                  // as before
+PyTask task2 = vm2.Restore(vm2.Compile(source), bytes);
+task2.FastForward(ticksSinceSave);                // skips quickly over waits to catch up with offline time
+```
+
+- The snapshot records a fingerprint of the compiled script, so it only restores against identical code. Changed scripts raise `SnapshotException`.
+- Host objects are never saved: scripts hold handles (type id + object id), which are plain data. The host saves and restores its own objects and re-creates the same handles.
+- Host functions are saved by name, so every function a script can reach must be a built-in or a module member. A function the VM cannot find again makes `Save` throw.
+- `Owner` is not saved; reattach it after restoring.
+- Damaged or foreign data always raises `SnapshotException`; it never crashes the host. The format is versioned.
 
 ## Language support
 
@@ -108,7 +129,6 @@ The test suite is large and uses CPython 3 as an oracle for language semantics; 
 
 ## Roadmap
 
-- Optional snapshot / save / resume of tasks (for offline progress), host objects as handles.
 - Blocks module: a Blueprint-style node graph that compiles to Python source with a source map; user-made blocks become `def`s.
 - Editor tooling: syntax highlighting and autocomplete on the tolerant lexer.
 - Language: `key=` for `sorted`/`sort`, classes, comprehensions, `type`/`isinstance`, `finally`/`try-else`, `*args`/`**kwargs`, nested functions and lambdas, dict views, slice assignment, big ints.
