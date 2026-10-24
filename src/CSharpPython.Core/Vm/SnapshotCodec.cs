@@ -55,7 +55,7 @@ namespace CSharpPython
 
     internal sealed class SnapshotWriter
     {
-        private const byte ContainerList = 0, ContainerTuple = 1, ContainerDict = 2;
+        private const byte ContainerList = 0, ContainerTuple = 1, ContainerDict = 2, ContainerCell = 3;
 
         private readonly PyVm _vm;
         private readonly Script _script;
@@ -95,7 +95,14 @@ namespace CSharpPython
                     break;
                 case ValueKind.Function:
                     if (AddLeaf(v))
-                        foreach (var d in ((PyFunction)v.RawObject).Defaults) Collect(d);
+                    {
+                        var fn = (PyFunction)v.RawObject;
+                        foreach (var d in fn.Defaults) Collect(d);
+                        foreach (var cell in fn.Closure) Collect(Value.FromCell(cell));
+                    }
+                    break;
+                case ValueKind.Cell:
+                    if (AddContainer(v)) Collect(((Cell)v.RawObject).Value);
                     break;
                 case ValueKind.BoundMethod:
                     if (AddLeaf(v)) Collect(((BoundMethod)v.RawObject).Self);
@@ -175,6 +182,12 @@ namespace CSharpPython
                         foreach (var item in items) WriteValue(pw, item);
                         break;
                     }
+                    case ValueKind.Cell:
+                    {
+                        w.Write(ContainerCell);
+                        WriteValue(pw, ((Cell)c.RawObject).Value);
+                        break;
+                    }
                     default:
                     {
                         w.Write(ContainerDict);
@@ -218,6 +231,8 @@ namespace CSharpPython
                     w.Write(index);
                     w.Write(fn.Defaults.Length);
                     foreach (var d in fn.Defaults) WriteValue(w, d);
+                    w.Write(fn.Closure.Length);
+                    foreach (var cell in fn.Closure) WriteValue(w, Value.FromCell(cell));
                     break;
                 }
                 case ValueKind.BoundMethod:
@@ -346,6 +361,7 @@ namespace CSharpPython
                 case ValueKind.List:
                 case ValueKind.Tuple:
                 case ValueKind.Dict:
+                case ValueKind.Cell:
                     w.Write(Id(_containerIds, v));
                     break;
                 default:
@@ -425,6 +441,7 @@ namespace CSharpPython
                         shells[i] = new PyTuple(new Value[tupleLengths[i]]);
                         break;
                     case 2: shells[i] = new PyDict(); break;
+                    case 3: shells[i] = new Cell(Value.Unbound); break;
                     default: throw new SnapshotException("the snapshot is damaged");
                 }
                 lengths[i] = SnapshotIo.ReadCount(r, 1);
@@ -453,9 +470,9 @@ namespace CSharpPython
             }
 
             // Fill containers: tuples, then lists, then dicts.
-            for (byte pass = 1; pass <= 3; pass++)
+            for (byte pass = 1; pass <= 4; pass++)
             {
-                int kind = pass == 1 ? 1 : pass == 2 ? 0 : 2;
+                int kind = pass == 1 ? 1 : pass == 2 ? 3 : pass == 3 ? 0 : 2;
                 for (int i = 0; i < containers; i++)
                     if (kinds[i] == kind) FillContainer(i);
             }
@@ -479,6 +496,9 @@ namespace CSharpPython
                 }
                 case PyTuple tuple:
                     for (int i = 0; i < tuple.Items.Length; i++) tuple.Items[i] = ReadValue(r);
+                    break;
+                case Cell cell:
+                    cell.Value = ReadValue(r);
                     break;
                 case PyDict dict:
                 {
@@ -516,7 +536,8 @@ namespace CSharpPython
                     int n = SnapshotIo.ReadCount(r, 1);
                     var defaults = new Value[n];
                     for (int i = 0; i < n; i++) defaults[i] = ReadValue(r);
-                    _objects[id] = new PyFunction(_script.Codes[codeIndex], defaults);
+                    var code = _script.Codes[codeIndex];
+                    _objects[id] = new PyFunction(code, defaults, ReadClosure(r, code));
                     break;
                 }
                 case ValueKind.BoundMethod:
@@ -651,6 +672,7 @@ namespace CSharpPython
                 case ValueKind.List: return Value.FromList((PyList)ContainerAs(r.ReadInt32(), typeof(PyList)));
                 case ValueKind.Tuple: return Value.FromTuple((PyTuple)ContainerAs(r.ReadInt32(), typeof(PyTuple)));
                 case ValueKind.Dict: return Value.FromDict((PyDict)ContainerAs(r.ReadInt32(), typeof(PyDict)));
+                case ValueKind.Cell: return Value.FromCell((Cell)ContainerAs(r.ReadInt32(), typeof(Cell)));
                 case ValueKind.Function: return Value.FromFunction((PyFunction)LeafAs(r.ReadInt32(), typeof(PyFunction)));
                 case ValueKind.BoundMethod: return Value.FromBound((BoundMethod)LeafAs(r.ReadInt32(), typeof(BoundMethod)));
                 case ValueKind.Slice: return Value.FromSlice((PySlice)LeafAs(r.ReadInt32(), typeof(PySlice)));
@@ -659,6 +681,21 @@ namespace CSharpPython
                 default:
                     throw new SnapshotException("the snapshot is damaged");
             }
+        }
+
+        // The cells of a function or running frame; there must be exactly as many as the code has free variables.
+        public Cell[] ReadClosure(BinaryReader r, Compilation.Code code)
+        {
+            int n = SnapshotIo.ReadCount(r, 5);
+            if (n != code.FreeNames.Length) throw new SnapshotException("the snapshot does not match this script");
+            var cells = new Cell[n];
+            for (int i = 0; i < n; i++)
+            {
+                var v = ReadValue(r);
+                if (v.Kind != ValueKind.Cell) throw new SnapshotException("the snapshot is damaged");
+                cells[i] = (Cell)v.RawObject;
+            }
+            return cells;
         }
 
         private object ContainerAs(int id, Type type)
