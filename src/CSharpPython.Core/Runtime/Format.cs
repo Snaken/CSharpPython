@@ -77,6 +77,7 @@ namespace CSharpPython
                     sb.Append(')');
                     return;
                 }
+                case ValueKind.Type: sb.Append("<class '").Append(((PyType)v.RawObject).Name).Append("'>"); return;
                 case ValueKind.ExceptionType: sb.Append("<class '").Append(((PyExceptionType)v.RawObject).Name).Append("'>"); return;
                 case ValueKind.Handle:
                     sb.Append("<handle ").Append(v.RawAux.ToString(CultureInfo.InvariantCulture)).Append('#')

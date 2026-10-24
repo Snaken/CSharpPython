@@ -13,7 +13,19 @@ namespace CSharpPython
         /// <summary>Adds the built-in names to <paramref name="into"/> and the standard modules to <paramref name="modules"/>.</summary>
         public static void Install(Dictionary<string, Value> into, Dictionary<string, PyModule> modules)
         {
-            foreach (var fn in Functions()) into[fn.Name] = Value.FromNative(fn);
+            foreach (var fn in Functions())
+            {
+                // The names of the built-in types hold the type, which runs the function when called.
+                if (PyTypes.TryGet(fn.Name, out var type))
+                {
+                    type.Constructor = fn;
+                    into[fn.Name] = Value.FromType(type);
+                }
+                else
+                {
+                    into[fn.Name] = Value.FromNative(fn);
+                }
+            }
             foreach (var type in ExceptionTypes.All) into[type.Name] = Value.FromExceptionType(type);
             modules["math"] = MathModule();
         }
@@ -65,6 +77,10 @@ namespace CSharpPython
             });
             yield return F("divmod", 2, 2, (c, a) => Value.Tuple(Ops.FloorDiv(a[0], a[1]), Ops.Mod(a[0], a[1])));
             yield return F("pow", 2, 3, (c, a) => a.Length == 2 ? Ops.Pow(a[0], a[1]) : ModPow(a[0], a[1], a[2]));
+            yield return F("type", 1, 1, (c, a) => PyTypes.TypeOf(a[0]));
+            yield return F("isinstance", 2, 2, (c, a) => Value.FromBool(PyTypes.IsInstance(a[0], a[1])));
+            yield return F("issubclass", 2, 2, (c, a) => Value.FromBool(PyTypes.IsSubclass(a[0], a[1])));
+            yield return F("callable", 1, 1, (c, a) => Value.FromBool(PyTypes.IsCallable(a[0])));
             yield return F("format", 1, 2, (c, a) => Value.FromString(Ops.FormatValue(a[0], a.Length > 1 ? a[1].AsString() : null)));
         }
 

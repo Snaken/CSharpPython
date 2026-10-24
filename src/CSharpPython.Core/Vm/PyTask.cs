@@ -929,6 +929,8 @@ namespace CSharpPython
                     return CallFrame;
                 case ValueKind.Native:
                     return CallNative((NativeFunction)callee.RawObject, calleeIndex, argStart, argc, positional, kwNames, 0);
+                case ValueKind.Type:
+                    return CallNative(ConstructorOf(callee), calleeIndex, argStart, argc, positional, kwNames, 0);
                 case ValueKind.BoundMethod:
                 {
                     var bound = (BoundMethod)callee.RawObject;
@@ -953,6 +955,12 @@ namespace CSharpPython
                 default:
                     throw new PyError("TypeError", "'" + callee.TypeName + "' object is not callable");
             }
+        }
+
+        private static NativeFunction ConstructorOf(Value type)
+        {
+            var t = (PyType)type.RawObject;
+            return t.Constructor ?? throw new PyError("TypeError", "cannot create '" + t.Name + "' instances");
         }
 
         private int CallNative(NativeFunction fn, int calleeIndex, int start, int count, int positional, string[] kwNames, int selfOffset)
@@ -1222,6 +1230,9 @@ namespace CSharpPython
                         break;
                     case ValueKind.Native:
                         status = CallNative((NativeFunction)callee.RawObject, calleeIndex, argStart, argc, argc, null, 0);
+                        break;
+                    case ValueKind.Type:
+                        status = CallNative(ConstructorOf(callee), calleeIndex, argStart, argc, argc, null, 0);
                         break;
                     case ValueKind.BoundMethod:
                     {

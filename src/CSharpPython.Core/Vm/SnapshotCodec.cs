@@ -358,6 +358,9 @@ namespace CSharpPython
                 case ValueKind.ExceptionType:
                     SnapshotIo.WriteString(w, ((PyExceptionType)v.RawObject).Name);
                     break;
+                case ValueKind.Type:
+                    SnapshotIo.WriteString(w, ((PyType)v.RawObject).Name);
+                    break;
                 case ValueKind.List:
                 case ValueKind.Tuple:
                 case ValueKind.Dict:
@@ -669,6 +672,12 @@ namespace CSharpPython
                 }
                 case ValueKind.ExceptionType:
                     return Value.FromExceptionType(ExceptionTypes.GetOrCreate(SnapshotIo.ReadString(r)));
+                case ValueKind.Type:
+                {
+                    string name = SnapshotIo.ReadString(r);
+                    if (!PyTypes.TryGet(name, out var type)) throw new SnapshotException("the snapshot is damaged");
+                    return Value.FromType(type);
+                }
                 case ValueKind.List: return Value.FromList((PyList)ContainerAs(r.ReadInt32(), typeof(PyList)));
                 case ValueKind.Tuple: return Value.FromTuple((PyTuple)ContainerAs(r.ReadInt32(), typeof(PyTuple)));
                 case ValueKind.Dict: return Value.FromDict((PyDict)ContainerAs(r.ReadInt32(), typeof(PyDict)));

@@ -14,8 +14,15 @@ namespace CSharpPython
 
         public static Value GetAttr(Value obj, string name)
         {
+            if (name == "__class__") return PyTypes.TypeOf(obj);
             switch (obj.Kind)
             {
+                case ValueKind.Type:
+                    if (name == "__name__") return Value.FromString(((PyType)obj.RawObject).Name);
+                    break;
+                case ValueKind.ExceptionType:
+                    if (name == "__name__") return Value.FromString(((PyExceptionType)obj.RawObject).Name);
+                    break;
                 case ValueKind.Module:
                 {
                     var module = (PyModule)obj.RawObject;

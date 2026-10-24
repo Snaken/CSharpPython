@@ -35,6 +35,10 @@ namespace CSharpPython.Editor
             { "divmod", "a, b" },
             { "pow", "base, exp, mod=None" },
             { "format", "value, format_spec=''" },
+            { "type", "obj" },
+            { "isinstance", "obj, classinfo" },
+            { "issubclass", "cls, classinfo" },
+            { "callable", "obj" },
 
             // math module.
             { "math.sqrt", "x" }, { "math.log", "x, base=e" }, { "math.log2", "x" }, { "math.log10", "x" },

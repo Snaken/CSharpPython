@@ -280,6 +280,9 @@ namespace CSharpPython.Editor
                     case ValueKind.ExceptionType:
                         items.Add(new CompletionItem(kv.Key, CompletionKind.Class, "exception"));
                         break;
+                    case ValueKind.Type:
+                        items.Add(new CompletionItem(kv.Key, CompletionKind.Class, "type"));
+                        break;
                     case ValueKind.Module:
                         items.Add(new CompletionItem(kv.Key, CompletionKind.Module, "module"));
                         break;

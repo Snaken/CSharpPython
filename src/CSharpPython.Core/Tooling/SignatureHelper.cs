@@ -159,6 +159,12 @@ namespace CSharpPython.Editor
                     parameters = Signatures.For((NativeFunction)builtin.RawObject, name, 0);
                     return true;
                 }
+                if (builtin.Kind == ValueKind.Type)
+                {
+                    origin = "built-in";
+                    parameters = Signatures.For(((PyType)builtin.RawObject).Constructor, name, 0);
+                    return true;
+                }
                 if (builtin.Kind == ValueKind.ExceptionType)
                 {
                     origin = "exception";

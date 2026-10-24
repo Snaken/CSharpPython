@@ -26,5 +26,7 @@ namespace CSharpPython
         Unbound,
         /// <summary>A variable shared between a function and the functions defined inside it. Never visible to scripts.</summary>
         Cell,
+        /// <summary>A built-in type such as <c>int</c>, see <see cref="PyType"/>.</summary>
+        Type,
     }
 }
