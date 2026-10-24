@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Build (warnings are errors)
+        run: dotnet build -c Release -warnaserror
+      - name: Test with coverage
+        run: dotnet test -c Release --no-build --collect:"XPlat Code Coverage" --results-directory TestResults
+      - name: Coverage threshold
+        if: matrix.os == 'ubuntu-latest'
+        run: python3 scripts/check-coverage.py "$(find TestResults -name coverage.cobertura.xml | head -n 1)" 95
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          name: coverage
+          path: TestResults/**/coverage.cobertura.xml
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Pack NuGet package
+        run: dotnet pack src/CSharpPython.Core -c Release -o artifacts/nupkg
+      - name: Unity .meta files are up to date
+        run: python3 scripts/generate-unity-meta.py --check
+      - name: Package README and LICENSE match the repo root
+        run: |
+          cmp LICENSE src/CSharpPython.Core/LICENSE
+          cmp README.md src/CSharpPython.Core/README.md
+      - name: package.json version matches csproj
+        run: |
+          pj=$(python3 -c "import json;print(json.load(open('src/CSharpPython.Core/package.json'))['version'])")
+          cs=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' src/CSharpPython.Core/CSharpPython.Core.csproj)
+          test "$pj" = "$cs"
