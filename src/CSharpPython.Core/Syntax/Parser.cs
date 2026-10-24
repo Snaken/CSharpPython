@@ -740,7 +740,12 @@ namespace CSharpPython.Syntax
                         throw Error("positional argument follows keyword argument", argTok);
                     call.Args.Add(ParseTernary());
                     if (Cur.Kind == TokenKind.KwFor)
-                        throw Error("comprehensions and generator expressions are not supported yet", Cur);
+                    {
+                        if (call.Args.Count > 1) throw Error("generator expression must be parenthesized", argTok);
+                        call.Args[0] = ParseComprehension(argTok, call.Args[0], null, "<genexpr>");
+                        if (Cur.Kind == TokenKind.Comma) throw Error("generator expression must be parenthesized", Cur);
+                        break;
+                    }
                 }
                 if (!Accept(TokenKind.Comma)) break;
             }
@@ -822,6 +827,65 @@ namespace CSharpPython.Syntax
             }
         }
 
+        // A comprehension is rewritten into a call of a function that builds the result with nested loops, so it
+        // has its own scope as in Python: the first iterable is evaluated outside and passed in as ".0"; the loop
+        // variables and the result (".r") are locals of the function. A generator expression builds a list.
+        // Positioned at the first 'for'; 'key' is the element (or dict key) and 'value' the dict value or null.
+        private Expr ParseComprehension(Token open, Expr key, Expr value, string name)
+        {
+            var clauses = new List<(Token tok, Expr target, Expr iter, List<Expr> conds)>();
+            while (Cur.Kind == TokenKind.KwFor)
+            {
+                var forTok = Advance();
+                bool saved = _noIn;
+                _noIn = true;
+                var target = ParseExprList();
+                _noIn = saved;
+                CheckTarget(target);
+                Expect(TokenKind.KwIn, "'in'");
+                var iter = ParseOr();
+                var conds = new List<Expr>();
+                while (Cur.Kind == TokenKind.KwIf)
+                {
+                    Advance();
+                    conds.Add(ParseOr());
+                }
+                clauses.Add((forTok, target, iter, conds));
+            }
+
+            Expr Name(string n) => At(new NameExpr { Name = n }, open);
+            Stmt inner;
+            if (value == null)
+            {
+                var append = At(new CallExpr { Func = At(new AttributeExpr { Target = Name(".r"), Name = "append" }, open) }, open);
+                append.Args.Add(key);
+                inner = At(new ExprStmt { Value = append }, open);
+            }
+            else
+            {
+                var slot = At(new SubscriptExpr { Target = Name(".r"), Index = key }, open);
+                inner = At(new AssignStmt { Value = value, Targets = { slot } }, open);
+            }
+            for (int i = clauses.Count - 1; i >= 0; i--)
+            {
+                var c = clauses[i];
+                var body = new List<Stmt> { inner };
+                for (int k = c.conds.Count - 1; k >= 0; k--)
+                    body = new List<Stmt> { At(new IfStmt { Test = c.conds[k], Body = body }, c.tok) };
+                inner = At(new ForStmt { Target = c.target, Iterable = i == 0 ? Name(".0") : c.iter, Body = body }, c.tok);
+            }
+
+            var def = At(new DefStmt { Name = name }, open);
+            def.Params.Add(new Param { Name = ".0", Line = LineOf(open), Column = ColumnOf(open) });
+            Expr empty = value != null ? (Expr)At(new DictExpr(), open) : At(new ListExpr(), open);
+            def.Body.Add(At(new AssignStmt { Value = empty, Targets = { Name(".r") } }, open));
+            def.Body.Add(inner);
+            def.Body.Add(At(new ReturnStmt { Value = Name(".r") }, open));
+            var call = At(new CallExpr { Func = At(new LambdaExpr { Function = def }, open) }, open);
+            call.Args.Add(clauses[0].iter);
+            return call;
+        }
+
         private Expr ParseParenthesised()
         {
             var open = Advance();
@@ -832,7 +896,11 @@ namespace CSharpPython.Syntax
                 if (Accept(TokenKind.RParen)) return At(new TupleExpr(), open);
                 var first = ParseTernary();
                 if (Cur.Kind == TokenKind.KwFor)
-                    throw Error("comprehensions and generator expressions are not supported yet", Cur);
+                {
+                    var gen = ParseComprehension(open, first, null, "<genexpr>");
+                    Expect(TokenKind.RParen, "')'");
+                    return gen;
+                }
                 if (Cur.Kind != TokenKind.Comma)
                 {
                     Expect(TokenKind.RParen, "')'");
@@ -863,8 +931,13 @@ namespace CSharpPython.Syntax
             while (Cur.Kind != TokenKind.RBracket)
             {
                 list.Items.Add(ParseTernary());
-                if (Cur.Kind == TokenKind.KwFor)
-                    throw Error("comprehensions and generator expressions are not supported yet", Cur);
+                if (Cur.Kind == TokenKind.KwFor && list.Items.Count == 1)
+                {
+                    var comp = ParseComprehension(open, list.Items[0], null, "<listcomp>");
+                    Expect(TokenKind.RBracket, "']'");
+                    _noIn = saved;
+                    return comp;
+                }
                 if (!Accept(TokenKind.Comma)) break;
             }
             Expect(TokenKind.RBracket, "']'");
@@ -885,15 +958,20 @@ namespace CSharpPython.Syntax
                 var key = ParseTernary();
                 if (Cur.Kind != TokenKind.Colon)
                 {
-                    if (dict.Keys.Count == 0 && (Cur.Kind == TokenKind.Comma || Cur.Kind == TokenKind.RBrace))
-                        throw Error("set literals are not supported yet", Cur);
+                    if (dict.Keys.Count == 0 && (Cur.Kind == TokenKind.Comma || Cur.Kind == TokenKind.RBrace || Cur.Kind == TokenKind.KwFor))
+                        throw Error("set literals and set comprehensions are not supported yet", Cur);
                     throw Error("expected ':' in dictionary literal, found " + Describe(Cur), Cur);
                 }
                 Advance();
                 dict.Keys.Add(key);
                 dict.Values.Add(ParseTernary());
-                if (Cur.Kind == TokenKind.KwFor)
-                    throw Error("comprehensions and generator expressions are not supported yet", Cur);
+                if (Cur.Kind == TokenKind.KwFor && dict.Keys.Count == 1)
+                {
+                    var comp = ParseComprehension(open, dict.Keys[0], dict.Values[0], "<dictcomp>");
+                    Expect(TokenKind.RBrace, "'}'");
+                    _noIn = saved;
+                    return comp;
+                }
                 if (!Accept(TokenKind.Comma)) break;
             }
             Expect(TokenKind.RBrace, "'}'");
