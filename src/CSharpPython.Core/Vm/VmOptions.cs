@@ -17,6 +17,12 @@ namespace CSharpPython
 
         /// <summary>The most events that may wait in a task's queue; further events are dropped.</summary>
         public int MaxQueuedEvents = 1000;
+
+        /// <summary>
+        /// Turns on <see cref="PyTask.Save"/> and <see cref="PyVm.Restore"/>. It is off by default so that a game
+        /// that never saves script state does not depend on it; calling them while it is off throws.
+        /// </summary>
+        public bool EnableSnapshots = false;
     }
 
     /// <summary>Where a task is in its life.</summary>
