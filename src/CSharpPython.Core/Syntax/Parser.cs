@@ -200,14 +200,24 @@ namespace CSharpPython.Syntax
             var name = Expect(TokenKind.Name, "a function name");
             def.Name = name.Text;
             Expect(TokenKind.LParen, "'('");
+            ParseParameters(def, TokenKind.RParen);
+            Expect(TokenKind.RParen, "')'");
+            Expect(TokenKind.Colon, "':'");
+            def.Body = ParseBlock("function definition");
+            return def;
+        }
+
+        // The parameters of a def (ended by ')') or a lambda (ended by ':').
+        private void ParseParameters(DefStmt def, TokenKind end)
+        {
             bool seenDefault = false;
-            while (Cur.Kind != TokenKind.RParen)
+            while (Cur.Kind != end)
             {
                 if (Cur.Kind == TokenKind.Star || Cur.Kind == TokenKind.DoubleStar)
                     throw Error("variable arguments (*args / **kwargs) are not supported yet", Cur);
                 var pname = Expect(TokenKind.Name, "a parameter name");
                 var param = new Param { Name = pname.Text, Line = LineOf(pname), Column = ColumnOf(pname) };
-                if (Cur.Kind == TokenKind.Colon)
+                if (end == TokenKind.RParen && Cur.Kind == TokenKind.Colon)
                     throw Error("type annotations are not supported yet", Cur);
                 if (Accept(TokenKind.Assign))
                 {
@@ -221,10 +231,17 @@ namespace CSharpPython.Syntax
                 def.Params.Add(param);
                 if (!Accept(TokenKind.Comma)) break;
             }
-            Expect(TokenKind.RParen, "')'");
-            Expect(TokenKind.Colon, "':'");
-            def.Body = ParseBlock("function definition");
-            return def;
+        }
+
+        private Expr ParseLambda()
+        {
+            var tok = Advance();
+            var def = At(new DefStmt { Name = "<lambda>" }, tok);
+            ParseParameters(def, TokenKind.Colon);
+            Expect(TokenKind.Colon, "':' after the lambda's parameters");
+            var body = ParseTernary();
+            def.Body.Add(new ReturnStmt { Value = body, Line = body.Line, Column = body.Column });
+            return At(new LambdaExpr { Function = def }, tok);
         }
 
         private IfStmt ParseIf()
@@ -350,6 +367,14 @@ namespace CSharpPython.Syntax
                 {
                     Advance();
                     var node = At(new GlobalStmt(), tok);
+                    do node.Names.Add(Expect(TokenKind.Name, "a name").Text);
+                    while (Accept(TokenKind.Comma));
+                    return node;
+                }
+                case TokenKind.KwNonlocal:
+                {
+                    Advance();
+                    var node = At(new NonlocalStmt(), tok);
                     do node.Names.Add(Expect(TokenKind.Name, "a name").Text);
                     while (Accept(TokenKind.Comma));
                     return node;
@@ -530,6 +555,7 @@ namespace CSharpPython.Syntax
 
         private Expr ParseTernary()
         {
+            if (Cur.Kind == TokenKind.KwLambda) return ParseLambda();
             var value = ParseOr();
             if (Cur.Kind != TokenKind.KwIf) return value;
             var ifTok = Advance();

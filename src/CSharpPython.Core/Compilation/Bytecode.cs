@@ -21,6 +21,13 @@ namespace CSharpPython.Compilation
         StoreLocal,
         LoadGlobal,   // arg = name index
         StoreGlobal,
+        MakeCell,     // arg = slot; wraps the slot's value in a cell shared with inner functions
+        LoadCell,     // arg = slot holding a cell
+        StoreCell,
+        LoadFree,     // arg = index into the function's closure
+        StoreFree,
+        LoadCellRef,  // -> cell (pushed as a value to build a closure); arg = slot holding a cell
+        LoadFreeRef,  // -> cell; arg = index into the function's closure
 
         LoadAttr,     // obj -> value; arg = name index
         StoreAttr,    // value obj -> ; arg = name index
@@ -70,7 +77,7 @@ namespace CSharpPython.Compilation
         CallMethod,   // callable self-or-unbound args... -> result; arg = argument count (without self)
         CallMethodKw,
         Return,
-        MakeFunction, // defaults... -> function; arg = index into Code.Functions
+        MakeFunction, // defaults... cells... -> function; arg = index into Code.Functions
 
         UnpackSequence, // seq -> items (first item on top); arg = expected count
 
@@ -120,6 +127,9 @@ namespace CSharpPython.Compilation
 
         /// <summary>The name of each local slot, used in error messages.</summary>
         public string[] LocalNames;
+
+        /// <summary>The names of the enclosing functions' variables this function uses, in closure order.</summary>
+        public string[] FreeNames;
         public bool IsModule;
 
         /// <summary>A readable listing, used by tests and for debugging.</summary>
@@ -142,6 +152,13 @@ namespace CSharpPython.Compilation
                     case Op.ImportFrom: sb.Append(' ').Append(Names[ins.Arg]); break;
                     case Op.LoadLocal:
                     case Op.StoreLocal: sb.Append(' ').Append(ins.Arg); break;
+                    case Op.MakeCell:
+                    case Op.LoadCell:
+                    case Op.StoreCell:
+                    case Op.LoadCellRef: sb.Append(' ').Append(LocalNames[ins.Arg]); break;
+                    case Op.LoadFree:
+                    case Op.StoreFree:
+                    case Op.LoadFreeRef: sb.Append(' ').Append(FreeNames[ins.Arg]); break;
                     case Op.MakeFunction: sb.Append(' ').Append(Functions[ins.Arg].Name); break;
                     case Op.Pop:
                     case Op.Dup:

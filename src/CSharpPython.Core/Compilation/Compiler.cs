@@ -91,6 +91,7 @@ namespace CSharpPython.Compilation
                 Functions = u.Functions.ToArray(),
                 NumLocals = u.Scope.LocalCount,
                 LocalNames = u.Scope.Locals.ToArray(),
+                FreeNames = u.Scope.FreeVars.ToArray(),
                 IsModule = isModule,
                 NumDefaults = numDefaults,
             };
@@ -158,13 +159,17 @@ namespace CSharpPython.Compilation
 
         private void LoadName(string name)
         {
-            if (_unit.Scope.TryGetLocal(name, out int slot)) Emit(Op.LoadLocal, slot);
+            var scope = _unit.Scope;
+            if (scope.TryGetLocal(name, out int slot)) Emit(scope.IsCell(name) ? Op.LoadCell : Op.LoadLocal, slot);
+            else if (scope.TryGetFree(name, out int free)) Emit(Op.LoadFree, free);
             else Emit(Op.LoadGlobal, Name(name));
         }
 
         private void StoreName(string name)
         {
-            if (_unit.Scope.TryGetLocal(name, out int slot)) Emit(Op.StoreLocal, slot);
+            var scope = _unit.Scope;
+            if (scope.TryGetLocal(name, out int slot)) Emit(scope.IsCell(name) ? Op.StoreCell : Op.StoreLocal, slot);
+            else if (scope.TryGetFree(name, out int free)) Emit(Op.StoreFree, free);
             else Emit(Op.StoreGlobal, Name(name));
         }
 
@@ -219,6 +224,7 @@ namespace CSharpPython.Compilation
                     break;
                 case PassStmt _:
                 case GlobalStmt _:
+                case NonlocalStmt _:
                     break;
             }
         }
@@ -366,6 +372,13 @@ namespace CSharpPython.Compilation
 
         private void CompileDef(DefStmt d)
         {
+            CompileFunction(d);
+            StoreName(d.Name);
+        }
+
+        // Compiles a def or lambda and leaves the new function on the stack.
+        private void CompileFunction(DefStmt d)
+        {
             var scope = _resolved.Functions[d];
             int numDefaults = 0;
             foreach (var p in d.Params)
@@ -375,8 +388,24 @@ namespace CSharpPython.Compilation
                 numDefaults++;
             }
 
+            // The cells of the enclosing function's variables that this function uses.
+            foreach (var name in scope.FreeVars)
+            {
+                if (_unit.Scope.TryGetLocal(name, out int slot)) Emit(Op.LoadCellRef, slot);
+                else
+                {
+                    _unit.Scope.TryGetFree(name, out int free);
+                    Emit(Op.LoadFreeRef, free);
+                }
+            }
+
             var outer = _unit;
             _unit = new Unit(scope, d.Name) { Line = d.Line };
+            foreach (var name in scope.CellVars)
+            {
+                scope.TryGetLocal(name, out int slot);
+                Emit(Op.MakeCell, slot);
+            }
             CompileBody(d.Body);
             Emit(Op.LoadConst, Constant(Value.None));
             Emit(Op.Return);
@@ -386,7 +415,6 @@ namespace CSharpPython.Compilation
             outer.Functions.Add(code);
             SetLine(d);
             Emit(Op.MakeFunction, outer.Functions.Count - 1);
-            StoreName(d.Name);
         }
 
         // Leaves the handlers above depth `target` before a jump or return, running the finally block of every
@@ -537,6 +565,9 @@ namespace CSharpPython.Compilation
                 case NameExpr n:
                     SetLine(n);
                     LoadName(n.Name);
+                    break;
+                case LambdaExpr l:
+                    CompileFunction(l.Function);
                     break;
                 case UnaryExpr u:
                     CompileExpr(u.Operand);

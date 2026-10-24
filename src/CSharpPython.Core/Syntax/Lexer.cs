@@ -26,14 +26,13 @@ namespace CSharpPython.Syntax
             { "continue", TokenKind.KwContinue }, { "pass", TokenKind.KwPass }, { "and", TokenKind.KwAnd },
             { "or", TokenKind.KwOr }, { "not", TokenKind.KwNot }, { "is", TokenKind.KwIs },
             { "True", TokenKind.KwTrue }, { "False", TokenKind.KwFalse }, { "None", TokenKind.KwNone },
-            { "global", TokenKind.KwGlobal }, { "try", TokenKind.KwTry }, { "except", TokenKind.KwExcept }, { "finally", TokenKind.KwFinally },
+            { "global", TokenKind.KwGlobal }, { "nonlocal", TokenKind.KwNonlocal }, { "lambda", TokenKind.KwLambda },
+            { "try", TokenKind.KwTry }, { "except", TokenKind.KwExcept }, { "finally", TokenKind.KwFinally },
             { "raise", TokenKind.KwRaise }, { "import", TokenKind.KwImport }, { "from", TokenKind.KwFrom },
             { "as", TokenKind.KwAs },
-            { "class", TokenKind.KwUnsupported }, { "lambda", TokenKind.KwUnsupported },
-            { "yield", TokenKind.KwUnsupported }, { "with", TokenKind.KwUnsupported },
-            { "del", TokenKind.KwUnsupported }, { "assert", TokenKind.KwUnsupported },
-            { "nonlocal", TokenKind.KwUnsupported }, { "async", TokenKind.KwUnsupported },
-            { "await", TokenKind.KwUnsupported }, 
+            { "class", TokenKind.KwUnsupported }, { "yield", TokenKind.KwUnsupported }, { "with", TokenKind.KwUnsupported },
+            { "del", TokenKind.KwUnsupported }, { "assert", TokenKind.KwUnsupported }, { "async", TokenKind.KwUnsupported },
+            { "await", TokenKind.KwUnsupported },
         };
 
         private readonly string _src;

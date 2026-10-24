@@ -24,5 +24,7 @@ namespace CSharpPython
         Handle,
         /// <summary>Marks a local variable that has not been assigned yet. Never visible to scripts.</summary>
         Unbound,
+        /// <summary>A variable shared between a function and the functions defined inside it. Never visible to scripts.</summary>
+        Cell,
     }
 }

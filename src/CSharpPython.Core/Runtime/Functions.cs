@@ -46,17 +46,34 @@ namespace CSharpPython
         }
     }
 
-    /// <summary>A function defined by the script with <c>def</c>.</summary>
+    /// <summary>A variable of a function that inner functions also use; both see the same cell.</summary>
+    internal sealed class Cell
+    {
+        public Value Value;
+
+        public Cell(Value value)
+        {
+            Value = value;
+        }
+    }
+
+    /// <summary>A function defined by the script with <c>def</c> or <c>lambda</c>.</summary>
     internal sealed class PyFunction
     {
         public readonly Code Code;
         public readonly Value[] Defaults;
 
-        public PyFunction(Code code, Value[] defaults)
+        /// <summary>The cells of the enclosing functions' variables this function uses, in <see cref="Compilation.Code.FreeNames"/> order.</summary>
+        public readonly Cell[] Closure;
+
+        public PyFunction(Code code, Value[] defaults, Cell[] closure = null)
         {
             Code = code;
             Defaults = defaults;
+            Closure = closure ?? NoCells;
         }
+
+        private static readonly Cell[] NoCells = new Cell[0];
 
         public string Name => Code.Name;
     }

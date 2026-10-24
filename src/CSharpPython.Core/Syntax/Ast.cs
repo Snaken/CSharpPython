@@ -106,6 +106,12 @@ namespace CSharpPython.Syntax
         public Expr Test, Then, Else;
     }
 
+    /// <summary>A <c>lambda</c>: an anonymous function whose body is one expression, held as a <c>return</c> in <see cref="Function"/>.</summary>
+    public sealed class LambdaExpr : Expr
+    {
+        public DefStmt Function;
+    }
+
     /// <summary>One piece of an f-string: literal text or a formatted expression.</summary>
     public sealed class FStringPart
     {
@@ -191,6 +197,11 @@ namespace CSharpPython.Syntax
     public sealed class PassStmt : Stmt { }
 
     public sealed class GlobalStmt : Stmt
+    {
+        public List<string> Names = new List<string>();
+    }
+
+    public sealed class NonlocalStmt : Stmt
     {
         public List<string> Names = new List<string>();
     }

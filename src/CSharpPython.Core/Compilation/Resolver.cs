@@ -25,6 +25,7 @@ namespace CSharpPython.Compilation
         {
             var resolver = new Resolver(module);
             resolver.VisitBody(module.Body);
+            resolver.Analyze(resolver._result.ModuleScope);
             return resolver._result;
         }
 
@@ -85,6 +86,9 @@ namespace CSharpPython.Compilation
                 case GlobalStmt g:
                     VisitGlobal(g);
                     break;
+                case NonlocalStmt n:
+                    VisitNonlocal(n);
+                    break;
                 case TryStmt t:
                     VisitBody(t.Body);
                     foreach (var h in t.Handlers)
@@ -119,21 +123,43 @@ namespace CSharpPython.Compilation
                     throw Error("name '" + name + "' is assigned to before global declaration", g);
                 if (_used.Contains(name))
                     throw Error("name '" + name + "' is used prior to global declaration", g);
+                if (_scope.DeclaredNonlocals.Contains(name))
+                    throw Error("name '" + name + "' is nonlocal and global", g);
                 _scope.DeclaredGlobals.Add(name);
+            }
+        }
+
+        private void VisitNonlocal(NonlocalStmt n)
+        {
+            if (_scope.IsModule) throw Error("nonlocal declaration not allowed at module level", n);
+            foreach (string name in n.Names)
+            {
+                if (_scope.Function.Params.Exists(p => p.Name == name))
+                    throw Error("name '" + name + "' is parameter and nonlocal", n);
+                if (_scope.IsLocal(name))
+                    throw Error("name '" + name + "' is assigned to before nonlocal declaration", n);
+                if (_used.Contains(name))
+                    throw Error("name '" + name + "' is used prior to nonlocal declaration", n);
+                if (_scope.DeclaredGlobals.Contains(name))
+                    throw Error("name '" + name + "' is nonlocal and global", n);
+                _scope.DeclaredNonlocals.Add(name);
+                if (!_scope.NonlocalSites.ContainsKey(name)) _scope.NonlocalSites[name] = n;
             }
         }
 
         private void VisitDef(DefStmt d)
         {
-            if (!_scope.IsModule)
-                throw Error("nested functions are not supported yet", d);
+            VisitFunction(d);
+            Bind(d.Name);
+        }
 
-            // Defaults are evaluated in the enclosing scope, when the def statement runs.
+        // Resolves a def or lambda. Defaults are evaluated in the enclosing scope, when the function is created.
+        private void VisitFunction(DefStmt d)
+        {
             foreach (var p in d.Params)
                 if (p.Default != null) VisitExpr(p.Default);
-            Bind(d.Name);
 
-            var scope = new Scope(d);
+            var scope = new Scope(d, _scope);
             foreach (var p in d.Params)
             {
                 if (scope.IsLocal(p.Name))
@@ -154,10 +180,51 @@ namespace CSharpPython.Compilation
             _loopDepth = savedLoops;
         }
 
+        // Works out, for every function, which of its locals inner functions share (cells) and which names it
+        // takes from enclosing functions (free variables). Returns the free variables of the scope.
+        private void Analyze(Scope scope)
+        {
+            var fromChildren = new HashSet<string>();
+            foreach (var child in scope.Children)
+            {
+                Analyze(child);
+                foreach (var name in child.FreeVars) fromChildren.Add(name);
+            }
+
+            var names = new List<string>(scope.Used);
+            foreach (var child in scope.Children)
+                foreach (var name in child.FreeVars)
+                    if (!names.Contains(name)) names.Add(name);
+            foreach (var name in scope.DeclaredNonlocals)
+                if (!names.Contains(name)) names.Add(name);
+
+            foreach (var name in names)
+            {
+                if (scope.IsModule || scope.DeclaredGlobals.Contains(name)) continue;
+                if (scope.IsLocal(name))
+                {
+                    if (fromChildren.Contains(name)) scope.MakeCell(name);
+                }
+                else if (IsLocalOfEnclosing(scope, name)) scope.AddFree(name);
+                else if (scope.DeclaredNonlocals.Contains(name))
+                    throw Error("no binding for nonlocal '" + name + "' found", scope.NonlocalSites[name]);
+            }
+        }
+
+        private static bool IsLocalOfEnclosing(Scope scope, string name)
+        {
+            for (var p = scope.Parent; p != null && !p.IsModule; p = p.Parent)
+            {
+                if (p.IsLocal(name)) return true;
+                if (p.DeclaredGlobals.Contains(name)) return false;
+            }
+            return false;
+        }
+
         // Records that a name is bound (assigned) in the current scope.
         private void Bind(string name)
         {
-            if (_scope.IsModule || _scope.DeclaredGlobals.Contains(name)) return;
+            if (_scope.IsModule || _scope.DeclaredGlobals.Contains(name) || _scope.DeclaredNonlocals.Contains(name)) return;
             _scope.AddLocal(name);
         }
 
@@ -193,6 +260,10 @@ namespace CSharpPython.Compilation
                     break;
                 case NameExpr n:
                     _used.Add(n.Name);
+                    _scope.Use(n.Name);
+                    break;
+                case LambdaExpr l:
+                    VisitFunction(l.Function);
                     break;
                 case UnaryExpr u:
                     VisitExpr(u.Operand);

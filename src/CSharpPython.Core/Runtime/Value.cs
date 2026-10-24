@@ -50,6 +50,7 @@ namespace CSharpPython
         internal static Value FromSlice(PySlice slice) => new Value(ValueKind.Slice, 0, slice);
 
         internal static Value FromFunction(PyFunction fn) => new Value(ValueKind.Function, 0, fn);
+        internal static Value FromCell(Cell cell) => new Value(ValueKind.Cell, 0, cell);
 
         public static Value FromNative(NativeFunction fn) => new Value(ValueKind.Native, 0, fn);
 

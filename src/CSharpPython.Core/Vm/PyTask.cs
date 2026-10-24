@@ -26,6 +26,7 @@ namespace CSharpPython
             public int Base;        // stack index of local slot 0
             public int CalleeIndex; // stack index to restore when the frame returns
             public bool IsEvent;
+            public Cell[] Closure;  // the running function's free variables
             public bool IsBoundary; // the entry frame of a call made by a native function (see CallSync)
             public Handler[] Handlers = new Handler[4];
             public int HandlerCount;
@@ -352,6 +353,37 @@ namespace CSharpPython
                     }
                     case Op.StoreLocal:
                         _stack[bas + ins.Arg] = _stack[--_sp];
+                        break;
+                    case Op.MakeCell:
+                        _stack[bas + ins.Arg] = Value.FromCell(new Cell(_stack[bas + ins.Arg]));
+                        break;
+                    case Op.LoadCell:
+                    {
+                        Value v = ((Cell)_stack[bas + ins.Arg].RawObject).Value;
+                        if (v.Kind == ValueKind.Unbound)
+                            throw new PyError("UnboundLocalError", "local variable '" + code.LocalNames[ins.Arg] + "' referenced before assignment");
+                        Push(v);
+                        break;
+                    }
+                    case Op.StoreCell:
+                        ((Cell)_stack[bas + ins.Arg].RawObject).Value = _stack[--_sp];
+                        break;
+                    case Op.LoadFree:
+                    {
+                        Value v = frame.Closure[ins.Arg].Value;
+                        if (v.Kind == ValueKind.Unbound)
+                            throw new PyError("NameError", "free variable '" + code.FreeNames[ins.Arg] + "' referenced before assignment in enclosing scope");
+                        Push(v);
+                        break;
+                    }
+                    case Op.StoreFree:
+                        frame.Closure[ins.Arg].Value = _stack[--_sp];
+                        break;
+                    case Op.LoadCellRef:
+                        Push(_stack[bas + ins.Arg]);
+                        break;
+                    case Op.LoadFreeRef:
+                        Push(Value.FromCell(frame.Closure[ins.Arg]));
                         break;
                     case Op.LoadGlobal:
                     {
@@ -704,10 +736,16 @@ namespace CSharpPython
                     case Op.MakeFunction:
                     {
                         var fnCode = code.Functions[ins.Arg];
+                        Cell[] closure = null;
+                        if (fnCode.FreeNames.Length > 0)
+                        {
+                            closure = new Cell[fnCode.FreeNames.Length];
+                            for (int i = closure.Length - 1; i >= 0; i--) closure[i] = (Cell)_stack[--_sp].RawObject;
+                        }
                         var defaults = new Value[fnCode.NumDefaults];
                         Array.Copy(_stack, _sp - fnCode.NumDefaults, defaults, 0, fnCode.NumDefaults);
                         _sp -= fnCode.NumDefaults;
-                        Push(Value.FromFunction(new PyFunction(fnCode, defaults)));
+                        Push(Value.FromFunction(new PyFunction(fnCode, defaults, closure)));
                         break;
                     }
 
@@ -914,6 +952,7 @@ namespace CSharpPython
 
             _sp = argStart + c.NumLocals;
             PushFrame(c, argStart, calleeIndex);
+            _frames[_frameCount - 1].Closure = fn.Closure;
         }
 
         private void BindKeywords(PyFunction fn, int argStart, int positional, string[] kwNames)
@@ -1159,6 +1198,7 @@ namespace CSharpPython
             f.CalleeIndex = calleeIndex;
             f.IsEvent = false;
             f.IsBoundary = false;
+            f.Closure = null;
             f.HandlerCount = 0;
             f.ExcInfo = default;
         }
