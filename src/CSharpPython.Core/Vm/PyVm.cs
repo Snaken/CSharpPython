@@ -62,6 +62,13 @@ namespace CSharpPython
         /// <summary>Starts a new task for a script. Nothing runs until you call <see cref="PyTask.Run"/>.</summary>
         public PyTask Start(Script script) => new PyTask(this, script);
 
+        /// <summary>
+        /// Recreates a task from bytes written by <see cref="PyTask.Save"/>. <paramref name="script"/> must be the
+        /// same compiled code the task was running, and the host API (modules, built-ins, exception types) must be
+        /// registered as it was. Throws <see cref="SnapshotException"/> otherwise or if the data is damaged.
+        /// </summary>
+        public PyTask Restore(Script script, byte[] data) => PyTask.RestoreTask(this, script, data);
+
         /// <summary>Compiles and starts in one step.</summary>
         public PyTask Start(string source, string sourceName = "<script>") => Start(Compile(source, sourceName));
     }

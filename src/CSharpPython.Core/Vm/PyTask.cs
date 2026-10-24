@@ -11,7 +11,7 @@ namespace CSharpPython
     /// <see cref="Update"/> every tick and queues events with <see cref="QueueEvent"/>. A task never blocks: it
     /// runs a slice of instructions and returns, so many tasks can share one thread.
     /// </summary>
-    public sealed class PyTask
+    public sealed partial class PyTask
     {
         private struct Handler
         {
@@ -80,6 +80,15 @@ namespace CSharpPython
             PushFrame(code, 0, 0);
             _sp = code.NumLocals;
             for (int i = 0; i < code.NumLocals; i++) _stack[i] = Value.Unbound;
+        }
+
+        // Used by Restore: the state is filled in afterwards.
+        private PyTask(PyVm vm, Script script, bool restoring)
+        {
+            Vm = vm;
+            _script = script;
+            _ctx.Task = this;
+            _ctx.OutputSink = s => Vm.Output?.Invoke(s);
         }
 
         public PyVm Vm { get; }
