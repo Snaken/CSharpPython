@@ -93,6 +93,14 @@ namespace CSharpPython.Tests.Editor
         }
 
         [Test]
+        public void TypesShowTheirConstructorSignature()
+        {
+            Assert.That(At("int(|").Label, Is.EqualTo("int(x=0, base=10)"));
+            Assert.That(At("isinstance(1, |").ActiveParameter, Is.EqualTo(1));
+            Assert.That(At("type(|").Label, Is.EqualTo("type(obj)"));
+        }
+
+        [Test]
         public void ExceptionClassesTakeArguments()
         {
             var h = At("raise ValueError(|");
@@ -219,7 +227,7 @@ namespace CSharpPython.Tests.Editor
         {
             var vm = new PyVm();
             foreach (var kv in vm.Builtins)
-                if (kv.Value.Kind == ValueKind.Native)
+                if (kv.Value.Kind == ValueKind.Native || kv.Value.Kind == ValueKind.Type)
                     Assert.That(Signatures.Find(kv.Key), Is.Not.Null, "built-in " + kv.Key);
             foreach (var kv in vm.Modules["math"].Members)
                 if (kv.Value.Kind == ValueKind.Native)
@@ -248,7 +256,10 @@ namespace CSharpPython.Tests.Editor
                 Assert.That(required, Is.LessThanOrEqualTo(min), key + " required");
             }
             foreach (var kv in vm.Builtins)
+            {
                 if (kv.Value.Kind == ValueKind.Native) Check(kv.Key, (NativeFunction)kv.Value.RawObject, 0);
+                if (kv.Value.Kind == ValueKind.Type) Check(kv.Key, ((PyType)kv.Value.RawObject).Constructor, 0);
+            }
             foreach (var kv in vm.Modules["math"].Members)
                 if (kv.Value.Kind == ValueKind.Native) Check("math." + kv.Key, (NativeFunction)kv.Value.RawObject, 0);
             foreach (var kind in new[] { ValueKind.Str, ValueKind.List, ValueKind.Dict, ValueKind.Tuple })

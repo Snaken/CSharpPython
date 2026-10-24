@@ -114,6 +114,8 @@ namespace CSharpPython.Tests.Vm
             "def a():\n    x = 1\n    def b():\n        def c():\n            nonlocal x\n            x += 10\n            return x\n        return c\n    return b()\nf = a()\nprint(f(), f())",
             "fs = []\nfor i in range(3):\n    fs.append(lambda i=i: i * 2)\nprint(fs[0](), fs[1](), fs[2]())",
             "print(sorted([3, -5, 1], key=lambda v: abs(v)))",
+            "t = type(1)\nd = {t: 'i', str: 's'}\nprint(d[int], t('5') + 1, isinstance(True, (str, int)), type(ValueError('x')))",
+            "import game\nt = int\ngame.wait(1)\nprint(t('4'), callable(t), issubclass(bool, t))",
             "def f(a, b=2, *args, c, d=4, **kw):\n    return a, b, args, c, d, kw\nprint(f(1, 9, 8, 7, c=3, z=1))",
             "import game\ndef f(*xs, **opts):\n    game.wait(1)\n    return xs, opts\nprint(f(*[1, 2], **{'k': 3}))",
             "def g(*a, **k):\n    return a, k\ndef f(*a, **k):\n    return g(*a, **k)\nprint(f(1, x=2), f())",
