@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- netstandard2.1 is what Unity 2021.2+ consumes; no Reflection.Emit / dynamic is used so IL2CPP and WebGL work. -->
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <AssemblyName>CSharpPython</AssemblyName>
+    <RootNamespace>CSharpPython</RootNamespace>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+
+    <Version>0.1.0</Version>
+    <Authors>Rachael Hough</Authors>
+    <Description>A Python-style language parser, compiler and bytecode VM written in plain C# for embedding in Unity games and other .NET hosts.</Description>
+    <PackageId>CSharpPython</PackageId>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <InternalsVisibleTo Include="CSharpPython.Tests" />
+  </ItemGroup>
+
+</Project>

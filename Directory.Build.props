@@ -1,0 +1,12 @@
+<Project>
+  <PropertyGroup>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Deterministic>true</Deterministic>
+    <!-- Keep build output out of the source tree: src/CSharpPython.Core doubles as the Unity package root. -->
+    <ArtifactsRoot>$(MSBuildThisFileDirectory)artifacts/</ArtifactsRoot>
+    <BaseOutputPath>$(ArtifactsRoot)bin/$(MSBuildProjectName)/</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(ArtifactsRoot)obj/$(MSBuildProjectName)/</BaseIntermediateOutputPath>
+  </PropertyGroup>
+</Project>

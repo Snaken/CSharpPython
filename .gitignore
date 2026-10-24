@@ -1,0 +1,18 @@
+# .NET
+artifacts/
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.idea/
+TestResults/
+coverage/
+coverage-report/
+*.nupkg
+
+# macOS
+.DS_Store
+
+# Local scratch notes
+message.txt
