@@ -512,13 +512,27 @@ namespace CSharpPython.Tests.Syntax
             Assert.That(Fails(src + "\n").Problem, Is.EqualTo(message));
         }
 
-        [TestCase("x = [i for i in y]")]
-        [TestCase("x = (i for i in y)")]
-        [TestCase("x = {i: 1 for i in y}")]
-        [TestCase("x = f(i for i in y)")]
-        public void ComprehensionsAreRejected(string src)
+        [TestCase("f(x for x in y, 1)", "generator expression must be parenthesized")]
+        [TestCase("f(1, x for x in y)", "generator expression must be parenthesized")]
+        [TestCase("f(x for x in y,)", "generator expression must be parenthesized")]
+        [TestCase("[a, b for a in y]", "expected ']'")]
+        [TestCase("[x for x in]", "unexpected")]
+        [TestCase("[x for in y]", "unexpected")]
+        [TestCase("[x for 1 in y]", "assign")]
+        [TestCase("[x for x y]", "expected 'in'")]
+        [TestCase("[x for x in y", "never closed")]
+        [TestCase("{1 for x in y}", "set literals")]
+        [TestCase("{1: 2, 3: 4 for x in y}", "expected '}'")]
+        [TestCase("(x for x in y", "never closed")]
+        public void BadComprehensionsAreRejected(string src, string message)
         {
-            Assert.That(Fails(src + "\n").Problem, Does.Contain("comprehensions"));
+            Assert.That(Fails(src + "\n").Problem, Does.Contain(message));
+        }
+
+        [Test]
+        public void ComprehensionsBecomeCallsOfAnonymousFunctions()
+        {
+            Assert.DoesNotThrow(() => Parser.ParseModule("x = [i for i in y if i for j in i]\ny = {i: 1 for i in z}\nw = (i for i in z)\nf(i for i in z)\n"));
         }
 
         [Test]
