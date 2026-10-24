@@ -227,7 +227,7 @@ print(f(), f(), f())"), Is.EqualTo("1 2 3"));
             Assert.That(Fails("def f(a, b):\n    pass\nf()").Problem, Is.EqualTo("f() missing 2 required positional arguments: 'a' and 'b'"));
             Assert.That(Fails("def f(a, b, c):\n    pass\nf()").Problem, Is.EqualTo("f() missing 3 required positional arguments: 'a', 'b', and 'c'"));
             Assert.That(Fails("def f(a):\n    pass\nf(1, 2)").Problem, Is.EqualTo("f() takes 1 positional argument but 2 were given"));
-            Assert.That(Fails("def f(a, b=1):\n    pass\nf(1, 2, 3)").Problem, Is.EqualTo("f() takes 1 to 2 positional arguments but 3 were given"));
+            Assert.That(Fails("def f(a, b=1):\n    pass\nf(1, 2, 3)").Problem, Is.EqualTo("f() takes from 1 to 2 positional arguments but 3 were given"));
             Assert.That(Fails("def f():\n    pass\nf(1)").Problem, Is.EqualTo("f() takes 0 positional arguments but 1 was given"));
             Assert.That(Fails("def f(a):\n    pass\nf(z=1)").Problem, Is.EqualTo("f() got an unexpected keyword argument 'z'"));
             Assert.That(Fails("def f(a):\n    pass\nf(1, a=2)").Problem, Is.EqualTo("f() got multiple values for argument 'a'"));

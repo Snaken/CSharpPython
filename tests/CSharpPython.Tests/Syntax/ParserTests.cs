@@ -546,13 +546,37 @@ namespace CSharpPython.Tests.Syntax
         [Test]
         public void DictUnpackingIsRejected() => Assert.That(Fails("x = {**a}\n").Problem, Does.Contain("dictionary unpacking"));
 
-        [TestCase("f(*a)")]
-        [TestCase("f(**a)")]
-        public void ArgumentUnpackingIsRejected(string src) => Assert.That(Fails(src + "\n").Problem, Does.Contain("argument unpacking"));
+        [TestCase("f(a=1, *b)", "iterable argument unpacking follows keyword argument")]
+        [TestCase("f(**a, b)", "positional argument follows keyword argument")]
+        [TestCase("f(a=1, a=2)", "keyword argument repeated: a")]
+        [TestCase("def f(*): pass", "named arguments must follow bare *")]
+        [TestCase("def f(*, **k): pass", "named arguments must follow bare *")]
+        [TestCase("def f(*, a, *, b): pass", "* argument may appear only once")]
+        [TestCase("def f(*a, *b): pass", "* argument may appear only once")]
+        [TestCase("def f(**k, a): pass", "arguments cannot follow var-keyword argument")]
+        [TestCase("def f(**k, **j): pass", "arguments cannot follow var-keyword argument")]
+        [TestCase("def f(**k=1): pass", "var-keyword argument cannot have default value")]
+        [TestCase("def f(*a=1): pass", "var-positional argument cannot have default value")]
+        [TestCase("def f(a=1, b): pass", "non-default argument 'b' follows default argument")]
+        [TestCase("def f(*, a=1, b): pass", null)]
+        [TestCase("def f(*1): pass", "expected a parameter name")]
+        [TestCase("def f(*a, a): pass", null)]
+        public void BadVariableArgumentsAreRejected(string src, string message)
+        {
+            if (message == null)
+            {
+                // Legal syntax here (the second case is a duplicate caught by the resolver).
+                Assert.DoesNotThrow(() => Parser.ParseModule(src + "\n"));
+                return;
+            }
+            Assert.That(Fails(src + "\n").Problem, Does.Contain(message));
+        }
 
-        [TestCase("def f(*a): pass")]
-        [TestCase("def f(**a): pass")]
-        public void VariableParametersAreRejected(string src) => Assert.That(Fails(src + "\n").Problem, Does.Contain("variable arguments"));
+        [Test]
+        public void VariableArgumentsParse()
+        {
+            Assert.DoesNotThrow(() => Parser.ParseModule("def f(a, b=1, *args, c, d=2, **kw): pass\ndef g(*, a): pass\nh = lambda *a, **k: 0\nf(*x, y, *z, k=1, **w, **v)\nf(*(1, 2), **{})\n"));
+        }
 
         [Test]
         public void ParameterAnnotationsAreRejected() => Assert.That(Fails("def f(a: int): pass\n").Problem, Does.Contain("annotations"));

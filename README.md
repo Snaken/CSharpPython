@@ -153,9 +153,9 @@ Builtins: `print len range int float str bool repr abs min max sum round sorted 
 
 Methods: `str` (upper, lower, strip, lstrip, rstrip, split, join, replace, startswith, endswith, find, rfind, index, count, isdigit, isalpha, isalnum, isspace, isupper, islower, capitalize, title, format, zfill, ljust, rjust, center, splitlines), `list` (append, extend, insert, pop, remove, index, count, sort, reverse, clear, copy), `dict` (get, keys, values, items, pop, setdefault, update, clear, copy), `tuple` (index, count).
 
-Nested functions and `lambda` are closures with Python's semantics: inner functions share the variables of the function around them (late binding), and `nonlocal` rebinds them. List and dict comprehensions have their own scope like in Python (loop variables don't leak, the first iterable is evaluated outside). A generator expression is evaluated eagerly into a list, so it works with `sum`, `any`, `all`, `min`, `max`, `sorted`, `list`, `tuple`, `dict` and `str.join`, but is not lazy and can't be advanced with `next`. Snapshots keep closures, including cycles from recursive inner functions.
+Functions take positional, default, keyword-only, `*args` and `**kwargs` parameters, and calls can spread with `f(*items, **options)`. A `*items` argument can't follow a keyword argument (`f(a=1, *items)`). Nested functions and `lambda` are closures with Python's semantics: inner functions share the variables of the function around them (late binding), and `nonlocal` rebinds them. List and dict comprehensions have their own scope like in Python (loop variables don't leak, the first iterable is evaluated outside). A generator expression is evaluated eagerly into a list, so it works with `sum`, `any`, `all`, `min`, `max`, `sorted`, `list`, `tuple`, `dict` and `str.join`, but is not lazy and can't be advanced with `next`. Snapshots keep closures, including cycles from recursive inner functions.
 
-Not supported yet: set comprehensions, lazy generators, loop `else`, type annotations, `*args`/`**kwargs`, decorators, walrus, classes, `yield`, `with`, `del`, `assert`, `async`/`await`, set literals, dict unpacking, bit operators, dotted imports, bytes/complex literals, nested format specs in f-strings, `str % args`, `type`/`isinstance`, slice assignment.
+Not supported yet: set comprehensions, lazy generators, loop `else`, type annotations, decorators, walrus, classes, `yield`, `with`, `del`, `assert`, `async`/`await`, set literals, dict unpacking, bit operators, dotted imports, bytes/complex literals, nested format specs in f-strings, `str % args`, `type`/`isinstance`, slice assignment.
 
 ### Differences from CPython
 
@@ -204,7 +204,7 @@ The test suite is large and uses CPython 3 as an oracle for language semantics; 
 
 - Blocks: graph serialization helpers, a block palette generated from host modules, comments and more block kinds.
 - Editor tooling: signature help and go-to-definition.
-- Language: classes, `type`/`isinstance`, `*args`/`**kwargs`, set literals and comprehensions, lazy generators (`yield`), dict views, slice assignment, big ints.
+- Language: classes, `type`/`isinstance`, set literals and comprehensions, lazy generators (`yield`), dict views, slice assignment, big ints.
 
 ## License
 
