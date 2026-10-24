@@ -15,6 +15,7 @@ A Python-style language parser, compiler and bytecode VM written in plain C#, de
 - Host API: register modules of native functions and constants; host objects are passed as plain-data handles (type id + id).
 - Python-style tracebacks with line numbers, and an error-tolerant lexer for editor tooling.
 - Editor tooling for in-game script editors: syntax highlighting, auto-complete and diagnostics that work on half-typed code.
+- Blocks: a Blueprint-style node graph (execution and value pins, user-made blocks) that compiles to ordinary Python source, with a source map back to the blocks.
 - Optional save and resume of a running task (globals, call stack, waits, queued events), for offline progress and save games.
 
 ## Quick start
@@ -94,6 +95,48 @@ foreach (var problem in Analyzer.Analyze(source))
 
 Passing the `PyVm` makes built-ins and host modules known: `game.` completes to the functions and constants of your `game` module, and `print` is coloured as a built-in. Completion offers the script's own names (respecting function scope), built-ins, keywords that make sense at that position, module names after `import`, members after `from m import`, and methods after a dot when the value's type is obvious from a literal, a constructor call or an assignment (otherwise every method name is offered).
 
+## Blocks
+
+The `CSharpPython.Blocks` namespace turns a visual node graph into Python source, so a block editor and a text editor share one runtime. The graph is plain serializable data (public fields, lists and strings, so `JsonUtility` or your own serializer can store it), and the compiler checks it as it writes, so a graph that compiles always produces a script the VM accepts.
+
+```csharp
+using CSharpPython.Blocks;
+
+var graph = new BlockGraph().AddVariable("hp", "100");
+
+// on_hit(amount): hp -= amount; if hp <= 0: game.explode()
+var onHit = new BlockFunction("on_hit", "amount") { Start = "sub" };
+onHit.Add(new BlockNode("sub", "change", "hp").Connect("value", "neg").Then("dead"));
+onHit.Add(new BlockNode("neg", "neg").Connect("a", "amount"));
+onHit.Add(new BlockNode("amount", "get", "amount"));
+onHit.Add(new BlockNode("dead", "if").Connect("cond", "low").Then("then", "boom"));
+onHit.Add(new BlockNode("low", "le").Connect("a", "hp").Literal("b", "0"));
+onHit.Add(new BlockNode("hp", "get", "hp"));
+onHit.Add(new BlockNode("boom", "call", "game.explode"));
+graph.AddFunction(onHit);
+
+var library = new BlockLibrary().AddFunction("explode", new string[0], module: "game");
+BlockCompileResult result = BlockCompiler.Compile(graph, library);
+
+if (result.Succeeded)
+    vm.Start(result.Source);                         // ordinary Python: "import game", "def on_hit(amount): ..."
+else
+    foreach (var d in result.Diagnostics) Highlight(d.NodeId, d.Pin, d.Message);
+
+// At run time, blame the block behind a failed task.
+string badBlock = result.Map.Locate(task.Error);
+```
+
+- **Execution and values.** Flow blocks (`set`, `change`, `if`, `while`, `repeat`, `for_each`, `break`, `continue`, `return`, `append`, `set_index`, calls) are chained through execution pins (`next`, `then`, `else`, `body`). Value blocks (`literal`, `get`, arithmetic, comparison, `and/or/not`, `neg`, `index`, `list`, pure calls) have no execution pins and are written inline wherever their output is used.
+- **Calls.** A `call` block names a function: a built-in (`print`, `len`, ...), a host function added to the `BlockLibrary` (`game.explode`; the `import` is written for you), or another function in the graph. Arguments are the pins `arg0`, `arg1`, .... A call that is not pure runs in the flow, and a later block may use its result as long as it runs after it, in the same or an enclosing branch.
+- **User-made blocks and events.** Every function in the graph becomes a `def`. A function whose name matches a host event is that event's handler; any function can also be called from other functions, which is how user-made blocks work.
+- **Globals.** Graph variables become module-level assignments, and `global` statements are written where functions assign them.
+- **Literals.** A typed-in value must be a single number, string, `True`, `False` or `None`, so editor input can never smuggle in code. `BlockLiterals.String(text)` quotes any text safely.
+- **Diagnostics.** Unknown blocks or pins, missing inputs, bad names, flow that loops or joins, results used before they exist, `break` outside a loop, values that depend on themselves and more are reported against the block and pin at fault. Blocks connected to nothing are warnings.
+- **Source map.** `SourceMap.NodeAt(line)` and `LinesOf(nodeId)` link generated lines and blocks, and `Locate(error)` finds the block behind a runtime error.
+
+Not in the first version: loops that wait for a changing call result (a `while` condition cannot use a stored call result; compute it inside the loop and use `if`/`break`), variadic calls, several outputs per block, and saving graphs to a file (use your own serializer).
+
 ## Language support
 
 Supported:
@@ -148,11 +191,12 @@ The test suite is large and uses CPython 3 as an oracle for language semantics; 
 - `src/CSharpPython.Core/Runtime` values, operators, builtins, methods
 - `src/CSharpPython.Core/Vm` `PyVm`, `PyTask`, host module API, snapshots
 - `src/CSharpPython.Core/Tooling` syntax highlighting, completion, diagnostics
+- `src/CSharpPython.Core/Blocks` block graph model, block library, graph-to-Python compiler, source map
 - `tests/CSharpPython.Tests` NUnit tests
 
 ## Roadmap
 
-- Blocks module: a Blueprint-style node graph that compiles to Python source with a source map; user-made blocks become `def`s.
+- Blocks: graph serialization helpers, a block palette generated from host modules, comments and more block kinds.
 - Editor tooling: signature help and go-to-definition.
 - Language: `key=` for `sorted`/`sort`, classes, comprehensions, `type`/`isinstance`, `finally`/`try-else`, `*args`/`**kwargs`, nested functions and lambdas, dict views, slice assignment, big ints.
 
