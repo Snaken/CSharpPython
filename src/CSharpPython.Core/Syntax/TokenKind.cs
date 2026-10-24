@@ -1,0 +1,34 @@
+namespace CSharpPython.Syntax
+{
+    /// <summary>The lexical categories produced by <see cref="Lexer"/>.</summary>
+    public enum TokenKind
+    {
+        EndOfFile,
+        Newline,
+        Indent,
+        Dedent,
+        /// <summary>A malformed piece of source. Only produced by the tolerant lexing mode.</summary>
+        Error,
+
+        Name,
+        Int,
+        Float,
+        String,
+        FString,
+
+        // Keywords.
+        KwDef, KwIf, KwElif, KwElse, KwWhile, KwFor, KwIn, KwReturn, KwBreak, KwContinue, KwPass,
+        KwAnd, KwOr, KwNot, KwIs, KwTrue, KwFalse, KwNone, KwGlobal,
+        KwTry, KwExcept, KwRaise, KwImport, KwFrom, KwAs,
+
+        /// <summary>A reserved Python keyword (class, lambda, yield, ...) that is not supported yet.</summary>
+        KwUnsupported,
+
+        // Operators and punctuation.
+        Plus, Minus, Star, Slash, DoubleSlash, Percent, DoubleStar,
+        Assign, EqEq, NotEq, Lt, Le, Gt, Ge,
+        PlusAssign, MinusAssign, StarAssign, SlashAssign, DoubleSlashAssign, PercentAssign, DoubleStarAssign,
+        LParen, RParen, LBracket, RBracket, LBrace, RBrace,
+        Comma, Colon, Dot, Semicolon,
+    }
+}
