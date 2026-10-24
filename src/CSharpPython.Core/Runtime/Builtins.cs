@@ -32,8 +32,8 @@ namespace CSharpPython
             yield return F("bool", 0, 1, (c, a) => Value.FromBool(a.Length > 0 && a[0].IsTruthy));
             yield return F("repr", 1, 1, (c, a) => Value.FromString(Ops.Repr(a[0])));
             yield return F("abs", 1, 1, Abs);
-            yield return F("min", 1, -1, (c, a) => MinMax(a, false));
-            yield return F("max", 1, -1, (c, a) => MinMax(a, true));
+            yield return F("min", 1, -1, (c, a) => MinMax(c, a, false), true);
+            yield return F("max", 1, -1, (c, a) => MinMax(c, a, true), true);
             yield return F("sum", 1, 2, Sum);
             yield return F("round", 1, 2, Round);
             yield return F("sorted", 1, 1, Sorted, true);
@@ -200,19 +200,31 @@ namespace CSharpPython
             throw Ops.TypeError("bad operand type for abs(): '" + v.TypeName + "'");
         }
 
-        private static Value MinMax(ReadOnlySpan<Value> a, bool max)
+        private static Value MinMax(CallContext ctx, ReadOnlySpan<Value> a, bool max)
         {
             string name = max ? "max" : "min";
-            IEnumerable<Value> items = a.Length == 1 ? Ops.ToList(a[0]) : a.ToArray();
-            bool first = true;
-            Value best = default;
-            foreach (var item in items)
+            foreach (var kw in ctx.KeywordNames)
+                if (kw != "key" && kw != "default") throw Ops.TypeError(name + "() got an unexpected keyword argument '" + kw + "'");
+            bool hasDefault = ctx.TryGetKeyword(a, "default", out Value fallback);
+            ctx.TryGetKeyword(a, "key", out Value key);
+            if (ctx.PositionalCount > 1 && hasDefault)
+                throw Ops.TypeError("Cannot specify a default for " + name + "() with multiple positional arguments");
+
+            List<Value> items = ctx.PositionalCount == 1 ? Ops.ToList(a[0]) : a.Slice(0, ctx.PositionalCount).ToArray().ToList();
+            if (items.Count == 0)
             {
-                if (first) { best = item; first = false; continue; }
-                if (Ops.Compare(item, best, max ? Ops.Order.Gt : Ops.Order.Lt)) best = item;
+                if (hasDefault) return fallback;
+                throw Ops.ValueError(name + "() arg is an empty sequence");
             }
-            if (first) throw Ops.ValueError(name + "() arg is an empty sequence");
-            return best;
+            Value[] keys = Methods.KeysFor(ctx, key, items);
+            int best = 0;
+            for (int i = 1; i < items.Count; i++)
+            {
+                Value candidate = keys == null ? items[i] : keys[i];
+                Value current = keys == null ? items[best] : keys[best];
+                if (Ops.Compare(candidate, current, max ? Ops.Order.Gt : Ops.Order.Lt)) best = i;
+            }
+            return items[best];
         }
 
         private static Value Sum(CallContext ctx, ReadOnlySpan<Value> a)
@@ -309,9 +321,9 @@ namespace CSharpPython
             foreach (var name in ctx.KeywordNames)
                 if (name != "reverse" && name != "key") throw Ops.TypeError("sorted() got an unexpected keyword argument '" + name + "'");
             if (ctx.TryGetKeyword(a, "reverse", out Value r)) reverse = r.IsTruthy;
-            if (ctx.TryGetKeyword(a, "key", out Value key) && !key.IsNone)
-                throw Ops.TypeError("sorted() key functions are not supported yet");
-            return Value.FromList(new PyList(Methods.SortValues(Ops.ToList(a[0]), reverse)));
+            ctx.TryGetKeyword(a, "key", out Value key);
+            var items = Ops.ToList(a[0]);
+            return Value.FromList(new PyList(Methods.SortValues(items, reverse, Methods.KeysFor(ctx, key, items))));
         }
 
         private static Value MakeDict(CallContext ctx, ReadOnlySpan<Value> a)

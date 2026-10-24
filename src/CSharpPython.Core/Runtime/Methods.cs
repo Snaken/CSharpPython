@@ -510,10 +510,9 @@ namespace CSharpPython
                     if (name != "reverse" && name != "key") throw Ops.TypeError("sort() got an unexpected keyword argument '" + name + "'");
                 }
                 if (c.TryGetKeyword(a, "reverse", out Value r)) reverse = r.IsTruthy;
-                if (c.TryGetKeyword(a, "key", out Value key) && !key.IsNone)
-                    throw Ops.TypeError("sort() key functions are not supported yet");
+                c.TryGetKeyword(a, "key", out Value key);
                 var list = a[0].AsList();
-                var sorted = SortValues(list.Items, reverse);
+                var sorted = SortValues(list.Items, reverse, KeysFor(c, key, list.Items));
                 list.Items.Clear();
                 list.Items.AddRange(sorted);
                 return Value.None;
@@ -523,12 +522,27 @@ namespace CSharpPython
             Add(t, "list", "copy", 0, 0, (c, a) => Value.FromList(new PyList(a[0].AsList().Items)));
         }
 
-        /// <summary>A stable sort using Python ordering. Raises TypeError for values that cannot be compared.</summary>
-        public static List<Value> SortValues(IEnumerable<Value> items, bool reverse)
+        /// <summary>
+        /// Calls the key function on every item, in order, or returns null when there is no key function. The result
+        /// is what the items are compared by.
+        /// </summary>
+        public static Value[] KeysFor(CallContext ctx, Value key, IReadOnlyList<Value> items)
+        {
+            if (key.IsNone) return null;
+            var keys = new Value[items.Count];
+            for (int i = 0; i < keys.Length; i++) keys[i] = ctx.Call(key, items[i]);
+            return keys;
+        }
+
+        /// <summary>
+        /// A stable sort using Python ordering. When <paramref name="keys"/> is given, items are ordered by the key at
+        /// the same position instead of by themselves. Raises TypeError for values that cannot be compared.
+        /// </summary>
+        public static List<Value> SortValues(IEnumerable<Value> items, bool reverse, Value[] keys = null)
         {
             try
             {
-                return SortCore(items, reverse);
+                return SortCore(items, reverse, keys);
             }
             catch (InvalidOperationException e) when (e.InnerException is PyError inner)
             {
@@ -537,20 +551,23 @@ namespace CSharpPython
             }
         }
 
-        private static List<Value> SortCore(IEnumerable<Value> items, bool reverse)
+        private static List<Value> SortCore(IEnumerable<Value> items, bool reverse, Value[] keys)
         {
-            var comparer = Comparer<Value>.Create((x, y) => Ops.Compare(x, y, Ops.Order.Lt) ? -1 : Ops.Compare(y, x, Ops.Order.Lt) ? 1 : 0);
             var list = items.ToList();
             if (list.Count < 2) return list;
+            if (keys == null) keys = list.ToArray();
+            var comparer = Comparer<int>.Create((x, y) =>
+                Ops.Compare(keys[x], keys[y], Ops.Order.Lt) ? -1 : Ops.Compare(keys[y], keys[x], Ops.Order.Lt) ? 1 : 0);
+            var order = Enumerable.Range(0, list.Count).ToList();
             if (reverse)
             {
                 // reverse=True keeps equal elements in their original order, like Python.
-                list.Reverse();
-                list = list.OrderBy(v => v, comparer).ToList();
-                list.Reverse();
-                return list;
+                order.Reverse();
+                order = order.OrderBy(v => v, comparer).ToList();
+                order.Reverse();
             }
-            return list.OrderBy(v => v, comparer).ToList();
+            else order = order.OrderBy(v => v, comparer).ToList();
+            return order.Select(i => list[i]).ToList();
         }
 
         // ---- dict -----------------------------------------------------------------------------------------------
