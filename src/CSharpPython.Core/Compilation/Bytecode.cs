@@ -39,6 +39,7 @@ namespace CSharpPython.Compilation
         BuildList,    // arg = count
         BuildTuple,
         BuildDict,    // arg = number of pairs
+        BuildSet,     // arg = count
         BuildString,  // arg = count of strings to concatenate
         FormatValue,  // value [spec] -> str; arg = conversion char | 0x100 when a spec is on the stack
 

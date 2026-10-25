@@ -354,7 +354,7 @@ namespace CSharpPython.Editor
                 case TokenKind.LBrace:
                 {
                     int close = Match(tokens, start);
-                    return close >= 0 && EndsSimply(tokens, close + 1) ? ValueKind.Dict : (ValueKind?)null;
+                    return close >= 0 && EndsSimply(tokens, close + 1) ? BraceKind(tokens, start, close) : (ValueKind?)null;
                 }
                 case TokenKind.LParen:
                 {
@@ -380,6 +380,7 @@ namespace CSharpPython.Editor
                 case "str": case "repr": case "chr": case "format": return ValueKind.Str;
                 case "list": case "sorted": return ValueKind.List;
                 case "dict": return ValueKind.Dict;
+                case "set": return ValueKind.Set;
                 case "tuple": return ValueKind.Tuple;
                 case "int": case "len": case "ord": return ValueKind.Int;
                 case "float": return ValueKind.Float;
@@ -437,6 +438,20 @@ namespace CSharpPython.Editor
                 }
             }
             return -1;
+        }
+
+        /// <summary>A brace pair holds a dict when it is empty or has a top-level ':', otherwise a set.</summary>
+        public static ValueKind BraceKind(List<Token> tokens, int open, int close)
+        {
+            int depth = 0;
+            for (int i = open + 1; i < close; i++)
+            {
+                var k = tokens[i].Kind;
+                if (k == TokenKind.LParen || k == TokenKind.LBracket || k == TokenKind.LBrace) depth++;
+                else if (k == TokenKind.RParen || k == TokenKind.RBracket || k == TokenKind.RBrace) depth--;
+                else if (k == TokenKind.Colon && depth == 0) return ValueKind.Dict;
+            }
+            return close == open + 1 ? ValueKind.Dict : ValueKind.Set;
         }
 
         private static bool HasTopLevelComma(List<Token> tokens, int open, int close)

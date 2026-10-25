@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Text;
 
 namespace CSharpPython
@@ -95,6 +96,13 @@ namespace CSharpPython
                     return;
                 }
                 case ValueKind.Dict: WriteDict(sb, (PyDict)v.RawObject, seen); return;
+                case ValueKind.Set:
+                {
+                    var set = (PySet)v.RawObject;
+                    if (set.Count == 0) { sb.Append("set()"); return; }
+                    WriteSequence(sb, set.Members().ToList(), set, "{", "}", seen);
+                    return;
+                }
                 case ValueKind.Range:
                 {
                     var r = (PyRange)v.RawObject;

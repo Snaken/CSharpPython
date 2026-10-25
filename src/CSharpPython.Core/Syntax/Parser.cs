@@ -563,6 +563,7 @@ namespace CSharpPython.Syntax
                 case BinaryExpr _:
                 case UnaryExpr _: what = "expression"; break;
                 case DictExpr _: what = "dict literal"; break;
+                case SetExpr _: what = "set display"; break;
                 case IfExpr _: what = "conditional expression"; break;
                 default: what = "expression"; break;
             }
@@ -925,10 +926,11 @@ namespace CSharpPython.Syntax
             }
 
             Expr Name(string n) => At(new NameExpr { Name = n }, open);
+            bool isSet = name == "<setcomp>";
             Stmt inner;
             if (value == null)
             {
-                var append = At(new CallExpr { Func = At(new AttributeExpr { Target = Name(".r"), Name = "append" }, open) }, open);
+                var append = At(new CallExpr { Func = At(new AttributeExpr { Target = Name(".r"), Name = isSet ? "add" : "append" }, open) }, open);
                 append.Args.Add(key);
                 inner = At(new ExprStmt { Value = append }, open);
             }
@@ -948,7 +950,7 @@ namespace CSharpPython.Syntax
 
             var def = At(new DefStmt { Name = name }, open);
             def.Params.Add(new Param { Name = ".0", Line = LineOf(open), Column = ColumnOf(open) });
-            Expr empty = value != null ? (Expr)At(new DictExpr(), open) : At(new ListExpr(), open);
+            Expr empty = value != null ? (Expr)At(new DictExpr(), open) : isSet ? At(new SetExpr(), open) : At(new ListExpr(), open);
             def.Body.Add(At(new AssignStmt { Value = empty, Targets = { Name(".r") } }, open));
             def.Body.Add(inner);
             def.Body.Add(At(new ReturnStmt { Value = Name(".r") }, open));
@@ -1030,7 +1032,10 @@ namespace CSharpPython.Syntax
                 if (Cur.Kind != TokenKind.Colon)
                 {
                     if (dict.Keys.Count == 0 && (Cur.Kind == TokenKind.Comma || Cur.Kind == TokenKind.RBrace || Cur.Kind == TokenKind.KwFor))
-                        throw Error("set literals and set comprehensions are not supported yet", Cur);
+                    {
+                        _noIn = saved;
+                        return ParseSetRest(open, key);
+                    }
                     throw Error("expected ':' in dictionary literal, found " + Describe(Cur), Cur);
                 }
                 Advance();
@@ -1048,6 +1053,31 @@ namespace CSharpPython.Syntax
             Expect(TokenKind.RBrace, "'}'");
             _noIn = saved;
             return dict;
+        }
+
+        // The rest of a set display, positioned after its first element.
+        private Expr ParseSetRest(Token open, Expr first)
+        {
+            bool saved = _noIn;
+            _noIn = false;
+            if (Cur.Kind == TokenKind.KwFor)
+            {
+                var comp = ParseComprehension(open, first, null, "<setcomp>");
+                Expect(TokenKind.RBrace, "'}'");
+                _noIn = saved;
+                return comp;
+            }
+            var set = At(new SetExpr(), open);
+            set.Items.Add(first);
+            while (Accept(TokenKind.Comma))
+            {
+                if (Cur.Kind == TokenKind.RBrace) break;
+                set.Items.Add(ParseTernary());
+            }
+            if (Cur.Kind == TokenKind.Colon) throw Error("':' makes no sense in a set; a dictionary needs a ':' after every key", Cur);
+            Expect(TokenKind.RBrace, "'}'");
+            _noIn = saved;
+            return set;
         }
 
         // ---- String literals ------------------------------------------------------------------------------------

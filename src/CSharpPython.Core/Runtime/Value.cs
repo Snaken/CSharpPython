@@ -46,6 +46,8 @@ namespace CSharpPython
 
         public static Value FromDict(PyDict dict) => new Value(ValueKind.Dict, 0, dict);
 
+        public static Value FromSet(PySet set) => new Value(ValueKind.Set, 0, set);
+
         public static Value FromRange(PyRange range) => new Value(ValueKind.Range, 0, range);
 
         internal static Value FromSlice(PySlice slice) => new Value(ValueKind.Slice, 0, slice);
@@ -96,6 +98,7 @@ namespace CSharpPython
         public bool IsList => Kind == ValueKind.List;
         public bool IsTuple => Kind == ValueKind.Tuple;
         public bool IsDict => Kind == ValueKind.Dict;
+        public bool IsSet => Kind == ValueKind.Set;
         public bool IsHandle => Kind == ValueKind.Handle;
 
         /// <summary>True for bool, int and float.</summary>
@@ -152,6 +155,12 @@ namespace CSharpPython
         {
             if (Kind == ValueKind.Dict) return (PyDict)_obj;
             throw new PyError("TypeError", "expected a dict, got " + TypeName);
+        }
+
+        public PySet AsSet()
+        {
+            if (Kind == ValueKind.Set) return (PySet)_obj;
+            throw new PyError("TypeError", "expected a set, got " + TypeName);
         }
 
         /// <summary>The host type id of a handle. Raises a Python TypeError for other kinds.</summary>

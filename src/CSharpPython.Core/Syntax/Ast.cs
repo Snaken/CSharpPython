@@ -103,6 +103,11 @@ namespace CSharpPython.Syntax
         public List<Expr> Items = new List<Expr>();
     }
 
+    public sealed class SetExpr : Expr
+    {
+        public List<Expr> Items = new List<Expr>();
+    }
+
     public sealed class DictExpr : Expr
     {
         public List<Expr> Keys = new List<Expr>();

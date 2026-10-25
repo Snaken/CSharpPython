@@ -84,6 +84,7 @@ namespace CSharpPython
             yield return F("sorted", 1, 1, Sorted, true);
             yield return F("list", 0, 1, (c, a) => Value.FromList(new PyList(a.Length == 0 ? new List<Value>() : Ops.ToList(a[0]))));
             yield return F("tuple", 0, 1, (c, a) => Value.FromTuple(new PyTuple(a.Length == 0 ? new Value[0] : Ops.ToList(a[0]).ToArray())));
+            yield return F("set", 0, 1, (c, a) => a.Length == 0 ? Value.FromSet(new PySet()) : Value.FromSet(Methods.ToSet(a[0]).Copy()));
             yield return F("dict", 0, 1, MakeDict, true);
             yield return F("enumerate", 1, 2, Enumerate, true);
             yield return F("zip", 0, -1, (c, a) =>
@@ -427,7 +428,7 @@ namespace CSharpPython
         private static Value Reversed(CallContext ctx, ReadOnlySpan<Value> a)
         {
             Value v = a[0];
-            if (v.Kind == ValueKind.Iterator || v.Kind == ValueKind.Int || v.Kind == ValueKind.Float || v.Kind == ValueKind.Bool || v.Kind == ValueKind.None)
+            if (v.Kind == ValueKind.Iterator || v.Kind == ValueKind.Set || v.Kind == ValueKind.Int || v.Kind == ValueKind.Float || v.Kind == ValueKind.Bool || v.Kind == ValueKind.None)
                 throw Ops.TypeError("'" + v.TypeName + "' object is not reversible");
             var items = Ops.ToList(v);
             items.Reverse();

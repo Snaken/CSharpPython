@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 
 namespace CSharpPython
 {
@@ -112,7 +113,16 @@ namespace CSharpPython
         }
 
         public static Value AddInPlace(Value a, Value b) => TryInPlace(a, "__iadd__", b, out Value r) ? r : Add(a, b);
-        public static Value SubInPlace(Value a, Value b) => TryInPlace(a, "__isub__", b, out Value r) ? r : Sub(a, b);
+        public static Value SubInPlace(Value a, Value b)
+        {
+            if (a.Kind == ValueKind.Set && b.Kind == ValueKind.Set)
+            {
+                var target = (PySet)a.RawObject;
+                foreach (var v in ((PySet)b.RawObject).Members().ToList()) target.Remove(v);
+                return a;
+            }
+            return TryInPlace(a, "__isub__", b, out Value r) ? r : Sub(a, b);
+        }
         public static Value MulInPlace(Value a, Value b) => TryInPlace(a, "__imul__", b, out Value r) ? r : Mul(a, b);
         public static Value DivInPlace(Value a, Value b) => TryInPlace(a, "__itruediv__", b, out Value r) ? r : Div(a, b);
         public static Value FloorDivInPlace(Value a, Value b) => TryInPlace(a, "__ifloordiv__", b, out Value r) ? r : FloorDiv(a, b);

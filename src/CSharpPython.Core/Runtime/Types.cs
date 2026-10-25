@@ -39,6 +39,7 @@ namespace CSharpPython
         public static readonly PyType List = Define("list", ValueKind.List);
         public static readonly PyType Tuple = Define("tuple", ValueKind.Tuple);
         public static readonly PyType Dict = Define("dict", ValueKind.Dict);
+        public static readonly PyType Set = Define("set", ValueKind.Set);
         public static readonly PyType Range = Define("range", ValueKind.Range);
         public static readonly PyType Slice = Define("slice", ValueKind.Slice);
         public static readonly PyType Function = Define("function", ValueKind.Function);

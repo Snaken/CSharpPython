@@ -55,7 +55,7 @@ namespace CSharpPython
 
     internal sealed class SnapshotWriter
     {
-        private const byte ContainerList = 0, ContainerTuple = 1, ContainerDict = 2, ContainerCell = 3, ContainerClass = 4, ContainerInstance = 5;
+        private const byte ContainerList = 0, ContainerTuple = 1, ContainerDict = 2, ContainerCell = 3, ContainerClass = 4, ContainerInstance = 5, ContainerSet = 6;
 
         private readonly PyVm _vm;
         private readonly Script _script;
@@ -92,6 +92,9 @@ namespace CSharpPython
                             Collect(pair.Key);
                             Collect(pair.Value);
                         }
+                    break;
+                case ValueKind.Set:
+                    if (AddContainer(v)) Collect(Value.FromDict(((PySet)v.RawObject).Items));
                     break;
                 case ValueKind.Class:
                     if (AddContainer(v))
@@ -225,6 +228,12 @@ namespace CSharpPython
                         var items = ((PyTuple)c.RawObject).Items;
                         w.Write(items.Length);
                         foreach (var item in items) WriteValue(pw, item);
+                        break;
+                    }
+                    case ValueKind.Set:
+                    {
+                        w.Write(ContainerSet);
+                        WriteValue(pw, Value.FromDict(((PySet)c.RawObject).Items));
                         break;
                     }
                     case ValueKind.Cell:
@@ -440,6 +449,7 @@ namespace CSharpPython
                 case ValueKind.List:
                 case ValueKind.Tuple:
                 case ValueKind.Dict:
+                case ValueKind.Set:
                 case ValueKind.Cell:
                 case ValueKind.Class:
                 case ValueKind.Instance:
@@ -470,7 +480,7 @@ namespace CSharpPython
                     foreach (var member in module.Value.Members)
                         if (member.Value.Kind == ValueKind.Native && !_natives.ContainsKey((NativeFunction)member.Value.RawObject))
                             _natives[(NativeFunction)member.Value.RawObject] = "m:" + module.Key + ":" + member.Key;
-                foreach (var kind in new[] { ValueKind.Str, ValueKind.List, ValueKind.Dict, ValueKind.Tuple })
+                foreach (var kind in new[] { ValueKind.Str, ValueKind.List, ValueKind.Dict, ValueKind.Tuple, ValueKind.Set })
                     foreach (var name in Methods.NamesOf(kind))
                     {
                         var method = Methods.Find(kind, name);
@@ -525,6 +535,7 @@ namespace CSharpPython
                     case 3: shells[i] = new Cell(Value.Unbound); break;
                     case 4: shells[i] = new PyClass(null, null, new PyDict()); break;
                     case 5: shells[i] = new PyInstance(null); break;
+                    case 6: shells[i] = new PySet(); break;
                     default: throw new SnapshotException("the snapshot is damaged");
                 }
                 lengths[i] = SnapshotIo.ReadCount(r, 1);
@@ -553,9 +564,9 @@ namespace CSharpPython
             }
 
             // Fill containers: tuples, then lists, then dicts.
-            for (byte pass = 1; pass <= 6; pass++)
+            for (byte pass = 1; pass <= 7; pass++)
             {
-                int kind = pass == 1 ? 1 : pass == 2 ? 3 : pass == 3 ? 0 : pass == 4 ? 2 : pass == 5 ? 4 : 5;
+                int kind = pass == 1 ? 1 : pass == 2 ? 3 : pass == 3 ? 0 : pass == 4 ? 2 : pass == 5 ? 4 : pass == 6 ? 5 : 6;
                 for (int i = 0; i < containers; i++)
                     if (kinds[i] == kind) FillContainer(i);
             }
@@ -609,6 +620,14 @@ namespace CSharpPython
                     if (c.Kind != ValueKind.Class) throw new SnapshotException("the snapshot is damaged");
                     inst.Class = (PyClass)c.RawObject;
                     ReadPairs(r, inst.Fields);
+                    break;
+                }
+                case PySet set:
+                {
+                    Value d = ReadValue(r);
+                    if (d.Kind != ValueKind.Dict) throw new SnapshotException("the snapshot is damaged");
+                    set.Items = (PyDict)d.RawObject;
+                    set.Items.ForSet = true;
                     break;
                 }
                 case PyDict dict:
@@ -818,6 +837,7 @@ namespace CSharpPython
                 case ValueKind.List: return Value.FromList((PyList)ContainerAs(r.ReadInt32(), typeof(PyList)));
                 case ValueKind.Tuple: return Value.FromTuple((PyTuple)ContainerAs(r.ReadInt32(), typeof(PyTuple)));
                 case ValueKind.Dict: return Value.FromDict((PyDict)ContainerAs(r.ReadInt32(), typeof(PyDict)));
+                case ValueKind.Set: return Value.FromSet((PySet)ContainerAs(r.ReadInt32(), typeof(PySet)));
                 case ValueKind.Cell: return Value.FromCell((Cell)ContainerAs(r.ReadInt32(), typeof(Cell)));
                 case ValueKind.Class: return Value.FromClass((PyClass)ContainerAs(r.ReadInt32(), typeof(PyClass)));
                 case ValueKind.Instance: return Value.FromInstance((PyInstance)ContainerAs(r.ReadInt32(), typeof(PyInstance)));

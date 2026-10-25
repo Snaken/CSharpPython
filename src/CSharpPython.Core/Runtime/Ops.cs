@@ -39,6 +39,7 @@ namespace CSharpPython
                 case ValueKind.List: return "list";
                 case ValueKind.Tuple: return "tuple";
                 case ValueKind.Dict: return "dict";
+                case ValueKind.Set: return "set";
                 case ValueKind.Range: return "range";
                 case ValueKind.Slice: return "slice";
                 case ValueKind.Function: return "function";
@@ -69,6 +70,7 @@ namespace CSharpPython
                 case ValueKind.List: return ((PyList)v.RawObject).Count != 0;
                 case ValueKind.Tuple: return ((PyTuple)v.RawObject).Count != 0;
                 case ValueKind.Dict: return ((PyDict)v.RawObject).Count != 0;
+                case ValueKind.Set: return ((PySet)v.RawObject).Count != 0;
                 case ValueKind.Range: return ((PyRange)v.RawObject).Length != 0;
                 case ValueKind.Instance: return InstanceTruthy(v);
                 default: return true;
@@ -100,6 +102,7 @@ namespace CSharpPython
                     return SequenceEqual(((PyTuple)a.RawObject).Items, ((PyTuple)b.RawObject).Items, depth);
                 case ValueKind.Dict:
                     return DictEqual((PyDict)a.RawObject, (PyDict)b.RawObject, depth);
+                case ValueKind.Set: return SetEqual((PySet)a.RawObject, (PySet)b.RawObject);
                 case ValueKind.Handle: return a.RawAux == b.RawAux && a.RawInt == b.RawInt;
                 case ValueKind.Range:
                 {
@@ -159,6 +162,7 @@ namespace CSharpPython
                 case ValueKind.Instance: return InstanceHash(v);
                 case ValueKind.List:
                 case ValueKind.Dict:
+                case ValueKind.Set:
                 case ValueKind.Slice:
                     throw TypeError("unhashable type: '" + TypeName(v) + "'");
                 case ValueKind.Range:
@@ -230,6 +234,7 @@ namespace CSharpPython
                 return Value.FromInt(r);
             }
             if (a.IsNumber && b.IsNumber) return Value.FromFloat(a.AsFloat() - b.AsFloat());
+            if (a.Kind == ValueKind.Set && b.Kind == ValueKind.Set) return Value.FromSet(SetDifference((PySet)a.RawObject, (PySet)b.RawObject));
             if (a.Kind == ValueKind.Instance || b.Kind == ValueKind.Instance) return InstanceBinary(a, b, "__sub__", "__rsub__", "-");
             throw BadOperands("-", a, b);
         }
@@ -443,6 +448,7 @@ namespace CSharpPython
                 return CompareSequences(((PyList)a.RawObject).Items, ((PyList)b.RawObject).Items, o, depth);
             if (a.Kind == ValueKind.Tuple && b.Kind == ValueKind.Tuple)
                 return CompareSequences(((PyTuple)a.RawObject).Items, ((PyTuple)b.RawObject).Items, o, depth);
+            if (a.Kind == ValueKind.Set && b.Kind == ValueKind.Set) return CompareSets((PySet)a.RawObject, (PySet)b.RawObject, o);
             if (a.Kind == ValueKind.Instance || b.Kind == ValueKind.Instance) return CompareOp(a, b, o).IsTruthy;
             throw TypeError("'" + OrderSymbol(o) + "' not supported between instances of '" + TypeName(a) + "' and '" + TypeName(b) + "'");
         }
@@ -456,6 +462,35 @@ namespace CSharpPython
                 if (!Equal(x[i], y[i], depth + 1)) return Compare(x[i], y[i], o, depth + 1);
             }
             return Apply(o, x.Count.CompareTo(y.Count));
+        }
+
+        // ---- Sets -----------------------------------------------------------------------------------------------
+
+        private static bool SetEqual(PySet x, PySet y) => ReferenceEquals(x, y) || x.Count == y.Count && IsSubset(x, y);
+
+        internal static bool IsSubset(PySet x, PySet y)
+        {
+            if (x.Count > y.Count) return false;
+            foreach (var v in x.Members()) if (!y.Contains(v)) return false;
+            return true;
+        }
+
+        private static bool CompareSets(PySet x, PySet y, Order o)
+        {
+            switch (o)
+            {
+                case Order.Le: return IsSubset(x, y);
+                case Order.Lt: return x.Count < y.Count && IsSubset(x, y);
+                case Order.Ge: return IsSubset(y, x);
+                default: return y.Count < x.Count && IsSubset(y, x);
+            }
+        }
+
+        internal static PySet SetDifference(PySet x, PySet y)
+        {
+            var result = new PySet();
+            foreach (var v in x.Members()) if (!y.Contains(v)) result.Add(v);
+            return result;
         }
 
         // ---- Membership, length, indexing -----------------------------------------------------------------------
@@ -476,6 +511,8 @@ namespace CSharpPython
                     return false;
                 case ValueKind.Dict:
                     return ((PyDict)container.RawObject).ContainsKey(item);
+                case ValueKind.Set:
+                    return ((PySet)container.RawObject).Contains(item);
                 case ValueKind.Range:
                 {
                     var r = (PyRange)container.RawObject;
@@ -507,6 +544,7 @@ namespace CSharpPython
                 case ValueKind.List: return ((PyList)v.RawObject).Count;
                 case ValueKind.Tuple: return ((PyTuple)v.RawObject).Count;
                 case ValueKind.Dict: return ((PyDict)v.RawObject).Count;
+                case ValueKind.Set: return ((PySet)v.RawObject).Count;
                 case ValueKind.Range: return ((PyRange)v.RawObject).Length;
                 case ValueKind.Instance: return InstanceLength(v);
                 default: throw TypeError("object of type '" + TypeName(v) + "' has no len()");
@@ -676,6 +714,7 @@ namespace CSharpPython
                 case ValueKind.Tuple: return new TupleIterator((PyTuple)v.RawObject);
                 case ValueKind.Str: return new StringIterator((string)v.RawObject);
                 case ValueKind.Dict: return new DictKeyIterator((PyDict)v.RawObject);
+                case ValueKind.Set: return new DictKeyIterator(((PySet)v.RawObject).Items);
                 case ValueKind.Range: return new RangeIterator((PyRange)v.RawObject);
                 case ValueKind.Iterator: return (PyIterator)v.RawObject;
                 case ValueKind.Instance: return InstanceIterate(v);

@@ -489,6 +489,15 @@ namespace CSharpPython
                         Push(Value.FromDict(dict));
                         break;
                     }
+                    case Op.BuildSet:
+                    {
+                        var set = new PySet();
+                        int start = _sp - ins.Arg;
+                        for (int k = 0; k < ins.Arg; k++) set.Add(_stack[start + k]);
+                        _sp = start;
+                        Push(Value.FromSet(set));
+                        break;
+                    }
                     case Op.ListAppend:
                     {
                         Value item = _stack[--_sp];
@@ -501,7 +510,8 @@ namespace CSharpPython
                     {
                         Value source = _stack[--_sp];
                         if (source.Kind != ValueKind.List && source.Kind != ValueKind.Tuple && source.Kind != ValueKind.Str
-                            && source.Kind != ValueKind.Range && source.Kind != ValueKind.Dict && source.Kind != ValueKind.Iterator)
+                            && source.Kind != ValueKind.Range && source.Kind != ValueKind.Dict && source.Kind != ValueKind.Set && source.Kind != ValueKind.Iterator
+                            && !(source.Kind == ValueKind.Instance && Ops.IsIterable(source)))
                             throw new PyError("TypeError", "argument after * must be an iterable, not " + source.TypeName);
                         var list = (PyList)_stack[_sp - 1].RawObject;
                         list.Items.AddRange(Ops.ToList(source));
@@ -850,7 +860,7 @@ namespace CSharpPython
                     {
                         Value seq = _stack[--_sp];
                         if (seq.Kind != ValueKind.List && seq.Kind != ValueKind.Tuple && seq.Kind != ValueKind.Str
-                            && seq.Kind != ValueKind.Range && seq.Kind != ValueKind.Dict && seq.Kind != ValueKind.Iterator
+                            && seq.Kind != ValueKind.Range && seq.Kind != ValueKind.Dict && seq.Kind != ValueKind.Set && seq.Kind != ValueKind.Iterator
                             && !(seq.Kind == ValueKind.Instance && Ops.IsIterable(seq)))
                             throw new PyError("TypeError", "cannot unpack non-iterable " + seq.TypeName + " object");
                         var items = Ops.ToList(seq);

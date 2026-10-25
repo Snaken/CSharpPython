@@ -70,7 +70,7 @@ namespace CSharpPython.Editor
         private static readonly string[] ExpressionKeywords = { "and", "or", "not", "in", "is", "if", "else", "lambda" };
         private static readonly string[] Constants = { "True", "False", "None" };
 
-        private static readonly ValueKind[] MethodKinds = { ValueKind.Str, ValueKind.List, ValueKind.Dict, ValueKind.Tuple };
+        private static readonly ValueKind[] MethodKinds = { ValueKind.Str, ValueKind.List, ValueKind.Dict, ValueKind.Tuple, ValueKind.Set };
 
         /// <summary>
         /// Suggests completions at <paramref name="offset"/> in <paramref name="source"/>. Never throws. The list is
@@ -214,8 +214,11 @@ namespace CSharpPython.Editor
                     return true;
                 }
                 case TokenKind.RBrace:
-                    type = SourceModel.MatchBackward(before, dot - 1) >= 0 ? ValueKind.Dict : (ValueKind?)null;
+                {
+                    int open = SourceModel.MatchBackward(before, dot - 1);
+                    type = open >= 0 ? SourceModel.BraceKind(before, open, dot - 1) : (ValueKind?)null;
                     return true;
+                }
                 case TokenKind.RParen:
                 {
                     int open = SourceModel.MatchBackward(before, dot - 1);

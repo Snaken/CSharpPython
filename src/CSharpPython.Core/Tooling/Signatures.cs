@@ -44,6 +44,7 @@ namespace CSharpPython.Editor
             { "setattr", "obj, name, value" },
             { "hasattr", "obj, name" },
             { "hash", "obj" },
+            { "set", "iterable=()" },
             { "iter", "obj" },
             { "next", "iterator, default=None" },
 
@@ -76,6 +77,14 @@ namespace CSharpPython.Editor
             { "dict.get", "key, default=None" }, { "dict.keys", "" }, { "dict.values", "" }, { "dict.items", "" },
             { "dict.pop", "key, default=None" }, { "dict.setdefault", "key, default=None" },
             { "dict.update", "other=None, **kwargs" }, { "dict.clear", "" }, { "dict.copy", "" },
+
+            // set methods.
+            { "set.add", "x" }, { "set.remove", "x" }, { "set.discard", "x" }, { "set.pop", "" }, { "set.clear", "" },
+            { "set.copy", "" }, { "set.update", "*iterables" }, { "set.union", "*iterables" },
+            { "set.intersection", "*iterables" }, { "set.difference", "*iterables" },
+            { "set.symmetric_difference", "other" }, { "set.intersection_update", "*iterables" },
+            { "set.difference_update", "*iterables" }, { "set.symmetric_difference_update", "other" },
+            { "set.issubset", "other" }, { "set.issuperset", "other" }, { "set.isdisjoint", "other" },
 
             // tuple methods.
             { "tuple.index", "x, start=0, end=None" }, { "tuple.count", "x" },

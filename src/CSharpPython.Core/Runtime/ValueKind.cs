@@ -36,5 +36,7 @@ namespace CSharpPython
         ScriptMethod,
         /// <summary>The <c>NotImplemented</c> value a special method returns to decline an operation.</summary>
         NotImplemented,
+        /// <summary>A <c>set</c>, see <see cref="PySet"/>.</summary>
+        Set,
     }
 }

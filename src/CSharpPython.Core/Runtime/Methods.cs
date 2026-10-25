@@ -12,6 +12,7 @@ namespace CSharpPython
         private static readonly Dictionary<string, NativeFunction> ListMethods = new Dictionary<string, NativeFunction>();
         private static readonly Dictionary<string, NativeFunction> DictMethods = new Dictionary<string, NativeFunction>();
         private static readonly Dictionary<string, NativeFunction> TupleMethods = new Dictionary<string, NativeFunction>();
+        private static readonly Dictionary<string, NativeFunction> SetMethods = new Dictionary<string, NativeFunction>();
 
         // What super() reaches once the script classes run out: the methods every object has. They are looked up by
         // name when a snapshot is restored, which is why they live in a table instead of being made on the spot.
@@ -26,6 +27,7 @@ namespace CSharpPython
                 case ValueKind.List: table = ListMethods; break;
                 case ValueKind.Dict: table = DictMethods; break;
                 case ValueKind.Tuple: table = TupleMethods; break;
+                case ValueKind.Set: table = SetMethods; break;
                 case ValueKind.Instance: table = InstanceMethods; break;
                 default: return null;
             }
@@ -41,6 +43,7 @@ namespace CSharpPython
                 case ValueKind.List: return ListMethods.Keys;
                 case ValueKind.Dict: return DictMethods.Keys;
                 case ValueKind.Tuple: return TupleMethods.Keys;
+                case ValueKind.Set: return SetMethods.Keys;
                 default: return Enumerable.Empty<string>();
             }
         }
@@ -57,6 +60,7 @@ namespace CSharpPython
             InstallList();
             InstallDict();
             InstallTuple();
+            InstallSet();
             InstallInstance();
         }
 
@@ -650,6 +654,117 @@ namespace CSharpPython
                 foreach (var kv in a[0].AsDict().Pairs()) copy.Set(kv.Key, kv.Value);
                 return Value.FromDict(copy);
             });
+        }
+
+        // ---- set ------------------------------------------------------------------------------------------------
+
+        /// <summary>The members of a set or of any iterable, as a set (the set itself when it already is one).</summary>
+        public static PySet ToSet(Value iterable)
+        {
+            if (iterable.Kind == ValueKind.Set) return (PySet)iterable.RawObject;
+            var set = new PySet();
+            foreach (var v in Ops.ToList(iterable)) set.Add(v);
+            return set;
+        }
+
+        private static void InstallSet()
+        {
+            var t = SetMethods;
+            Add(t, "set", "add", 1, 1, (c, a) => { a[0].AsSet().Add(a[1]); return Value.None; });
+            Add(t, "set", "remove", 1, 1, (c, a) =>
+            {
+                if (!a[0].AsSet().Remove(a[1])) throw new PyError("KeyError", Ops.Repr(a[1]));
+                return Value.None;
+            });
+            Add(t, "set", "discard", 1, 1, (c, a) => { a[0].AsSet().Remove(a[1]); return Value.None; });
+            Add(t, "set", "pop", 0, 0, (c, a) =>
+            {
+                var s = a[0].AsSet();
+                foreach (var v in s.Members())
+                {
+                    s.Remove(v);
+                    return v;
+                }
+                throw new PyError("KeyError", "'pop from an empty set'");
+            });
+            Add(t, "set", "clear", 0, 0, (c, a) => { a[0].AsSet().Items.Clear(); return Value.None; });
+            Add(t, "set", "copy", 0, 0, (c, a) => Value.FromSet(a[0].AsSet().Copy()));
+            Add(t, "set", "update", 0, -1, (c, a) =>
+            {
+                var s = a[0].AsSet();
+                for (int i = 1; i < a.Length; i++) foreach (var v in Ops.ToList(a[i])) s.Add(v);
+                return Value.None;
+            });
+            Add(t, "set", "union", 0, -1, (c, a) =>
+            {
+                var result = a[0].AsSet().Copy();
+                for (int i = 1; i < a.Length; i++) foreach (var v in Ops.ToList(a[i])) result.Add(v);
+                return Value.FromSet(result);
+            });
+            Add(t, "set", "intersection", 0, -1, (c, a) =>
+            {
+                var result = a[0].AsSet().Copy();
+                for (int i = 1; i < a.Length; i++) result = SetIntersection(result, ToSet(a[i]));
+                return Value.FromSet(result);
+            });
+            Add(t, "set", "difference", 0, -1, (c, a) =>
+            {
+                var result = a[0].AsSet().Copy();
+                for (int i = 1; i < a.Length; i++) result = Ops.SetDifference(result, ToSet(a[i]));
+                return Value.FromSet(result);
+            });
+            Add(t, "set", "symmetric_difference", 1, 1, (c, a) =>
+                Value.FromSet(SetSymmetricDifference(a[0].AsSet(), ToSet(a[1]))));
+            Add(t, "set", "intersection_update", 0, -1, (c, a) =>
+            {
+                var s = a[0].AsSet();
+                for (int i = 1; i < a.Length; i++) ReplaceMembers(s, SetIntersection(s, ToSet(a[i])));
+                return Value.None;
+            });
+            Add(t, "set", "difference_update", 0, -1, (c, a) =>
+            {
+                var s = a[0].AsSet();
+                for (int i = 1; i < a.Length; i++) ReplaceMembers(s, Ops.SetDifference(s, ToSet(a[i])));
+                return Value.None;
+            });
+            Add(t, "set", "symmetric_difference_update", 1, 1, (c, a) =>
+            {
+                var s = a[0].AsSet();
+                ReplaceMembers(s, SetSymmetricDifference(s, ToSet(a[1])));
+                return Value.None;
+            });
+            Add(t, "set", "issubset", 1, 1, (c, a) => Value.FromBool(Ops.IsSubset(a[0].AsSet(), ToSet(a[1]))));
+            Add(t, "set", "issuperset", 1, 1, (c, a) => Value.FromBool(Ops.IsSubset(ToSet(a[1]), a[0].AsSet())));
+            Add(t, "set", "isdisjoint", 1, 1, (c, a) =>
+            {
+                var x = a[0].AsSet();
+                foreach (var v in Ops.ToList(a[1])) if (x.Contains(v)) return Value.False;
+                return Value.True;
+            });
+        }
+
+        internal static PySet SetIntersection(PySet x, PySet y)
+        {
+            var result = new PySet();
+            foreach (var v in x.Members()) if (y.Contains(v)) result.Add(v);
+            return result;
+        }
+
+        internal static PySet SetSymmetricDifference(PySet x, PySet y)
+        {
+            var result = new PySet();
+            foreach (var v in x.Members()) if (!y.Contains(v)) result.Add(v);
+            foreach (var v in y.Members()) if (!x.Contains(v)) result.Add(v);
+            return result;
+        }
+
+        // Rewrites a set in place so that references to it (and iterators over it) see the new members.
+        private static void ReplaceMembers(PySet target, PySet members)
+        {
+            if (ReferenceEquals(target, members)) return;
+            var keep = members.Members().ToList();
+            target.Items.Clear();
+            foreach (var v in keep) target.Add(v);
         }
 
         /// <summary>Copies the entries of a dict, or of an iterable of key/value pairs, into <paramref name="target"/>.</summary>

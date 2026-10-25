@@ -141,9 +141,9 @@ namespace CSharpPython
         public override bool Next(out Value value)
         {
             if (_dict.Count != _count)
-                throw new PyError("RuntimeError", "dictionary changed size during iteration");
+                throw new PyError("RuntimeError", _dict.ForSet ? "Set changed size during iteration" : "dictionary changed size during iteration");
             if (_dict.Version != _version)
-                throw new PyError("RuntimeError", "dictionary changed during iteration");
+                throw new PyError("RuntimeError", _dict.ForSet ? "Set changed size during iteration" : "dictionary changed during iteration");
             while (_slot < _dict.SlotCount)
             {
                 if (_dict.TryGetEntry(_slot++, out value, out _)) return true;

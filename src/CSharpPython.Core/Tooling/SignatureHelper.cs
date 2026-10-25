@@ -41,7 +41,7 @@ namespace CSharpPython.Editor
     /// </summary>
     public static class SignatureHelper
     {
-        private static readonly ValueKind[] MethodKinds = { ValueKind.Str, ValueKind.List, ValueKind.Dict, ValueKind.Tuple };
+        private static readonly ValueKind[] MethodKinds = { ValueKind.Str, ValueKind.List, ValueKind.Dict, ValueKind.Tuple, ValueKind.Set };
 
         /// <summary>
         /// Returns the signature for the innermost call open at <paramref name="offset"/>, or null when the cursor

@@ -25,6 +25,39 @@ namespace CSharpPython
         public int Count => Items.Length;
     }
 
+    /// <summary>
+    /// A Python set. It keeps its members as the keys of an insertion-ordered dictionary, so iteration order is the
+    /// order of insertion (CPython's depends on hashes) and it snapshots and iterates like a dict.
+    /// </summary>
+    public sealed class PySet
+    {
+        internal PyDict Items;
+
+        public PySet() { Items = new PyDict { ForSet = true }; }
+
+        public int Count => Items.Count;
+
+        // Like CPython, looking up a set finds nothing instead of complaining that it cannot be hashed (members are
+        // never sets, because sets are unhashable).
+        public bool Contains(Value v) => v.Kind != ValueKind.Set && Items.ContainsKey(v);
+
+        public void Add(Value v) => Items.Set(v, Value.None);
+
+        public bool Remove(Value v) => v.Kind != ValueKind.Set && Items.Remove(v);
+
+        public IEnumerable<Value> Members()
+        {
+            foreach (var kv in Items.Pairs()) yield return kv.Key;
+        }
+
+        public PySet Copy()
+        {
+            var copy = new PySet();
+            foreach (var v in Members()) copy.Add(v);
+            return copy;
+        }
+    }
+
     /// <summary>A Python range. Lengths are computed, never materialised.</summary>
     public sealed class PyRange
     {
@@ -83,6 +116,9 @@ namespace CSharpPython
         // After a snapshot restore the entries are known but the lookup index is not built yet: hashing a key may
         // run a script's __hash__, which needs the restored task to be running. EnsureIndex builds it on first use.
         private bool _pending;
+
+        /// <summary>True when this dictionary holds the members of a set, which only changes error wording.</summary>
+        internal bool ForSet;
 
         public int Count
         {

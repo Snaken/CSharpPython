@@ -337,6 +337,9 @@ namespace CSharpPython.Compilation
                 case TupleExpr t:
                     foreach (var item in t.Items) VisitExpr(item);
                     break;
+                case SetExpr se:
+                    foreach (var item in se.Items) VisitExpr(item);
+                    break;
                 case DictExpr d:
                     foreach (var k in d.Keys) VisitExpr(k);
                     foreach (var v in d.Values) VisitExpr(v);

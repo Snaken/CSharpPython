@@ -646,6 +646,10 @@ namespace CSharpPython.Compilation
                     foreach (var item in t.Items) CompileExpr(item);
                     Emit(Op.BuildTuple, t.Items.Count);
                     break;
+                case SetExpr se:
+                    foreach (var item in se.Items) CompileExpr(item);
+                    Emit(Op.BuildSet, se.Items.Count);
+                    break;
                 case DictExpr d:
                     for (int i = 0; i < d.Keys.Count; i++)
                     {
