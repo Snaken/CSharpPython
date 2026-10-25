@@ -31,6 +31,7 @@ namespace CSharpPython
         private static readonly Dictionary<string, PyExceptionType> ByName = new Dictionary<string, PyExceptionType>();
 
         public static readonly PyExceptionType Exception = Define("Exception", null);
+        public static readonly PyExceptionType AssertionError = Define("AssertionError", Exception);
         public static readonly PyExceptionType ArithmeticError = Define("ArithmeticError", Exception);
         public static readonly PyExceptionType ZeroDivisionError = Define("ZeroDivisionError", ArithmeticError);
         public static readonly PyExceptionType OverflowError = Define("OverflowError", ArithmeticError);

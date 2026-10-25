@@ -418,6 +418,19 @@ namespace CSharpPython.Syntax
             switch (tok.Kind)
             {
                 case TokenKind.KwPass: Advance(); return At(new PassStmt(), tok);
+                case TokenKind.KwAssert:
+                {
+                    // 'assert cond, message' is 'if not cond: raise AssertionError(message)'.
+                    Advance();
+                    var test = ParseTernary();
+                    var raise = At(new RaiseStmt(), tok);
+                    var error = At(new CallExpr { Func = At(new NameExpr { Name = "AssertionError" }, tok) }, tok);
+                    if (Accept(TokenKind.Comma)) error.Args.Add(ParseTernary());
+                    raise.Value = error;
+                    var node = At(new IfStmt { Test = At(new UnaryExpr { Op = UnaryOp.Not, Operand = test }, tok) }, tok);
+                    node.Body.Add(raise);
+                    return node;
+                }
                 case TokenKind.KwDel:
                 {
                     Advance();
