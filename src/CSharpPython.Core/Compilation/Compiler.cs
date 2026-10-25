@@ -290,7 +290,7 @@ namespace CSharpPython.Compilation
                     LoadName(n.Name);
                     CompileExpr(a.Value);
                     SetLine(a);
-                    Emit(BinaryOpCode(a.Op));
+                    Emit(BinaryOpCode(a.Op), 1); // an augmented assignment tries the in-place method first
                     StoreName(n.Name);
                     break;
                 case AttributeExpr attr:
@@ -300,7 +300,7 @@ namespace CSharpPython.Compilation
                     Emit(Op.LoadAttr, Name(attr.Name));
                     CompileExpr(a.Value);
                     SetLine(a);
-                    Emit(BinaryOpCode(a.Op));
+                    Emit(BinaryOpCode(a.Op), 1); // an augmented assignment tries the in-place method first
                     Emit(Op.Rot2);
                     Emit(Op.StoreAttr, Name(attr.Name));
                     break;
@@ -312,7 +312,7 @@ namespace CSharpPython.Compilation
                     Emit(Op.LoadIndex);
                     CompileExpr(a.Value);
                     SetLine(a);
-                    Emit(BinaryOpCode(a.Op));
+                    Emit(BinaryOpCode(a.Op), 1); // an augmented assignment tries the in-place method first
                     Emit(Op.Rot3);
                     Emit(Op.StoreIndex);
                     break;

@@ -187,6 +187,13 @@ namespace CSharpPython
                     return Value.FromInt((long)d);
                 }
                 case ValueKind.Str: return ParseInt(v.AsString(), 10);
+                case ValueKind.Instance:
+                    if (Ops.TryCallDunder(v, "__int__", Array.Empty<Value>(), out Value converted))
+                    {
+                        if (converted.Kind != ValueKind.Int) throw Ops.TypeError("__int__ returned non-int (type " + converted.TypeName + ")");
+                        return converted;
+                    }
+                    throw Ops.TypeError("int() argument must be a string or a number, not '" + v.TypeName + "'");
                 default:
                     throw Ops.TypeError("int() argument must be a string or a number, not '" + v.TypeName + "'");
             }
@@ -231,6 +238,11 @@ namespace CSharpPython
             if (a.Length == 0) return Value.FromFloat(0.0);
             Value v = a[0];
             if (v.IsNumber) return Value.FromFloat(v.AsFloat());
+            if (v.Kind == ValueKind.Instance && Ops.TryCallDunder(v, "__float__", Array.Empty<Value>(), out Value converted))
+            {
+                if (converted.Kind != ValueKind.Float) throw Ops.TypeError(v.TypeName + ".__float__ returned non-float (type " + converted.TypeName + ")");
+                return converted;
+            }
             if (v.Kind != ValueKind.Str) throw Ops.TypeError("float() argument must be a string or a number, not '" + v.TypeName + "'");
             string s = v.AsString().Trim().Replace("_", "");
             switch (s.ToLowerInvariant())
@@ -254,6 +266,7 @@ namespace CSharpPython
                 return Value.FromInt(Math.Abs(v.RawInt));
             }
             if (v.Kind == ValueKind.Float) return Value.FromFloat(Math.Abs(v.RawFloat));
+            if (v.Kind == ValueKind.Instance && Ops.TryCallDunder(v, "__abs__", Array.Empty<Value>(), out Value result)) return result;
             throw Ops.TypeError("bad operand type for abs(): '" + v.TypeName + "'");
         }
 

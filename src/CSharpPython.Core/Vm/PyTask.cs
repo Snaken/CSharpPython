@@ -576,43 +576,43 @@ namespace CSharpPython
                     case Op.Add:
                     {
                         Value b = _stack[--_sp];
-                        _stack[_sp - 1] = Ops.Add(_stack[_sp - 1], b);
+                        _stack[_sp - 1] = ins.Arg != 0 ? Ops.AddInPlace(_stack[_sp - 1], b) : Ops.Add(_stack[_sp - 1], b);
                         break;
                     }
                     case Op.Sub:
                     {
                         Value b = _stack[--_sp];
-                        _stack[_sp - 1] = Ops.Sub(_stack[_sp - 1], b);
+                        _stack[_sp - 1] = ins.Arg != 0 ? Ops.SubInPlace(_stack[_sp - 1], b) : Ops.Sub(_stack[_sp - 1], b);
                         break;
                     }
                     case Op.Mul:
                     {
                         Value b = _stack[--_sp];
-                        _stack[_sp - 1] = Ops.Mul(_stack[_sp - 1], b);
+                        _stack[_sp - 1] = ins.Arg != 0 ? Ops.MulInPlace(_stack[_sp - 1], b) : Ops.Mul(_stack[_sp - 1], b);
                         break;
                     }
                     case Op.Div:
                     {
                         Value b = _stack[--_sp];
-                        _stack[_sp - 1] = Ops.Div(_stack[_sp - 1], b);
+                        _stack[_sp - 1] = ins.Arg != 0 ? Ops.DivInPlace(_stack[_sp - 1], b) : Ops.Div(_stack[_sp - 1], b);
                         break;
                     }
                     case Op.FloorDiv:
                     {
                         Value b = _stack[--_sp];
-                        _stack[_sp - 1] = Ops.FloorDiv(_stack[_sp - 1], b);
+                        _stack[_sp - 1] = ins.Arg != 0 ? Ops.FloorDivInPlace(_stack[_sp - 1], b) : Ops.FloorDiv(_stack[_sp - 1], b);
                         break;
                     }
                     case Op.Mod:
                     {
                         Value b = _stack[--_sp];
-                        _stack[_sp - 1] = Ops.Mod(_stack[_sp - 1], b);
+                        _stack[_sp - 1] = ins.Arg != 0 ? Ops.ModInPlace(_stack[_sp - 1], b) : Ops.Mod(_stack[_sp - 1], b);
                         break;
                     }
                     case Op.Pow:
                     {
                         Value b = _stack[--_sp];
-                        _stack[_sp - 1] = Ops.Pow(_stack[_sp - 1], b);
+                        _stack[_sp - 1] = ins.Arg != 0 ? Ops.PowInPlace(_stack[_sp - 1], b) : Ops.Pow(_stack[_sp - 1], b);
                         break;
                     }
 

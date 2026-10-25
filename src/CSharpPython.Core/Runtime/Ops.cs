@@ -216,6 +216,7 @@ namespace CSharpPython
                     }
                 }
             }
+            if (a.Kind == ValueKind.Instance || b.Kind == ValueKind.Instance) return InstanceBinary(a, b, "__add__", "__radd__", "+");
             throw BadOperands("+", a, b);
         }
 
@@ -229,6 +230,7 @@ namespace CSharpPython
                 return Value.FromInt(r);
             }
             if (a.IsNumber && b.IsNumber) return Value.FromFloat(a.AsFloat() - b.AsFloat());
+            if (a.Kind == ValueKind.Instance || b.Kind == ValueKind.Instance) return InstanceBinary(a, b, "__sub__", "__rsub__", "-");
             throw BadOperands("-", a, b);
         }
 
@@ -244,6 +246,7 @@ namespace CSharpPython
             if (a.IsNumber && b.IsNumber) return Value.FromFloat(a.AsFloat() * b.AsFloat());
             if (b.IsIntLike() && IsRepeatable(a)) return Repeat(a, b.RawInt);
             if (a.IsIntLike() && IsRepeatable(b)) return Repeat(b, a.RawInt);
+            if (a.Kind == ValueKind.Instance || b.Kind == ValueKind.Instance) return InstanceBinary(a, b, "__mul__", "__rmul__", "*");
             throw BadOperands("*", a, b);
         }
 
@@ -285,7 +288,11 @@ namespace CSharpPython
 
         public static Value Div(Value a, Value b)
         {
-            if (!a.IsNumber || !b.IsNumber) throw BadOperands("/", a, b);
+            if (!a.IsNumber || !b.IsNumber)
+            {
+                if (a.Kind == ValueKind.Instance || b.Kind == ValueKind.Instance) return InstanceBinary(a, b, "__truediv__", "__rtruediv__", "/");
+                throw BadOperands("/", a, b);
+            }
             double y = b.AsFloat();
             if (y == 0.0) throw new PyError("ZeroDivisionError", "division by zero");
             return Value.FromFloat(a.AsFloat() / y);
@@ -293,7 +300,11 @@ namespace CSharpPython
 
         public static Value FloorDiv(Value a, Value b)
         {
-            if (!a.IsNumber || !b.IsNumber) throw BadOperands("//", a, b);
+            if (!a.IsNumber || !b.IsNumber)
+            {
+                if (a.Kind == ValueKind.Instance || b.Kind == ValueKind.Instance) return InstanceBinary(a, b, "__floordiv__", "__rfloordiv__", "//");
+                throw BadOperands("//", a, b);
+            }
             if (a.IsIntLike() && b.IsIntLike())
             {
                 long x = a.RawInt, y = b.RawInt;
@@ -314,7 +325,11 @@ namespace CSharpPython
 
         public static Value Mod(Value a, Value b)
         {
-            if (!a.IsNumber || !b.IsNumber) throw BadOperands("%", a, b);
+            if (!a.IsNumber || !b.IsNumber)
+            {
+                if (a.Kind == ValueKind.Instance || b.Kind == ValueKind.Instance) return InstanceBinary(a, b, "__mod__", "__rmod__", "%");
+                throw BadOperands("%", a, b);
+            }
             if (a.IsIntLike() && b.IsIntLike())
             {
                 long x = a.RawInt, y = b.RawInt;
@@ -333,7 +348,11 @@ namespace CSharpPython
 
         public static Value Pow(Value a, Value b)
         {
-            if (!a.IsNumber || !b.IsNumber) throw BadOperands("** or pow()", a, b);
+            if (!a.IsNumber || !b.IsNumber)
+            {
+                if (a.Kind == ValueKind.Instance || b.Kind == ValueKind.Instance) return InstanceBinary(a, b, "__pow__", "__rpow__", "** or pow()");
+                throw BadOperands("** or pow()", a, b);
+            }
             if (a.IsIntLike() && b.IsIntLike() && b.RawInt >= 0)
             {
                 long result = 1, bas = a.RawInt, e = b.RawInt;
@@ -363,6 +382,7 @@ namespace CSharpPython
                 return Value.FromInt(-v.RawInt);
             }
             if (v.Kind == ValueKind.Float) return Value.FromFloat(-v.RawFloat);
+            if (v.Kind == ValueKind.Instance && TryCallDunder(v, "__neg__", Array.Empty<Value>(), out Value negated)) return negated;
             throw TypeError("bad operand type for unary -: '" + TypeName(v) + "'");
         }
 
@@ -370,6 +390,7 @@ namespace CSharpPython
         {
             if (v.IsIntLike()) return Value.FromInt(v.RawInt);
             if (v.Kind == ValueKind.Float) return v;
+            if (v.Kind == ValueKind.Instance && TryCallDunder(v, "__pos__", Array.Empty<Value>(), out Value positive)) return positive;
             throw TypeError("bad operand type for unary +: '" + TypeName(v) + "'");
         }
 

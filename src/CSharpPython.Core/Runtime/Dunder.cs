@@ -95,6 +95,30 @@ namespace CSharpPython
             return System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(instance);
         }
 
+        // ---- Arithmetic -----------------------------------------------------------------------------------------
+
+        // a + b and the like, when an operand is an instance. Same-class operands do not try the reflected method.
+        private static Value InstanceBinary(Value a, Value b, string method, string reflected, string symbol)
+        {
+            if (TryBinary(a, b, method, reflected, false, out Value r)) return r;
+            throw BadOperands(symbol, a, b);
+        }
+
+        // The augmented assignments (+=, ...) use __iadd__ and friends first, and then fall back to the plain operator.
+        private static bool TryInPlace(Value a, string method, Value b, out Value result)
+        {
+            result = default;
+            return a.Kind == ValueKind.Instance && TryOne(a, method, b, out result);
+        }
+
+        public static Value AddInPlace(Value a, Value b) => TryInPlace(a, "__iadd__", b, out Value r) ? r : Add(a, b);
+        public static Value SubInPlace(Value a, Value b) => TryInPlace(a, "__isub__", b, out Value r) ? r : Sub(a, b);
+        public static Value MulInPlace(Value a, Value b) => TryInPlace(a, "__imul__", b, out Value r) ? r : Mul(a, b);
+        public static Value DivInPlace(Value a, Value b) => TryInPlace(a, "__itruediv__", b, out Value r) ? r : Div(a, b);
+        public static Value FloorDivInPlace(Value a, Value b) => TryInPlace(a, "__ifloordiv__", b, out Value r) ? r : FloorDiv(a, b);
+        public static Value ModInPlace(Value a, Value b) => TryInPlace(a, "__imod__", b, out Value r) ? r : Mod(a, b);
+        public static Value PowInPlace(Value a, Value b) => TryInPlace(a, "__ipow__", b, out Value r) ? r : Pow(a, b);
+
         // ---- Truth value and length -----------------------------------------------------------------------------
 
         private static bool InstanceTruthy(Value v)
