@@ -156,9 +156,9 @@ namespace CSharpPython.Tests.Vm
         }
 
         [Test]
-        public void CloseEndsTheGeneratorWithoutRunningFinally()
+        public void CloseRunsFinallyAndEndsTheGenerator()
         {
-            Assert.That(Out("def f():\n    try:\n        yield 1\n    finally:\n        print('fin')\ng = f()\nnext(g)\ng.close()\nprint(list(g))"), Is.EqualTo("[]"));
+            Assert.That(Out("def f():\n    try:\n        yield 1\n    finally:\n        print('fin')\ng = f()\nnext(g)\ng.close()\nprint(list(g))"), Is.EqualTo("fin\n[]"));
         }
 
         [Test]

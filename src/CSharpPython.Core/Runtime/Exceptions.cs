@@ -157,6 +157,9 @@ namespace CSharpPython
             }
         }
 
+        /// <summary>The value a <c>StopIteration</c> carries: what the generator returned. None for other exceptions.</summary>
+        public Value Payload;
+
         /// <summary>The innermost frame first. Filled in when the exception is raised.</summary>
         public List<TraceFrame> Trace = new List<TraceFrame>();
 

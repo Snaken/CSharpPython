@@ -169,12 +169,17 @@ namespace CSharpPython
                     break;
                 }
                 case ValueKind.Exception:
+                {
+                    var exc = (PyExceptionValue)obj.RawObject;
                     if (name == "args")
                     {
-                        string message = ((PyExceptionValue)obj.RawObject).Message;
-                        return message.Length == 0 ? Value.Tuple() : Value.Tuple(Value.FromString(message));
+                        if (exc.Payload.Kind != ValueKind.None) return Value.Tuple(exc.Payload);
+                        return exc.Message.Length == 0 ? Value.Tuple() : Value.Tuple(Value.FromString(exc.Message));
                     }
+                    if (name == "value" && exc.Type.IsSubclassOf(ExceptionTypes.StopIteration))
+                        return exc.Payload.Kind != ValueKind.None ? exc.Payload : exc.Message.Length == 0 ? Value.None : Value.FromString(exc.Message);
                     break;
+                }
             }
             if (Methods.FindFor(obj, name) is NativeFunction method)
                 return Value.FromBound(new BoundMethod(obj, method));

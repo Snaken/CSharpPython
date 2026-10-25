@@ -70,6 +70,7 @@ namespace CSharpPython
             if (first.Kind != ValueKind.Iterator || !(first.RawObject is PyGenerator g)) return -1;
             Value sent = Value.None;
             Value dflt = Value.Unbound;
+            if (fn.StepKind == 4 || fn.StepKind == 5) return ThrowIntoGenerator(g, fn.StepKind == 5, calleeIndex, start, count);
             switch (fn.StepKind)
             {
                 case 1:
@@ -88,6 +89,53 @@ namespace CSharpPython
             }
             ResumeGenerator(g, sent, calleeIndex, GenMode.Call, dflt);
             return CallFrame;
+        }
+
+        // g.throw(type[, value]) and g.close(): resume the generator with an exception raised at its last yield, so its
+        // except and finally blocks run (and can wait). close() raises GeneratorExit and succeeds when it comes out
+        // again, or when the generator ends; see GenMode.Close in Yield, Return and Unwind.
+        private int ThrowIntoGenerator(PyGenerator g, bool close, int calleeIndex, int start, int count)
+        {
+            PyExceptionValue raised;
+            if (close) raised = new PyExceptionValue(ExceptionTypes.GeneratorExit, "");
+            else raised = ExceptionToThrow(_stack[start + 1], count > 2 ? _stack[start + 2] : Value.None);
+
+            if (g.State == GeneratorState.Running) throw new PyError("ValueError", "generator already executing");
+            if (g.State != GeneratorState.Suspended)
+            {
+                // Never started, or finished: nothing runs. throw() raises in the caller; close() just closes.
+                g.State = GeneratorState.Done;
+                g.Saved = null;
+                if (!close) throw new ScriptRaise(raised);
+                _sp = calleeIndex;
+                Push(Value.None);
+                return CallDone;
+            }
+            ResumeGenerator(g, Value.None, calleeIndex, close ? GenMode.Close : GenMode.Call, Value.Unbound);
+            _sp--; // the value a resumed yield would have received
+            throw new ScriptRaise(raised);
+        }
+
+        // The exception g.throw(type, value) raises: an exception instance as it is, or a class called with the value.
+        private PyExceptionValue ExceptionToThrow(Value type, Value value)
+        {
+            PyExceptionValue exc = null;
+            if (type.Kind == ValueKind.ExceptionType)
+            {
+                string message = value.Kind == ValueKind.None ? "" : Ops.Str(value);
+                exc = new PyExceptionValue((PyExceptionType)type.RawObject, message);
+            }
+            else if (type.Kind == ValueKind.Class && ((PyClass)type.RawObject).ExceptionRoot != null)
+            {
+                exc = AsException(CallSync(type, value.Kind == ValueKind.None ? Array.Empty<Value>() : new[] { value }));
+            }
+            else if (value.Kind == ValueKind.None)
+            {
+                exc = AsException(type);
+            }
+            if (exc == null)
+                throw new PyError("TypeError", "exceptions must be classes or instances deriving from BaseException, not " + type.TypeName);
+            return exc;
         }
 
         /// <summary>Resumes a generator for a native function and runs it to its next yield. False when it finished.</summary>

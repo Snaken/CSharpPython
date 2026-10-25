@@ -458,10 +458,10 @@ namespace CSharpPython.Compilation
             CompileExpr(y.Value);
             SetLine(y);
             Emit(Op.GetIter);
+            Emit(Op.LoadConst, Constant(Value.None)); // what send() delivered; None before the first item
             int top = Here;
-            int forIter = Emit(Op.ForIter);
+            int forIter = Emit(Op.ForIterSend);
             Emit(Op.Yield);
-            Emit(Op.Pop); // what send() delivered; not passed on to the inner iterator
             Emit(Op.Jump, top);
             Patch(forIter);
             Emit(Op.GenReturn);

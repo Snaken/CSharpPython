@@ -7,7 +7,7 @@ namespace CSharpPython
 {
     public sealed partial class PyTask
     {
-        private const ushort SnapshotVersion = 9;
+        private const ushort SnapshotVersion = 10;
         private static readonly byte[] SnapshotMagic = { (byte)'C', (byte)'S', (byte)'P', (byte)'Y' };
 
         // The deepest value stack a restored snapshot may claim, so that damaged data cannot ask for gigabytes.
@@ -250,7 +250,7 @@ namespace CSharpPython
                     f.Generator = running;
                 else if (generator.Kind != ValueKind.None) throw new SnapshotException("the snapshot is damaged");
                 byte genMode = r.ReadByte();
-                if (genMode > (byte)GenMode.Sync || (genMode != 0) != (f.Generator != null)) throw new SnapshotException("the snapshot is damaged");
+                if (genMode > (byte)GenMode.Close || (genMode != 0) != (f.Generator != null)) throw new SnapshotException("the snapshot is damaged");
                 f.GenMode = (GenMode)genMode;
                 f.GenDefault = reader.ReadValue(r);
                 if (f.Pc < 0 || f.Pc > code.Instructions.Length || f.Base < 0 || f.Base + code.NumLocals > sp ||

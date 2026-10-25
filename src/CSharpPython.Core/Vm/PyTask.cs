@@ -40,7 +40,7 @@ namespace CSharpPython
         }
 
         // How a generator was resumed.
-        private enum GenMode { None, Call, For, Sync }
+        private enum GenMode { None, Call, For, Sync, Close }
 
         // Raised by 'raise' so that it travels the same path as errors thrown by native code.
         // Thrown when a call made by a native function runs past MaxSteps; the task then fails with StepLimitExceeded.
@@ -67,6 +67,10 @@ namespace CSharpPython
         internal static bool IsAttributeError(Exception e) =>
             e is PyError p ? p.TypeName == "AttributeError"
             : e is ScriptRaise r && r.Exception.Type.IsSubclassOf(ExceptionTypes.AttributeError);
+
+        // StopIteration as next() raises it when a generator returns: the returned value is its 'value'.
+        private static ScriptRaise StopIterationWith(Value result) =>
+            new ScriptRaise(new PyExceptionValue(ExceptionTypes.StopIteration, "") { Payload = result });
 
         private struct PendingEvent
         {
@@ -857,6 +861,29 @@ namespace CSharpPython
                         }
                         break;
                     }
+                    case Op.ForIterSend:
+                    {
+                        // Like ForIter, but the value on top (what send() delivered to 'yield from') goes to the generator.
+                        Value sentValue = _stack[--_sp];
+                        var iterator = (PyIterator)_stack[_sp - 1].RawObject;
+                        if (iterator is PyGenerator sendGen && sendGen.State != GeneratorState.Done)
+                        {
+                            ResumeGenerator(sendGen, sentValue, _sp, GenMode.For, Value.Unbound);
+                            frame = _frames[_frameCount - 1];
+                            code = frame.Code;
+                            instructions = code.Instructions;
+                            pc = frame.Pc;
+                            bas = frame.Base;
+                        }
+                        else if (!(iterator is PyGenerator) && iterator.Next(out Value sendNext)) Push(sendNext);
+                        else
+                        {
+                            _sp--;
+                            pc = ins.Arg;
+                            _lastReturn = Value.None;
+                        }
+                        break;
+                    }
                     case Op.GenReturn:
                         Push(_lastReturn);
                         _lastReturn = Value.None;
@@ -864,6 +891,15 @@ namespace CSharpPython
                     case Op.Yield:
                     {
                         Value yielded = _stack[--_sp];
+                        if (frame.GenMode == GenMode.Close)
+                        {
+                            // close() ran the generator and it yielded instead of finishing.
+                            int closeTo = frame.CalleeIndex;
+                            FinishGenerator(frame);
+                            _sp = closeTo;
+                            _frameCount--;
+                            throw new PyError("RuntimeError", "generator ignored GeneratorExit");
+                        }
                         bool yieldToNative = frame.GenMode == GenMode.Sync || frame.IsBoundary;
                         int yieldTo = frame.CalleeIndex;
                         SuspendGenerator(frame);
@@ -956,7 +992,7 @@ namespace CSharpPython
                             {
                                 // Resumed by native code: it learns of the end from the flag, or from next(g, default).
                                 bool defaulted = endMode == GenMode.Call && endDefault.Kind != ValueKind.Unbound;
-                                if (endMode == GenMode.Call && !defaulted) throw new PyError("StopIteration", "");
+                                if (endMode == GenMode.Call && !defaulted) throw StopIterationWith(result);
                                 _boundaryResult = defaulted ? endDefault : default;
                                 _boundaryDone = !defaulted;
                                 _boundaryHit = true;
@@ -973,8 +1009,9 @@ namespace CSharpPython
                                 pc = instructions[pc - 1].Arg;
                                 frame.Pc = pc;
                             }
+                            else if (endMode == GenMode.Close) Push(Value.None);
                             else if (endDefault.Kind != ValueKind.Unbound) Push(endDefault);
-                            else throw new PyError("StopIteration", "");
+                            else throw StopIterationWith(result);
                             break;
                         }
                         if (frame.IsConstructor)
@@ -1592,6 +1629,14 @@ namespace CSharpPython
                 {
                     f.Generator.State = GeneratorState.Done;
                     f.Generator.Saved = null;
+                    if (f.GenMode == GenMode.Close && (exc.Type.IsSubclassOf(ExceptionTypes.GeneratorExit) || exc.Type.IsSubclassOf(ExceptionTypes.StopIteration)))
+                    {
+                        // The generator let GeneratorExit through (or ended): that is how close() succeeds.
+                        _sp = f.CalleeIndex;
+                        _frameCount--;
+                        Push(Value.None);
+                        return true;
+                    }
                     if (exc.Type.IsSubclassOf(ExceptionTypes.StopIteration))
                         exc = new PyExceptionValue(ExceptionTypes.GetOrCreate("RuntimeError"), "generator raised StopIteration") { Trace = exc.Trace };
                 }

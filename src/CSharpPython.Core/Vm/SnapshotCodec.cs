@@ -155,7 +155,7 @@ namespace CSharpPython
                     }
                     break;
                 case ValueKind.Exception:
-                    AddLeaf(v);
+                    if (AddLeaf(v)) Collect(((PyExceptionValue)v.RawObject).Payload);
                     break;
                 case ValueKind.Iterator:
                     if (AddLeaf(v)) CollectIterator((PyIterator)v.RawObject);
@@ -377,6 +377,7 @@ namespace CSharpPython
                         SnapshotIo.WriteString(w, f.Function);
                         w.Write(f.Line);
                     }
+                    WriteValue(w, e.Payload);
                     break;
                 }
                 default:
@@ -804,6 +805,7 @@ namespace CSharpPython
                         string fn = SnapshotIo.ReadString(r);
                         exc.Trace.Add(new TraceFrame(fn, r.ReadInt32()));
                     }
+                    exc.Payload = ReadValue(r);
                     _objects[id] = exc;
                     break;
                 }

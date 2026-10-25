@@ -125,6 +125,7 @@ namespace CSharpPython.Compilation
         LoadSuper,    // -> super().names[arg], bound to the first argument of the running method
         LoadSuper2,   // class obj -> super(class, obj).names[arg]
         Yield,        // value -> sent; suspends the generator, giving value to whoever resumed it
+        ForIterSend,  // iterator sent -> iterator value, or pops the iterator and jumps to arg when exhausted; 'yield from'
         GenReturn,    // -> the value the last exhausted generator returned (None for other iterators); ends 'yield from'
     }
 

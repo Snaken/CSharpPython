@@ -726,6 +726,8 @@ namespace CSharpPython
             var t = IteratorMethods;
             Add(t, "generator", "__next__", 0, 0, (c, a) => StepIterator(a[0], Value.None, "__next__"));
             Add(t, "generator", "send", 1, 1, (c, a) => StepIterator(a[0], a[1], "send"));
+            // Run as frames by PyTask.ThrowIntoGenerator when called on a generator; the bodies below serve other iterators.
+            Add(t, "generator", "throw", 1, 2, (c, a) => throw new PyError("AttributeError", "'iterator' object has no attribute 'throw'"));
             Add(t, "generator", "close", 0, 0, (c, a) =>
             {
                 if (!(a[0].RawObject is PyGenerator g)) throw new PyError("AttributeError", "'iterator' object has no attribute 'close'");
@@ -735,6 +737,8 @@ namespace CSharpPython
             Add(t, "generator", "__iter__", 0, 0, (c, a) => a[0]);
             t["__next__"].StepKind = 3;
             t["send"].StepKind = 2;
+            t["throw"].StepKind = 4;
+            t["close"].StepKind = 5;
         }
 
         private static Value StepIterator(Value iterator, Value sent, string method)
