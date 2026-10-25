@@ -31,7 +31,7 @@ namespace CSharpPython.Syntax
             { "raise", TokenKind.KwRaise }, { "import", TokenKind.KwImport }, { "from", TokenKind.KwFrom },
             { "as", TokenKind.KwAs }, { "class", TokenKind.KwClass },
             { "yield", TokenKind.KwUnsupported }, { "with", TokenKind.KwUnsupported },
-            { "del", TokenKind.KwUnsupported }, { "assert", TokenKind.KwUnsupported }, { "async", TokenKind.KwUnsupported },
+            { "del", TokenKind.KwDel }, { "assert", TokenKind.KwUnsupported }, { "async", TokenKind.KwUnsupported },
             { "await", TokenKind.KwUnsupported },
         };
 

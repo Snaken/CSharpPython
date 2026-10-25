@@ -117,7 +117,7 @@ namespace CSharpPython.Editor
                     case TokenKind.Indent:
                     case TokenKind.Dedent: continue;
                     default:
-                        kind = t.Kind >= TokenKind.KwDef && t.Kind <= TokenKind.KwAs ? HighlightKind.Keyword
+                        kind = t.Kind >= TokenKind.KwDef && t.Kind < TokenKind.KwUnsupported ? HighlightKind.Keyword
                             : IsPunctuation(t.Kind) ? HighlightKind.Punctuation : HighlightKind.Operator;
                         break;
                 }

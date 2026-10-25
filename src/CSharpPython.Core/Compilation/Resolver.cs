@@ -112,6 +112,13 @@ namespace CSharpPython.Compilation
                 case ImportFromStmt i:
                     for (int k = 0; k < i.Names.Count; k++) Bind(i.Aliases[k] ?? i.Names[k]);
                     break;
+                case DelStmt d:
+                    foreach (var t in d.Targets)
+                    {
+                        if (t is NameExpr n) Bind(n.Name); // deleting a name makes it local, like assigning
+                        else VisitExpr(t);
+                    }
+                    break;
                 case PassStmt _:
                     break;
             }

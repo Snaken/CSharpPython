@@ -75,6 +75,14 @@ namespace CSharpPython
                     if (module.Members.TryGetValue(name, out Value member)) return member;
                     throw new PyError("AttributeError", "module '" + module.Name + "' has no attribute '" + name + "'");
                 }
+                case ValueKind.Slice:
+                {
+                    var slice = (PySlice)obj.RawObject;
+                    if (name == "start") return slice.Start;
+                    if (name == "stop") return slice.Stop;
+                    if (name == "step") return slice.Step;
+                    break;
+                }
                 case ValueKind.Exception:
                     if (name == "args")
                     {
@@ -86,6 +94,25 @@ namespace CSharpPython
             if (Methods.Find(obj.Kind, name) is NativeFunction method)
                 return Value.FromBound(new BoundMethod(obj, method));
             throw NoAttribute(obj, name);
+        }
+
+        public static void DelAttr(Value obj, string name)
+        {
+            var key = Value.FromString(name);
+            if (obj.Kind == ValueKind.Instance)
+            {
+                if (!((PyInstance)obj.RawObject).Fields.Remove(key)) throw NoAttribute(obj, name);
+                return;
+            }
+            if (obj.Kind == ValueKind.Class)
+            {
+                var cls = (PyClass)obj.RawObject;
+                if (!cls.Namespace.Remove(key)) throw new PyError("AttributeError", "type object '" + cls.Name + "' has no attribute '" + name + "'");
+                return;
+            }
+            if (obj.Kind == ValueKind.Module)
+                throw new PyError("AttributeError", "module attributes are read-only");
+            throw new PyError("AttributeError", "'" + TypeName(obj) + "' object has no attribute '" + name + "' and no __dict__ for setting new attributes");
         }
 
         public static void SetAttr(Value obj, string name, Value value)
@@ -102,7 +129,7 @@ namespace CSharpPython
             }
             if (obj.Kind == ValueKind.Module)
                 throw new PyError("AttributeError", "module attributes are read-only");
-            throw new PyError("AttributeError", "'" + TypeName(obj) + "' object has no attribute '" + name + "' and does not support assignment");
+            throw new PyError("AttributeError", "'" + TypeName(obj) + "' object has no attribute '" + name + "' and no __dict__ for setting new attributes");
         }
     }
 }

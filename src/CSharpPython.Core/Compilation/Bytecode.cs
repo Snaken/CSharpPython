@@ -108,6 +108,12 @@ namespace CSharpPython.Compilation
 
         ClassNamespace, // -> dict of the class body's assigned names; ends a class body
         BuildClass,   // name [base] namespace -> class; arg = number of bases (0 or 1)
+        DeleteLocal,  // arg = slot; the variable becomes unbound
+        DeleteCell,   // arg = slot holding a cell
+        DeleteFree,   // arg = index into the function's closure
+        DeleteGlobal, // arg = name index
+        DeleteAttr,   // obj -> ; arg = name index
+        DeleteIndex,  // obj index ->
         LoadSuper,    // -> super().names[arg], bound to the first argument of the running method
         LoadSuper2,   // class obj -> super(class, obj).names[arg]
     }
@@ -189,16 +195,21 @@ namespace CSharpPython.Compilation
                     case Op.LoadAttr:
                     case Op.StoreAttr:
                     case Op.LoadMethod:
+                    case Op.DeleteGlobal:
+                    case Op.DeleteAttr:
                     case Op.LoadSuper:
                     case Op.LoadSuper2:
                     case Op.Import:
                     case Op.ImportFrom: sb.Append(' ').Append(Names[ins.Arg]); break;
                     case Op.LoadLocal:
                     case Op.StoreLocal: sb.Append(' ').Append(ins.Arg); break;
+                    case Op.DeleteLocal:
                     case Op.MakeCell:
+                    case Op.DeleteCell:
                     case Op.LoadCell:
                     case Op.StoreCell:
                     case Op.LoadCellRef: sb.Append(' ').Append(LocalNames[ins.Arg]); break;
+                    case Op.DeleteFree:
                     case Op.LoadFree:
                     case Op.StoreFree:
                     case Op.LoadFreeRef: sb.Append(' ').Append(FreeNames[ins.Arg]); break;
@@ -236,6 +247,7 @@ namespace CSharpPython.Compilation
                     case Op.NotIn:
                     case Op.LoadIndex:
                     case Op.StoreIndex:
+                    case Op.DeleteIndex:
                     case Op.BuildSlice:
                     case Op.GetIter:
                     case Op.ListAppend:

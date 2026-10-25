@@ -407,6 +407,45 @@ namespace CSharpPython
                         Globals[code.Names[ins.Arg]] = _stack[--_sp];
                         break;
 
+                    case Op.DeleteLocal:
+                    {
+                        if (_stack[bas + ins.Arg].Kind == ValueKind.Unbound)
+                            throw new PyError("UnboundLocalError", "local variable '" + code.LocalNames[ins.Arg] + "' referenced before assignment");
+                        _stack[bas + ins.Arg] = Value.Unbound;
+                        break;
+                    }
+                    case Op.DeleteCell:
+                    {
+                        var cell = (Cell)_stack[bas + ins.Arg].RawObject;
+                        if (cell.Value.Kind == ValueKind.Unbound)
+                            throw new PyError("UnboundLocalError", "local variable '" + code.LocalNames[ins.Arg] + "' referenced before assignment");
+                        cell.Value = Value.Unbound;
+                        break;
+                    }
+                    case Op.DeleteFree:
+                    {
+                        var cell = frame.Closure[ins.Arg];
+                        if (cell.Value.Kind == ValueKind.Unbound)
+                            throw new PyError("NameError", "free variable '" + code.FreeNames[ins.Arg] + "' referenced before assignment in enclosing scope");
+                        cell.Value = Value.Unbound;
+                        break;
+                    }
+                    case Op.DeleteGlobal:
+                    {
+                        string name = code.Names[ins.Arg];
+                        if (!Globals.Remove(name)) throw new PyError("NameError", "name '" + name + "' is not defined");
+                        break;
+                    }
+                    case Op.DeleteAttr:
+                        Ops.DelAttr(_stack[--_sp], code.Names[ins.Arg]);
+                        break;
+                    case Op.DeleteIndex:
+                    {
+                        Value index = _stack[--_sp];
+                        Ops.DelItem(_stack[--_sp], index);
+                        break;
+                    }
+
                     case Op.LoadAttr:
                     {
                         Value obj = _stack[--_sp];

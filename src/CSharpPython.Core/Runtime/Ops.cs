@@ -625,6 +625,47 @@ namespace CSharpPython
             }
         }
 
+        public static void DelItem(Value target, Value index)
+        {
+            switch (target.Kind)
+            {
+                case ValueKind.Instance:
+                    if (!TryCallDunder(target, "__delitem__", new[] { index }, out _))
+                        throw TypeError("'" + TypeName(target) + "' object doesn't support item deletion");
+                    return;
+                case ValueKind.List:
+                {
+                    var items = ((PyList)target.RawObject).Items;
+                    if (index.Kind == ValueKind.Slice)
+                    {
+                        SliceBounds((PySlice)index.RawObject, items.Count, out long start, out _, out long step, out long count);
+                        if (step == 1)
+                        {
+                            items.RemoveRange((int)start, (int)count);
+                            return;
+                        }
+                        var doomed = new List<int>();
+                        for (long i = 0, k = start; i < count; i++, k += step) doomed.Add((int)k);
+                        doomed.Sort();
+                        for (int j = doomed.Count - 1; j >= 0; j--) items.RemoveAt(doomed[j]);
+                        return;
+                    }
+                    items.RemoveAt((int)NormalizeIndex(ToIndex(index, "list indices"), items.Count, "list assignment"));
+                    return;
+                }
+                case ValueKind.Dict:
+                    if (!((PyDict)target.RawObject).Remove(index)) throw new PyError("KeyError", Repr(index));
+                    return;
+                case ValueKind.Tuple:
+                case ValueKind.Str:
+                case ValueKind.Set:
+                case ValueKind.Range:
+                    throw TypeError("'" + TypeName(target) + "' object doesn't support item deletion");
+                default:
+                    throw TypeError("'" + TypeName(target) + "' object does not support item deletion");
+            }
+        }
+
         // Resolves a slice against a sequence length, following CPython's rules.
         private static void SliceBounds(PySlice slice, long length, out long start, out long stop, out long step, out long count)
         {

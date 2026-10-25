@@ -185,6 +185,39 @@ namespace CSharpPython.Compilation
             else Emit(Op.StoreGlobal, Name(name));
         }
 
+        private void DeleteName(string name)
+        {
+            var scope = _unit.Scope;
+            if (scope.TryGetLocal(name, out int slot)) Emit(scope.IsCell(name) ? Op.DeleteCell : Op.DeleteLocal, slot);
+            else if (scope.TryGetFree(name, out int free)) Emit(Op.DeleteFree, free);
+            else Emit(Op.DeleteGlobal, Name(name));
+        }
+
+        private void CompileDelete(DelStmt d)
+        {
+            foreach (var target in d.Targets)
+            {
+                switch (target)
+                {
+                    case NameExpr n:
+                        SetLine(n);
+                        DeleteName(n.Name);
+                        break;
+                    case AttributeExpr a:
+                        CompileExpr(a.Target);
+                        SetLine(a);
+                        Emit(Op.DeleteAttr, Name(a.Name));
+                        break;
+                    case SubscriptExpr s:
+                        CompileExpr(s.Target);
+                        CompileIndex(s.Index);
+                        SetLine(s);
+                        Emit(Op.DeleteIndex);
+                        break;
+                }
+            }
+        }
+
         private static PySyntaxError Error(string message, Node at) => new PySyntaxError(message, at.Line, at.Column);
 
         // ---- Statements -----------------------------------------------------------------------------------------
@@ -205,6 +238,7 @@ namespace CSharpPython.Compilation
                     break;
                 case AssignStmt a: CompileAssign(a); break;
                 case AugAssignStmt a: CompileAugAssign(a); break;
+                case DelStmt d: CompileDelete(d); break;
                 case IfStmt i: CompileIf(i); break;
                 case WhileStmt w: CompileWhile(w); break;
                 case ForStmt f: CompileFor(f); break;

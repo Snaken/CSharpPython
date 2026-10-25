@@ -418,6 +418,13 @@ namespace CSharpPython.Syntax
             switch (tok.Kind)
             {
                 case TokenKind.KwPass: Advance(); return At(new PassStmt(), tok);
+                case TokenKind.KwDel:
+                {
+                    Advance();
+                    var node = At(new DelStmt(), tok);
+                    AddDeleteTargets(node, ParseExprList());
+                    return node;
+                }
                 case TokenKind.KwBreak: Advance(); return At(new BreakStmt(), tok);
                 case TokenKind.KwContinue: Advance(); return At(new ContinueStmt(), tok);
                 case TokenKind.KwReturn:
@@ -546,6 +553,26 @@ namespace CSharpPython.Syntax
             return Copy(new ExprStmt { Value = first }, first);
         }
 
+        // 'del (a, b), [c]' deletes a, b and c.
+        private static void AddDeleteTargets(DelStmt node, Expr e)
+        {
+            switch (e)
+            {
+                case NameExpr _:
+                case AttributeExpr _:
+                case SubscriptExpr _:
+                    node.Targets.Add(e);
+                    return;
+                case TupleExpr t:
+                    foreach (var item in t.Items) AddDeleteTargets(node, item);
+                    return;
+                case ListExpr l:
+                    foreach (var item in l.Items) AddDeleteTargets(node, item);
+                    return;
+            }
+            throw new PySyntaxError("cannot delete " + Describe(e), e.Line, e.Column);
+        }
+
         private void CheckTarget(Expr e)
         {
             switch (e)
@@ -561,6 +588,11 @@ namespace CSharpPython.Syntax
                     foreach (var item in l.Items) CheckTarget(item);
                     return;
             }
+            throw new PySyntaxError("cannot assign to " + Describe(e), e.Line, e.Column);
+        }
+
+        private static string Describe(Expr e)
+        {
             string what;
             switch (e)
             {
@@ -576,7 +608,7 @@ namespace CSharpPython.Syntax
                 case IfExpr _: what = "conditional expression"; break;
                 default: what = "expression"; break;
             }
-            throw new PySyntaxError("cannot assign to " + what, e.Line, e.Column);
+            return what;
         }
 
         // ---- Expressions ----------------------------------------------------------------------------------------

@@ -237,6 +237,12 @@ namespace CSharpPython.Syntax
 
     public sealed class PassStmt : Stmt { }
 
+    /// <summary><c>del a, b[0], c.d</c>: each target is a name, an attribute or a subscript.</summary>
+    public sealed class DelStmt : Stmt
+    {
+        public List<Expr> Targets = new List<Expr>();
+    }
+
     public sealed class GlobalStmt : Stmt
     {
         public List<string> Names = new List<string>();
