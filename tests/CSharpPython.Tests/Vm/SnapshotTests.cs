@@ -161,6 +161,8 @@ namespace CSharpPython.Tests.Vm
             "import game\nclass Box:\n    def __init__(self):\n        self.a = 1\n        self.b = 2\n    def __delitem__(self, k):\n        game.wait(0) if False else None\n        delattr_target = k\nbox = Box()\ngame.wait(1)\ndel box.a\ngame.wait(1)\ndel box[0]\nprint(hasattr(box, 'a'), box.b)",
             "import game\nhp = 3\ndef hit():\n    global hp\n    hp -= 1\n    assert hp > 0, 'hp ' + str(hp)\nfor i in range(5):\n    game.wait(1)\n    try:\n        hit()\n    except AssertionError as e:\n        print('caught', e)\n        hp = 2\nprint(hp)",
             "import game\nclass Job:\n    def __init__(self):\n        self.done = []\n    def __call__(self, n):\n        game.wait(1)\n        self.done.append(n)\n        game.wait(1)\n        return len(self.done)\nj = Job()\nprint(j(1), j(2))\nprint(j.done)",
+            "import game\nclass CM:\n    def __enter__(self):\n        game.wait(1)\n        print('enter')\n        return 7\n    def __exit__(self, t, v, tb):\n        game.wait(1)\n        print('exit', t)\n        return False\nwith CM() as x:\n    game.wait(2)\n    print('body', x)\nprint('after')",
+            "import game\nclass CM:\n    def __enter__(self):\n        return self\n    def __exit__(self, t, v, tb):\n        game.wait(1)\n        print('swallowed', t.__name__)\n        return True\nfor i in range(2):\n    with CM():\n        game.wait(1)\n        raise ValueError('v')\nprint('end')",
         };
 
         [TestCaseSource(nameof(Scripts))]

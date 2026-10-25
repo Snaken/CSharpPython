@@ -245,7 +245,7 @@ namespace CSharpPython.Tests.Editor
         {
             var vm = new PyVm();
             foreach (var kv in vm.Builtins)
-                if (kv.Value.Kind == ValueKind.Native || kv.Value.Kind == ValueKind.Type)
+                if (!kv.Key.StartsWith(".") && (kv.Value.Kind == ValueKind.Native || kv.Value.Kind == ValueKind.Type))
                     Assert.That(Signatures.Find(kv.Key), Is.Not.Null, "built-in " + kv.Key);
             foreach (var kv in vm.Modules["math"].Members)
                 if (kv.Value.Kind == ValueKind.Native)
@@ -275,6 +275,7 @@ namespace CSharpPython.Tests.Editor
             }
             foreach (var kv in vm.Builtins)
             {
+                if (kv.Key.StartsWith(".")) continue;
                 if (kv.Value.Kind == ValueKind.Native) Check(kv.Key, (NativeFunction)kv.Value.RawObject, 0);
                 if (kv.Value.Kind == ValueKind.Type && ((PyType)kv.Value.RawObject).Constructor != null)
                     Check(kv.Key, ((PyType)kv.Value.RawObject).Constructor, 0);
