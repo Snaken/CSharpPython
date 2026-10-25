@@ -145,6 +145,10 @@ namespace CSharpPython.Blocks
     [Serializable]
     public sealed class BlockGraph
     {
+        /// <summary>The format version written by <see cref="ToJson"/>. A document with a newer version is refused.</summary>
+        public const int CurrentVersion = 1;
+
+        public int Version = CurrentVersion;
         public List<BlockVariable> Variables = new List<BlockVariable>();
         public List<BlockFunction> Functions = new List<BlockFunction>();
 
@@ -160,5 +164,11 @@ namespace CSharpPython.Blocks
             Functions.Add(function);
             return this;
         }
+
+        /// <summary>Writes the graph as JSON. The field names match the public fields, so Unity's <c>JsonUtility</c> reads it too.</summary>
+        public string ToJson(bool indent = true) => BlockJson.Write(this, indent);
+
+        /// <summary>Reads a graph written by <see cref="ToJson"/> or by <c>JsonUtility</c>. Throws <see cref="BlockGraphFormatException"/> for a bad document.</summary>
+        public static BlockGraph FromJson(string json) => BlockJson.Read(json);
     }
 }
