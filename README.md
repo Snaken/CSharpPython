@@ -139,7 +139,7 @@ else
 string badBlock = result.Map.Locate(task.Error);
 ```
 
-- **Execution and values.** Flow blocks (`set`, `change`, `if`, `while`, `repeat`, `for_each`, `break`, `continue`, `return`, `append`, `set_index`, calls) are chained through execution pins (`next`, `then`, `else`, `body`). Value blocks (`literal`, `get`, arithmetic, comparison, `and/or/not`, `neg`, `index`, `list`, pure calls) have no execution pins and are written inline wherever their output is used.
+- **Execution and values.** Flow blocks (`set`, `change`, `if`, `while`, `repeat`, `for_each`, `for_range`, `break`, `continue`, `return`, `append`, `set_index`, `remove_at`, `set_attr`, `comment`, calls) are chained through execution pins (`next`, `then`, `else`, `body`). `for_range` counts with optional `start`, `stop` and `step` inputs, `get_attr`/`set_attr` read and write a field (the field name is the block's name), and a `comment` block becomes a `#` line in the generated source. Value blocks (`literal`, `get`, arithmetic, comparison, `and/or/not`, `neg`, `index`, `contains`, `is_none`, `choose` (a conditional value), `get_attr`, `list`, pure calls) have no execution pins and are written inline wherever their output is used.
 - **Calls.** A `call` block names a function: a built-in (`print`, `len`, ...), a host function added to the `BlockLibrary` (`game.explode`; the `import` is written for you), or another function in the graph. Arguments are the pins `arg0`, `arg1`, .... A call that is not pure runs in the flow, and a later block may use its result as long as it runs after it, in the same or an enclosing branch.
 - **User-made blocks and events.** Every function in the graph becomes a `def`. A function whose name matches a host event is that event's handler; any function can also be called from other functions, which is how user-made blocks work.
 - **Globals.** Graph variables become module-level assignments, and `global` statements are written where functions assign them.
@@ -223,7 +223,7 @@ The test suite is large and uses CPython 3 as an oracle for language semantics; 
 
 ## Roadmap
 
-- Blocks: graph serialization helpers, a block palette generated from host modules, comments and more block kinds.
+- Blocks: graph serialization helpers, a block palette generated from host modules, more block kinds as they are needed.
 - Editor tooling: references and rename, hover documentation.
 - Language: more special methods (`__getattr__`, `__format__`, ...), dict views, slice assignment, big ints.
 
