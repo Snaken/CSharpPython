@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using CSharpPython.Editor;
 
 namespace CSharpPython.Blocks
 {
@@ -58,16 +59,40 @@ namespace CSharpPython.Blocks
         /// </summary>
         public bool Pure { get; }
 
-        internal FunctionSpec(string name, string module, string[] parameters, bool pure)
+        /// <summary>
+        /// How many leading parameters must be connected. The rest are optional: leave their pins empty and the
+        /// compiler leaves the argument out. An optional pin may only be used when the ones before it are.
+        /// </summary>
+        public int RequiredParameters { get; }
+
+        /// <summary>The parameter list as an editor should show it, such as <c>"x, base=10"</c>.</summary>
+        public string Signature { get; }
+
+        internal FunctionSpec(string name, string module, string[] parameters, bool pure, int required, string signature)
         {
             Name = name;
             Module = module;
             Parameters = parameters;
             Pure = pure;
+            RequiredParameters = required < 0 || required > parameters.Length ? parameters.Length : required;
+            Signature = signature ?? string.Join(", ", parameters);
         }
 
         /// <summary>The pin name of the argument at <paramref name="index"/>: <c>arg0</c>, <c>arg1</c>, ...</summary>
         public static string ArgPin(int index) => "arg" + index;
+    }
+
+    /// <summary>One section of the palette: a named list of blocks and/or functions.</summary>
+    public sealed class PaletteGroup
+    {
+        internal readonly List<BlockSpec> BlockList = new List<BlockSpec>();
+        internal readonly List<FunctionSpec> FunctionList = new List<FunctionSpec>();
+
+        public string Name { get; }
+        public IReadOnlyList<BlockSpec> Blocks => BlockList;
+        public IReadOnlyList<FunctionSpec> Functions => FunctionList;
+
+        internal PaletteGroup(string name) { Name = name; }
     }
 
     /// <summary>
@@ -157,15 +182,92 @@ namespace CSharpPython.Blocks
         /// Makes a built-in function (when <paramref name="module"/> is null) or a host module function callable from
         /// blocks. The compiler adds <c>import module</c> automatically. Registering a name again replaces it.
         /// </summary>
-        public BlockLibrary AddFunction(string name, string[] parameters, bool pure = false, string module = null)
+        public BlockLibrary AddFunction(string name, string[] parameters, bool pure = false, string module = null, int required = -1, string signature = null)
         {
             if (string.IsNullOrEmpty(name)) throw new ArgumentException("A function needs a name.", nameof(name));
-            var spec = new FunctionSpec(name, module, parameters ?? None, pure);
+            var spec = new FunctionSpec(name, module, parameters ?? None, pure, required, signature);
             string key = module == null ? name : module + "." + name;
             if (_functions.ContainsKey(key)) _functionOrder.Remove(_functions[key]);
             _functions[key] = spec;
             _functionOrder.Add(spec);
             return this;
+        }
+
+        /// <summary>
+        /// Adds every function of a host module registered on <paramref name="vm"/>, so the palette follows the host
+        /// API. Parameter names come from the function's signature; the ones with defaults become optional pins, and
+        /// <c>*args</c>/<c>**kwargs</c> are left out. Set <paramref name="pure"/> for a module whose functions only
+        /// compute a value (such as <c>math</c>). Returns false if the module does not exist.
+        /// </summary>
+        public bool AddModule(PyVm vm, string module, bool pure = false)
+        {
+            if (vm == null) throw new ArgumentNullException(nameof(vm));
+            if (module == null || !vm.Modules.TryGetValue(module, out var m)) return false;
+            var names = new List<string>(m.Members.Keys);
+            names.Sort(StringComparer.Ordinal);
+            foreach (var name in names)
+            {
+                var v = m.Members[name];
+                if (v.Kind != ValueKind.Native || name.StartsWith("_", StringComparison.Ordinal) || name.StartsWith(".", StringComparison.Ordinal)) continue;
+                string signature = Signatures.For((NativeFunction)v.RawObject, module + "." + name, 0);
+                var parameters = new List<string>();
+                int required = -1;
+                foreach (var part in signature.Split(','))
+                {
+                    string p = part.Trim();
+                    int eq = p.IndexOf('=');
+                    string pname = eq < 0 ? p : p.Substring(0, eq).Trim();
+                    if (!IsParameterName(pname)) continue;
+                    if (eq >= 0 && required < 0) required = parameters.Count;
+                    parameters.Add(pname);
+                }
+                AddFunction(name, parameters.ToArray(), pure, module, required, signature);
+            }
+            return true;
+        }
+
+        /// <summary>Adds every module registered on <paramref name="vm"/> (see <see cref="AddModule"/>). The <c>math</c> module is treated as pure.</summary>
+        public BlockLibrary AddAllModules(PyVm vm)
+        {
+            if (vm == null) throw new ArgumentNullException(nameof(vm));
+            var names = new List<string>(vm.Modules.Keys);
+            names.Sort(StringComparer.Ordinal);
+            foreach (var name in names) AddModule(vm, name, name == "math");
+            return this;
+        }
+
+        private static bool IsParameterName(string text)
+        {
+            if (text.Length == 0 || !(char.IsLetter(text[0]) || text[0] == '_')) return false;
+            foreach (char c in text)
+                if (!(char.IsLetterOrDigit(c) || c == '_')) return false;
+            return true;
+        }
+
+        /// <summary>
+        /// The palette an editor shows, grouped: each block category, then the built-in functions, then one group per
+        /// module. Each group lists its blocks or functions in the order they were added.
+        /// </summary>
+        public IReadOnlyList<PaletteGroup> Palette()
+        {
+            var groups = new List<PaletteGroup>();
+            var byName = new Dictionary<string, PaletteGroup>();
+            PaletteGroup Group(string name)
+            {
+                if (!byName.TryGetValue(name, out var g))
+                {
+                    g = new PaletteGroup(name);
+                    byName[name] = g;
+                    groups.Add(g);
+                }
+                return g;
+            }
+            foreach (var b in _blockOrder) Group(b.Category).BlockList.Add(b);
+            foreach (var f in _functionOrder)
+                if (f.Module == null) Group("Functions").FunctionList.Add(f);
+            foreach (var f in _functionOrder)
+                if (f.Module != null) Group(f.Module).FunctionList.Add(f);
+            return groups;
         }
 
         private void AddBlock(string name, string title, string category, BlockKind kind, string[] inputs, string[] flowPins, bool needsName)

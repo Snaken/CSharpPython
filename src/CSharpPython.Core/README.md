@@ -145,9 +145,11 @@ string badBlock = result.Map.Locate(task.Error);
 - **Globals.** Graph variables become module-level assignments, and `global` statements are written where functions assign them.
 - **Literals.** A typed-in value must be a single number, string, `True`, `False` or `None`, so editor input can never smuggle in code. `BlockLiterals.String(text)` quotes any text safely.
 - **Diagnostics.** Unknown blocks or pins, missing inputs, bad names, flow that loops or joins, results used before they exist, `break` outside a loop, values that depend on themselves and more are reported against the block and pin at fault. Blocks connected to nothing are warnings.
+- **Saving.** `graph.ToJson()` writes a graph as JSON and `BlockGraph.FromJson(text)` reads it back (a bad document throws `BlockGraphFormatException`). The field names match the public fields, so Unity's `JsonUtility` output reads too, unknown fields are ignored, and a `Version` field guards against newer files.
+- **Palette from host modules.** `library.AddModule(vm, "game")` (or `AddAllModules(vm)`, which treats `math` as pure) adds every function of a registered module, with pin names taken from its signature (`ModuleBuilder.Describe`). Parameters with defaults become optional pins: leave them empty and the argument is left out. `library.Palette()` returns the blocks and functions grouped by category and module, ready for an editor's block list.
 - **Source map.** `SourceMap.NodeAt(line)` and `LinesOf(nodeId)` link generated lines and blocks, and `Locate(error)` finds the block behind a runtime error.
 
-Not in the first version: loops that wait for a changing call result (a `while` condition cannot use a stored call result; compute it inside the loop and use `if`/`break`), variadic calls, several outputs per block, and saving graphs to a file (use your own serializer).
+Not in the first version: loops that wait for a changing call result (a `while` condition cannot use a stored call result; compute it inside the loop and use `if`/`break`), variadic calls and several outputs per block.
 
 ## Language support
 
@@ -223,7 +225,7 @@ The test suite is large and uses CPython 3 as an oracle for language semantics; 
 
 ## Roadmap
 
-- Blocks: graph serialization helpers, a block palette generated from host modules, more block kinds as they are needed.
+- Blocks: more block kinds as they are needed.
 - Editor tooling: references and rename, hover documentation.
 - Language: more special methods (`__getattr__`, `__format__`, ...), dict views, slice assignment, big ints.
 

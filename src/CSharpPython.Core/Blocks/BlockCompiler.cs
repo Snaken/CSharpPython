@@ -765,8 +765,17 @@ namespace CSharpPython.Blocks
                 if (!_imports.Contains(spec.Module)) _imports.Add(spec.Module);
             }
 
+            int required = spec == null ? arity : spec.RequiredParameters;
             var args = new List<string>();
-            for (int i = 0; i < arity; i++) args.Add(Input(node, FunctionSpec.ArgPin(i)).Text);
+            bool gap = false;
+            for (int i = 0; i < arity; i++)
+            {
+                string pin = FunctionSpec.ArgPin(i);
+                var arg = Input(node, pin, optional: i >= required);
+                if (arg.Text == null) { gap = true; continue; }
+                if (gap) Error("the optional input '" + pin + "' is connected but an input before it is empty", node, pin);
+                args.Add(arg.Text);
+            }
             return new Ex(target + "(" + string.Join(", ", args) + ")", false);
         }
     }
