@@ -144,6 +144,9 @@ namespace CSharpPython.Tests.Vm
             "import game\nclass E(Exception):\n    def __init__(self, n):\n        super().__init__('n=' + str(n))\n        self.n = n\ndef work():\n    game.wait(1)\n    raise E(3)\ntry:\n    work()\nexcept E as e:\n    game.wait(1)\n    print(e, e.n, e.args)",
             "import game\nclass A(ValueError):\n    pass\nclass B(A):\n    code = 7\ntry:\n    try:\n        raise B('x')\n    except A as e:\n        game.wait(1)\n        raise\nexcept ValueError as e2:\n    game.wait(1)\n    print(type(e2).__name__, e2.code, e2)",
             "import game\nclass E(Exception):\n    pass\nerrs = [E('a'), E('b', 1)]\ngame.wait(1)\nprint(errs, [str(e) for e in errs])",
+            "import game\nclass K:\n    def __init__(self, n):\n        self.n = n\n    def __eq__(self, o):\n        return self.n == o.n\n    def __hash__(self):\n        return self.n % 2\nd = {K(1): 'a', K(2): 'b'}\ngame.wait(1)\nd[K(3)] = 'c'\ngame.wait(1)\nprint(len(d), d[K(1)], K(2) in d, d[K(3)])",
+            "import game\nclass V:\n    def __init__(self, n):\n        self.n = n\n    def __lt__(self, o):\n        return self.n < o.n\n    def __bool__(self):\n        return self.n > 0\nxs = [V(3), V(0), V(2)]\ngame.wait(1)\nxs.sort()\ngame.wait(1)\nprint([x.n for x in xs], [bool(x) for x in xs])",
+            "import game\nx = NotImplemented\ngame.wait(1)\nprint(x, x is NotImplemented)",
         };
 
         [TestCaseSource(nameof(Scripts))]
