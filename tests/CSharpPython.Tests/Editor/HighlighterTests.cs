@@ -68,9 +68,16 @@ namespace CSharpPython.Tests.Editor
         [Test]
         public void UnsupportedKeywordsAndBadTextAreFlagged()
         {
-            Assert.That(Show("class A:"), Does.StartWith("class:UnsupportedKeyword"));
+            Assert.That(Show("with a:"), Does.StartWith("with:UnsupportedKeyword"));
             Assert.That(Show("x = 'abc"), Does.Contain(":Error"));
             Assert.That(Show("x = 5 $ 3"), Does.Contain("$:Error"));
+        }
+
+        [Test]
+        public void ClassNamesAreHighlightedLikeFunctionNames()
+        {
+            Assert.That(Show("class Enemy(Base):"), Does.StartWith("class:Keyword Enemy:ClassName (:Punctuation Base:Identifier"));
+            Assert.That(Show("class A:\n    pass\nx = A()"), Does.Contain("A:ClassName").And.Contain("x:Identifier =:Operator A:Identifier"));
         }
 
         [Test]

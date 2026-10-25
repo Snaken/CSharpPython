@@ -37,6 +37,24 @@ namespace CSharpPython.Tests.Editor
             Assert.That(h.ActiveParameter, Is.EqualTo(0));
         }
 
+        [Test]
+        public void ClassShowsTheParametersOfInitWithoutSelf()
+        {
+            var h = At("class Enemy:\n    def __init__(self, hp, speed=2):\n        pass\nEnemy(|");
+            Assert.That(h.Label, Is.EqualTo("Enemy(hp, speed=2)"));
+            Assert.That(h.Origin, Is.EqualTo("script"));
+            Assert.That(h.Parameters, Is.EqualTo(new[] { "hp", "speed=2" }));
+            Assert.That(At("class Enemy:\n    def __init__(self):\n        pass\nEnemy(|").Parameters, Is.Empty);
+            Assert.That(At("class Enemy:\n    pass\nEnemy(|").Parameters, Is.Empty);
+        }
+
+        [Test]
+        public void DefiningAClassShowsNoSignatureHelp()
+        {
+            Assert.That(SignatureHelper.Get("class A(B,", 10), Is.Null);
+            Assert.That(At("class A(|"), Is.Null);
+        }
+
         [TestCase("f(|", 0)]
         [TestCase("f(1|", 0)]
         [TestCase("f(1,|", 1)]
@@ -258,7 +276,8 @@ namespace CSharpPython.Tests.Editor
             foreach (var kv in vm.Builtins)
             {
                 if (kv.Value.Kind == ValueKind.Native) Check(kv.Key, (NativeFunction)kv.Value.RawObject, 0);
-                if (kv.Value.Kind == ValueKind.Type) Check(kv.Key, ((PyType)kv.Value.RawObject).Constructor, 0);
+                if (kv.Value.Kind == ValueKind.Type && ((PyType)kv.Value.RawObject).Constructor != null)
+                    Check(kv.Key, ((PyType)kv.Value.RawObject).Constructor, 0);
             }
             foreach (var kv in vm.Modules["math"].Members)
                 if (kv.Value.Kind == ValueKind.Native) Check("math." + kv.Key, (NativeFunction)kv.Value.RawObject, 0);

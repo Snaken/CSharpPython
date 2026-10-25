@@ -502,7 +502,6 @@ namespace CSharpPython.Tests.Syntax
 
         // ---- Errors -------------------------------------------------------------------------------------------
 
-        [TestCase("class A: pass", "'class' is not supported yet")]
         [TestCase("with a: pass", "'with' is not supported yet")]
         [TestCase("del x", "'del' is not supported yet")]
         [TestCase("assert x", "'assert' is not supported yet")]

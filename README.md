@@ -156,18 +156,20 @@ Supported:
 | Area | Details |
 | --- | --- |
 | Types | `int` (64-bit, overflow raises `OverflowError`), `float`, `str`, `bool`, `None`, `list`, `tuple`, `dict`, `range`, host handles |
-| Statements | assignment (chained, tuple unpacking, augmented), `if/elif/else`, `while`, `for`, `break`, `continue`, `pass`, `return`, `global`, `nonlocal`, `import`/`from ... import`, `def` (including nested functions), `lambda`, list and dict comprehensions, generator expressions, `try/except/else/finally`, `raise` |
+| Statements | assignment (chained, tuple unpacking, augmented), `if/elif/else`, `while`, `for`, `break`, `continue`, `pass`, `return`, `global`, `nonlocal`, `import`/`from ... import`, `def` (including nested functions), `class`, `lambda`, list and dict comprehensions, generator expressions, `try/except/else/finally`, `raise` |
 | Expressions | arithmetic, comparison chains, `and/or/not`, `in`, `is`, conditional expressions, subscripts and slices, f-strings, keyword and default arguments |
 
-Builtins: `print len range int float str bool repr abs min max sum round sorted list tuple dict enumerate zip reversed any all chr ord divmod pow format type isinstance issubclass callable`, the standard exception classes, and a `math` module (`pi e tau inf nan sqrt log log2 log10 floor ceil trunc isnan isinf sin cos tan asin acos atan atan2 exp fabs hypot radians degrees pow`).
+Builtins: `print len range int float str bool repr abs min max sum round sorted list tuple dict enumerate zip reversed any all chr ord divmod pow format type isinstance issubclass callable getattr setattr hasattr object`, the standard exception classes, and a `math` module (`pi e tau inf nan sqrt log log2 log10 floor ceil trunc isnan isinf sin cos tan asin acos atan atan2 exp fabs hypot radians degrees pow`).
 
 Methods: `str` (upper, lower, strip, lstrip, rstrip, split, join, replace, startswith, endswith, find, rfind, index, count, isdigit, isalpha, isalnum, isspace, isupper, islower, capitalize, title, format, zfill, ljust, rjust, center, splitlines), `list` (append, extend, insert, pop, remove, index, count, sort, reverse, clear, copy), `dict` (get, keys, values, items, pop, setdefault, update, clear, copy), `tuple` (index, count).
 
-Functions take positional, default, keyword-only, `*args` and `**kwargs` parameters, and calls can spread with `f(*items, **options)`. A `*items` argument can't follow a keyword argument (`f(a=1, *items)`). `type(x)`, `isinstance` and `issubclass` work with the built-in types (`int`, `float`, `str`, `bool`, `list`, `tuple`, `dict`, `range`, `NoneType`, `function`, ...) and the exception classes, with tuples of them, and `bool` counts as an `int`. The type names are real type objects: calling them converts (`int('5')`), they print as `<class 'int'>`, compare with `==` and `is`, work as dict keys and have `__name__`; so does `x.__class__`. User-defined classes aren't supported yet.
+Functions take positional, default, keyword-only, `*args` and `**kwargs` parameters, and calls can spread with `f(*items, **options)`. A `*items` argument can't follow a keyword argument (`f(a=1, *items)`). `type(x)`, `isinstance` and `issubclass` work with the built-in types (`int`, `float`, `str`, `bool`, `list`, `tuple`, `dict`, `range`, `NoneType`, `function`, ...) and the exception classes, with tuples of them, and `bool` counts as an `int`. The type names are real type objects: calling them converts (`int('5')`), they print as `<class 'int'>`, compare with `==` and `is`, work as dict keys and have `__name__`; so does `x.__class__`. 
+
+Classes have instances, instance and class attributes, methods, `__init__` and single inheritance (`class B(A):`, or `class A(object):`). Instances compare and hash by identity, are always truthy, and print as `<__main__.A object at 0x...>`; `isinstance`, `issubclass`, `type(x)`, `x.__class__`, `A.__name__`, `getattr`, `setattr` and `hasattr` work with them, and a class or instance can be a dict key. `__init__` runs as an ordinary script frame, so it can wait (`game.wait`) and survive a snapshot, and snapshots keep classes, instances and cycles between them. Methods don't see the names of their class body (use `self.x` or `A.x`), as in Python, and a class body can't read a global before assigning a class variable of the same name (`x = x + 1` raises `UnboundLocalError` there). Not supported yet: `super()`, `__str__`/`__repr__` and the other special methods, inheriting from built-in types and exception classes, multiple inheritance, `@staticmethod`/`@classmethod`/`@property`, `__slots__`, metaclasses, `object()`.
 
 Nested functions and `lambda` are closures with Python's semantics: inner functions share the variables of the function around them (late binding), and `nonlocal` rebinds them. List and dict comprehensions have their own scope like in Python (loop variables don't leak, the first iterable is evaluated outside). A generator expression is evaluated eagerly into a list, so it works with `sum`, `any`, `all`, `min`, `max`, `sorted`, `list`, `tuple`, `dict` and `str.join`, but is not lazy and can't be advanced with `next`. Snapshots keep closures, including cycles from recursive inner functions.
 
-Not supported yet: set comprehensions, lazy generators, loop `else`, type annotations, decorators, walrus, classes, `yield`, `with`, `del`, `assert`, `async`/`await`, set literals, dict unpacking, bit operators, dotted imports, bytes/complex literals, nested format specs in f-strings, `str % args`, slice assignment.
+Not supported yet: set comprehensions, lazy generators, loop `else`, type annotations, decorators, walrus, `yield`, `with`, `del`, `assert`, `async`/`await`, set literals, dict unpacking, bit operators, dotted imports, bytes/complex literals, nested format specs in f-strings, `str % args`, slice assignment.
 
 ### Differences from CPython
 
@@ -216,7 +218,7 @@ The test suite is large and uses CPython 3 as an oracle for language semantics; 
 
 - Blocks: graph serialization helpers, a block palette generated from host modules, comments and more block kinds.
 - Editor tooling: references and rename, hover documentation.
-- Language: classes, set literals and comprehensions, lazy generators (`yield`), dict views, slice assignment, big ints.
+- Language: `super()` and special methods (`__str__`, `__eq__`, `__add__`, `__len__`, ...), exception subclasses, set literals and comprehensions, lazy generators (`yield`), dict views, slice assignment, big ints.
 
 ## License
 

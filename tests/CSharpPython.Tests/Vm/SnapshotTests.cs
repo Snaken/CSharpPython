@@ -125,6 +125,17 @@ namespace CSharpPython.Tests.Vm
             "def f(n):\n    return [[i * j for j in range(n)] for i in range(n)]\nprint(f(3))",
             "def f():\n    cell = []\n    def g():\n        return cell\n    cell.append(g)\n    return g\nh = f()\nprint(h()[0] is h)",
             "def f():\n    try:\n        n = 0\n        def g():\n            nonlocal n\n            n += 1\n        g()\n        raise ValueError('x')\n    except ValueError:\n        g()\n    finally:\n        g()\n    return n\nprint(f())",
+            "class A:\n    n = 5\n    def __init__(self, x):\n        self.x = x\n    def get(self):\n        return self.x + A.n\na = A(3)\nprint(a.get(), a.x, isinstance(a, A), type(a) is A)",
+            "class A:\n    def f(self):\n        return 'A'\nclass B(A):\n    def g(self):\n        return self.f() + 'B'\nb = B()\nprint(b.g(), isinstance(b, A), issubclass(B, A), B.__name__)",
+            "class N:\n    def __init__(self, v):\n        self.v = v\n        self.other = None\na = N(1)\nb = N(2)\na.other = b\nb.other = a\nprint(a.other.other is a, b.other.v)",
+            "import game\nclass A:\n    def __init__(self):\n        game.wait(1)\n        self.x = 5\n        game.wait(1)\n    def get(self):\n        game.wait(1)\n        return self.x\na = A()\nprint(a.x, a.get())",
+            "import game\nclass A:\n    k = 2\n    def __init__(self, v):\n        self.v = v\nxs = [A(i) for i in range(3)]\ngame.wait(2)\nprint([x.v * A.k for x in xs])",
+            "class A:\n    def __init__(self, k):\n        self.k = k\n    def scale(self, x):\n        return x * self.k\nm = A(3)\nf = m.scale\nprint(f(2), sorted([3, 1, 2], key=m.scale))",
+            "def make(n):\n    class L:\n        def get(self):\n            return n\n    return L\nK = make(4)\nprint(K().get(), make(5)().get())",
+            "import game\nclass A:\n    pass\na = A()\na.f = lambda x: x + 1\nd = {A: 1, a: 2}\ngame.wait(1)\nprint(a.f(1), d[A], d[a], A in d)",
+            "import game\nclass A:\n    items = []\n    def add(self, x):\n        A.items.append(x)\n        game.wait(1)\na = A()\na.add(1)\na.add(2)\nprint(A.items, a.items is A.items)",
+            "class Outer:\n    class Inner:\n        v = 3\n    def make(self):\n        return Outer.Inner()\nprint(Outer().make().v)",
+            "class A:\n    def __init__(self):\n        return None\nprint(type(A()).__name__)",
         };
 
         [TestCaseSource(nameof(Scripts))]

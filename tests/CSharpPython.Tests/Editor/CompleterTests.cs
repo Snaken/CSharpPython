@@ -28,6 +28,29 @@ namespace CSharpPython.Tests.Editor
         private static string[] Names(string marked, PyVm vm = null) => At(marked, vm).Items.Select(i => i.Text).ToArray();
 
         [Test]
+        public void SuggestsClassesAndTheClassKeyword()
+        {
+            Assert.That(Names("cla|"), Does.Contain("class"));
+            var items = At("class Enemy:\n    def __init__(self, hp, speed=2):\n        self.hp = hp\nx = Ene|").Items;
+            var enemy = items.Single(i => i.Text == "Enemy");
+            Assert.That(enemy.Kind, Is.EqualTo(CompletionKind.Class));
+            Assert.That(enemy.Detail, Is.EqualTo("class Enemy(hp, speed=2)"));
+            Assert.That(At("class Enemy:\n    pass\nx = Ene|").Items.Single(i => i.Text == "Enemy").Detail, Is.EqualTo("class Enemy"));
+        }
+
+        [Test]
+        public void NothingIsSuggestedForANewClassName()
+        {
+            Assert.That(Names("class |"), Is.Empty);
+        }
+
+        [Test]
+        public void ClassBodyNamesDoNotLeakIntoTheCodeAround()
+        {
+            Assert.That(Names("class A:\n    secret = 1\nx = sec|"), Does.Not.Contain("secret"));
+        }
+
+        [Test]
         public void SuggestsNonlocalAndLambdaKeywords()
         {
             Assert.That(Names("nonl|"), Does.Contain("nonlocal"));

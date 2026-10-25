@@ -35,7 +35,7 @@ namespace CSharpPython.Tests.Editor
         public void UnsupportedFeaturesGetAClearMessage()
         {
             Assert.That(Analyzer.Analyze("x: int = 5").Single().Message, Does.Contain("type annotations are not supported"));
-            Assert.That(Analyzer.Analyze("class A:\n    pass").Single().Message, Does.Contain("not supported").IgnoreCase.Or.Contain("class"));
+            Assert.That(Analyzer.Analyze("class A(B, C):\n    pass").Single().Message, Does.Contain("multiple inheritance is not supported"));
         }
 
         [Test]

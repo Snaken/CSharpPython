@@ -24,6 +24,15 @@ namespace CSharpPython.Tests.Editor
         }
 
         [Test]
+        public void FindsAClass()
+        {
+            var d = At("class Enemy(Base):\n    pass\ne = Ene|my()");
+            Assert.That(d.Name, Is.EqualTo("Enemy"));
+            Assert.That(d.Kind, Is.EqualTo(DefinitionKind.Class));
+            Assert.That((d.Line, d.Column), Is.EqualTo((1, 7)));
+        }
+
+        [Test]
         public void CursorMayBeAnywhereOnTheWord()
         {
             string src = "x = 1\nprint(x)\n";
