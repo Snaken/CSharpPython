@@ -208,6 +208,7 @@ namespace CSharpPython.Syntax
             Expect(TokenKind.LParen, "'('");
             ParseParameters(def, TokenKind.RParen);
             Expect(TokenKind.RParen, "')'");
+            if (Accept(TokenKind.Arrow)) ParseTernary(); // the return annotation is not kept
             Expect(TokenKind.Colon, "':'");
             def.Body = ParseBlock("function definition");
             return def;
@@ -293,8 +294,7 @@ namespace CSharpPython.Syntax
         private Param ParseParameterName(TokenKind end)
         {
             var pname = Expect(TokenKind.Name, "a parameter name");
-            if (end == TokenKind.RParen && Cur.Kind == TokenKind.Colon)
-                throw Error("type annotations are not supported yet", Cur);
+            if (end == TokenKind.RParen && Accept(TokenKind.Colon)) ParseTernary(); // annotations are not kept
             return new Param { Name = pname.Text, Line = LineOf(pname), Column = ColumnOf(pname) };
         }
 
@@ -654,8 +654,21 @@ namespace CSharpPython.Syntax
                 return node;
             }
 
-            if (Cur.Kind == TokenKind.Colon && (first is NameExpr || first is AttributeExpr || first is SubscriptExpr))
-                throw Error("type annotations are not supported yet", Cur);
+            if (Cur.Kind == TokenKind.Colon)
+            {
+                if (first is TupleExpr || first is ListExpr) throw Error("only single target (not " + (first is TupleExpr ? "tuple" : "list") + ") can be annotated", startTok);
+                if (!(first is NameExpr || first is AttributeExpr || first is SubscriptExpr)) throw Error("illegal target for annotation", startTok);
+                Advance();
+                ParseTernary(); // the annotation is parsed but not kept or evaluated
+                if (Accept(TokenKind.Assign))
+                {
+                    var assign = At(new AssignStmt(), startTok);
+                    assign.Targets.Add(first);
+                    assign.Value = Cur.Kind == TokenKind.KwYield ? ParseYield() : ParseExprList();
+                    return assign;
+                }
+                return At(new AnnotationStmt { Target = first }, startTok);
+            }
 
             return Copy(new ExprStmt { Value = first }, first);
         }

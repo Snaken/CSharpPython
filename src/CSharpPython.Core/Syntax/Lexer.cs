@@ -576,7 +576,7 @@ namespace CSharpPython.Syntax
                 case '+': if (n == '=') { kind = TokenKind.PlusAssign; len = 2; } else kind = TokenKind.Plus; break;
                 case '-':
                     if (n == '=') { kind = TokenKind.MinusAssign; len = 2; }
-                    else if (n == '>') { Unsupported("'->' (annotations)", 2); return; }
+                    else if (n == '>') { kind = TokenKind.Arrow; len = 2; }
                     else kind = TokenKind.Minus;
                     break;
                 case '*':

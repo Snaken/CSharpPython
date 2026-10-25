@@ -258,6 +258,15 @@ namespace CSharpPython.Syntax
 
     public sealed class PassStmt : Stmt { }
 
+    /// <summary>
+    /// <c>name: annotation</c> without a value. The annotation itself is not kept. A name target makes the name local to
+    /// its function; an attribute or subscript target only has its object evaluated.
+    /// </summary>
+    public sealed class AnnotationStmt : Stmt
+    {
+        public Expr Target;
+    }
+
     /// <summary><c>del a, b[0], c.d</c>: each target is a name, an attribute or a subscript.</summary>
     public sealed class DelStmt : Stmt
     {

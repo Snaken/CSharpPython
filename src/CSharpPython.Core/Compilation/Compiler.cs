@@ -270,6 +270,10 @@ namespace CSharpPython.Compilation
                     }
                     Emit(Op.Pop);
                     break;
+                case AnnotationStmt a:
+                    if (a.Target is AttributeExpr aa) { CompileExpr(aa.Target); Emit(Op.Pop); }
+                    else if (a.Target is SubscriptExpr sa) { CompileExpr(sa.Target); Emit(Op.Pop); CompileExpr(sa.Index); Emit(Op.Pop); }
+                    break;
                 case PassStmt _:
                 case GlobalStmt _:
                 case NonlocalStmt _:

@@ -28,7 +28,7 @@ namespace CSharpPython.Syntax
         // Operators and punctuation.
         Plus, Minus, Star, Slash, DoubleSlash, Percent, DoubleStar,
         Pipe, Ampersand, Caret, Tilde, LShift, RShift,
-        Assign, EqEq, NotEq, Lt, Le, Gt, Ge,
+        Assign, Arrow, EqEq, NotEq, Lt, Le, Gt, Ge,
         PlusAssign, MinusAssign, StarAssign, SlashAssign, DoubleSlashAssign, PercentAssign, DoubleStarAssign,
         PipeAssign, AmpersandAssign, CaretAssign, LShiftAssign, RShiftAssign,
         LParen, RParen, LBracket, RBracket, LBrace, RBrace,

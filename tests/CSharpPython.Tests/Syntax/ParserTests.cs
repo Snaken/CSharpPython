@@ -11,9 +11,14 @@ namespace CSharpPython.Tests.Syntax
         private static PySyntaxError Fails(string src) => Assert.Throws<PySyntaxError>(() => Parser.ParseModule(src));
 
         [Test]
-        public void TypeAnnotationHasClearError()
+        public void AnnotatedAssignmentIsAnAssignment()
         {
-            Assert.That(Fails("x: int = 5").Problem, Does.Contain("type annotations are not supported"));
+            Assert.That(M("x: int = 5"), Is.EqualTo(M("x = 5")));
+            Assert.That(M("x: int"), Is.EqualTo("(annotation x)"));
+            Assert.That(M("self.x: int"), Is.EqualTo("(annotation (. self x))"));
+            Assert.That(Fails("a, b: int = 1, 2").Problem, Does.Contain("only single target (not tuple) can be annotated"));
+            Assert.That(Fails("[a]: int").Problem, Does.Contain("only single target (not list) can be annotated"));
+            Assert.That(Fails("f(): int").Problem, Does.Contain("illegal target for annotation"));
         }
 
         // ---- Literals and names -------------------------------------------------------------------------------
@@ -582,7 +587,13 @@ namespace CSharpPython.Tests.Syntax
         }
 
         [Test]
-        public void ParameterAnnotationsAreRejected() => Assert.That(Fails("def f(a: int): pass\n").Problem, Does.Contain("annotations"));
+        public void ParameterAndReturnAnnotationsAreParsedAndDropped()
+        {
+            Assert.That(M("def f(a: int, b: str = 'x', *c: int, d: float = 1.0, **e: dict) -> bool: pass\n"),
+                Is.EqualTo(M("def f(a, b='x', *c, d=1.0, **e): pass\n")));
+            Assert.That(Fails("def f(a: ) -> int: pass").Problem, Does.Contain("unexpected"));
+            Assert.That(Fails("def f() -> : pass").Problem, Does.Contain("unexpected"));
+        }
 
         [Test]
         public void NonDefaultAfterDefaultIsRejected() => Assert.That(Fails("def f(a=1, b): pass\n").Problem, Does.Contain("non-default argument 'b'"));

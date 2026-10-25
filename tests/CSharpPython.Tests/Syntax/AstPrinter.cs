@@ -117,6 +117,7 @@ namespace CSharpPython.Tests.Syntax
                 case BreakStmt _: return "break";
                 case ContinueStmt _: return "continue";
                 case PassStmt _: return "pass";
+                case AnnotationStmt a: return "(annotation " + Expr(a.Target) + ")";
                 case GlobalStmt g: return "(global " + string.Join(" ", g.Names) + ")";
                 case TryStmt t:
                     return "(try " + Body(t.Body) + string.Concat(t.Handlers.Select(h =>

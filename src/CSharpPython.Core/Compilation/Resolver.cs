@@ -121,6 +121,11 @@ namespace CSharpPython.Compilation
                         else VisitExpr(t);
                     }
                     break;
+                case AnnotationStmt a:
+                    if (a.Target is NameExpr an) Bind(an.Name);
+                    else if (a.Target is AttributeExpr aa) VisitExpr(aa.Target);
+                    else if (a.Target is SubscriptExpr sa) { VisitExpr(sa.Target); VisitExpr(sa.Index); }
+                    break;
                 case PassStmt _:
                     break;
             }
