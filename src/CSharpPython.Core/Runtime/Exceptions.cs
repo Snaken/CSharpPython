@@ -30,7 +30,11 @@ namespace CSharpPython
     {
         private static readonly Dictionary<string, PyExceptionType> ByName = new Dictionary<string, PyExceptionType>();
 
-        public static readonly PyExceptionType Exception = Define("Exception", null);
+        public static readonly PyExceptionType BaseException = Define("BaseException", null);
+        public static readonly PyExceptionType Exception = Define("Exception", BaseException);
+        public static readonly PyExceptionType SystemExit = Define("SystemExit", BaseException);
+        public static readonly PyExceptionType KeyboardInterrupt = Define("KeyboardInterrupt", BaseException);
+        public static readonly PyExceptionType GeneratorExit = Define("GeneratorExit", BaseException);
         public static readonly PyExceptionType AssertionError = Define("AssertionError", Exception);
         public static readonly PyExceptionType ArithmeticError = Define("ArithmeticError", Exception);
         public static readonly PyExceptionType ZeroDivisionError = Define("ZeroDivisionError", ArithmeticError);
@@ -49,6 +53,32 @@ namespace CSharpPython
         public static readonly PyExceptionType NotImplementedError = Define("NotImplementedError", RuntimeError);
         public static readonly PyExceptionType StopIteration = Define("StopIteration", Exception);
         public static readonly PyExceptionType MemoryError = Define("MemoryError", Exception);
+        public static readonly PyExceptionType FloatingPointError = Define("FloatingPointError", ArithmeticError);
+        public static readonly PyExceptionType ModuleNotFoundError = Define("ModuleNotFoundError", ImportError);
+        public static readonly PyExceptionType EOFError = Define("EOFError", Exception);
+        public static readonly PyExceptionType OSError = Define("OSError", Exception);
+        public static readonly PyExceptionType FileNotFoundError = Define("FileNotFoundError", OSError);
+        public static readonly PyExceptionType FileExistsError = Define("FileExistsError", OSError);
+        public static readonly PyExceptionType PermissionError = Define("PermissionError", OSError);
+        public static readonly PyExceptionType TimeoutError = Define("TimeoutError", OSError);
+        public static readonly PyExceptionType UnicodeError = Define("UnicodeError", ValueError);
+        public static readonly PyExceptionType SyntaxError = Define("SyntaxError", Exception);
+        public static readonly PyExceptionType IndentationError = Define("IndentationError", SyntaxError);
+        public static readonly PyExceptionType TabError = Define("TabError", IndentationError);
+        public static readonly PyExceptionType SystemError = Define("SystemError", Exception);
+        public static readonly PyExceptionType ReferenceError = Define("ReferenceError", Exception);
+        public static readonly PyExceptionType BufferError = Define("BufferError", Exception);
+        public static readonly PyExceptionType StopAsyncIteration = Define("StopAsyncIteration", Exception);
+        public static readonly PyExceptionType Warning = Define("Warning", Exception);
+        public static readonly PyExceptionType UserWarning = Define("UserWarning", Warning);
+        public static readonly PyExceptionType DeprecationWarning = Define("DeprecationWarning", Warning);
+        public static readonly PyExceptionType PendingDeprecationWarning = Define("PendingDeprecationWarning", Warning);
+        public static readonly PyExceptionType RuntimeWarning = Define("RuntimeWarning", Warning);
+        public static readonly PyExceptionType SyntaxWarning = Define("SyntaxWarning", Warning);
+        public static readonly PyExceptionType FutureWarning = Define("FutureWarning", Warning);
+        public static readonly PyExceptionType ImportWarning = Define("ImportWarning", Warning);
+        public static readonly PyExceptionType UnicodeWarning = Define("UnicodeWarning", Warning);
+        public static readonly PyExceptionType ResourceWarning = Define("ResourceWarning", Warning);
 
         private static PyExceptionType Define(string name, PyExceptionType parent)
         {
