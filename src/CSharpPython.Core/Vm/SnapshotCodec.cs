@@ -480,6 +480,7 @@ namespace CSharpPython
             {
                 case ValueKind.None:
                 case ValueKind.NotImplemented:
+                case ValueKind.Ellipsis:
                 case ValueKind.Unbound:
                     break;
                 case ValueKind.Bool:
@@ -938,6 +939,7 @@ namespace CSharpPython
             {
                 case ValueKind.None: return Value.None;
                 case ValueKind.NotImplemented: return Value.NotImplemented;
+                case ValueKind.Ellipsis: return Value.Ellipsis;
                 case ValueKind.Unbound: return Value.Unbound;
                 case ValueKind.Bool: return Value.FromBool(r.ReadBoolean());
                 case ValueKind.Int: return Value.FromInt(r.ReadInt64());

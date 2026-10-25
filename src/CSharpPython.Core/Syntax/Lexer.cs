@@ -615,7 +615,10 @@ namespace CSharpPython.Syntax
                     if (n == '=') { kind = TokenKind.Walrus; len = 2; break; }
                     kind = TokenKind.Colon;
                     break;
-                case '.': kind = TokenKind.Dot; break;
+                case '.':
+                    if (n == '.' && n2 == '.') { kind = TokenKind.Ellipsis; len = 3; break; }
+                    kind = TokenKind.Dot;
+                    break;
                 case ';': kind = TokenKind.Semicolon; break;
                 case '|': if (n == '=') { kind = TokenKind.PipeAssign; len = 2; } else kind = TokenKind.Pipe; break;
                 case '&': if (n == '=') { kind = TokenKind.AmpersandAssign; len = 2; } else kind = TokenKind.Ampersand; break;

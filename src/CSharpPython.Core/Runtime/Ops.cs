@@ -32,6 +32,7 @@ namespace CSharpPython
             {
                 case ValueKind.None: return "NoneType";
                 case ValueKind.NotImplemented: return "NotImplementedType";
+                case ValueKind.Ellipsis: return "ellipsis";
                 case ValueKind.Bool: return "bool";
                 case ValueKind.Int: return "int";
                 case ValueKind.Float: return "float";
@@ -96,6 +97,7 @@ namespace CSharpPython
             {
                 case ValueKind.None: return true;
                 case ValueKind.NotImplemented: return true;
+                case ValueKind.Ellipsis: return true;
                 case ValueKind.Str: return string.Equals((string)a.RawObject, (string)b.RawObject, StringComparison.Ordinal);
                 case ValueKind.List:
                     return SequenceEqual(((PyList)a.RawObject).Items, ((PyList)b.RawObject).Items, depth);

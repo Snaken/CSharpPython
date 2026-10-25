@@ -112,7 +112,8 @@ namespace CSharpPython.Editor
                     case TokenKind.Error: kind = HighlightKind.Error; break;
                     case TokenKind.KwTrue:
                     case TokenKind.KwFalse:
-                    case TokenKind.KwNone: kind = HighlightKind.Constant; break;
+                    case TokenKind.KwNone:
+                    case TokenKind.Ellipsis: kind = HighlightKind.Constant; break;
                     case TokenKind.KwUnsupported: kind = HighlightKind.UnsupportedKeyword; break;
                     case TokenKind.Indent:
                     case TokenKind.Dedent: continue;

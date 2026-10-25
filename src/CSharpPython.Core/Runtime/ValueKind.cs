@@ -40,5 +40,7 @@ namespace CSharpPython
         Set,
         /// <summary>A <c>staticmethod</c>, <c>classmethod</c> or <c>property</c>, see <see cref="PyDescriptor"/>.</summary>
         Descriptor,
+        /// <summary>The <c>Ellipsis</c> value, written <c>...</c>.</summary>
+        Ellipsis,
     }
 }

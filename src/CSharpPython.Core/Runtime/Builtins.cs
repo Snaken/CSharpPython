@@ -34,6 +34,7 @@ namespace CSharpPython
             into[".iter"] = into["iter"];
             into[".Exception"] = Value.FromExceptionType(ExceptionTypes.Exception);
             into["NotImplemented"] = Value.NotImplemented;
+            into["Ellipsis"] = Value.Ellipsis;
             modules["math"] = MathModule();
         }
 

@@ -835,6 +835,7 @@ namespace CSharpPython.Compilation
             switch (o)
             {
                 case null: return Value.None;
+                case EllipsisConstant _: return Value.Ellipsis;
                 case bool b: return Value.FromBool(b);
                 case long l: return Value.FromInt(l);
                 case double d: return Value.FromFloat(d);

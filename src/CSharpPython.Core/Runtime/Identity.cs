@@ -10,6 +10,7 @@ namespace CSharpPython
             {
                 case ValueKind.None:
                 case ValueKind.NotImplemented:
+                case ValueKind.Ellipsis:
                 case ValueKind.Unbound:
                     return true;
                 case ValueKind.Bool:

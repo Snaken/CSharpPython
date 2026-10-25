@@ -631,5 +631,16 @@ namespace CSharpPython.Tests.Syntax
             Assert.That(ex.Problem, Is.EqualTo(diags[0].Message));
             Assert.That(diags[0].ToString(), Does.Contain("line 1"));
         }
+
+        [Test]
+        public void ThreeDotsAreOneEllipsisToken()
+        {
+            Assert.That(Kinds("x = ..."), Is.EqualTo("Name Assign Ellipsis Newline EndOfFile"));
+            Assert.That(Kinds("a.b"), Does.Contain("Name Dot Name"));
+            Assert.That(Kinds("a . . . b"), Does.Contain("Dot Dot Dot"));
+            Assert.That(Lex("...")[0].Text, Is.EqualTo("..."));
+            Assert.That(Kinds("x[..., 1]"), Does.Contain("LBracket Ellipsis Comma"));
+            Assert.That(Kinds(".5"), Does.StartWith("Float"));
+        }
     }
 }

@@ -789,6 +789,7 @@ namespace CSharpPython.Syntax
                 case TokenKind.KwTrue:
                 case TokenKind.KwFalse:
                 case TokenKind.KwNone:
+                case TokenKind.Ellipsis:
                 case TokenKind.KwNot:
                 case TokenKind.Minus:
                 case TokenKind.Plus:
@@ -1136,6 +1137,7 @@ namespace CSharpPython.Syntax
                 case TokenKind.KwTrue: Advance(); return At(new ConstantExpr { Value = true }, tok);
                 case TokenKind.KwFalse: Advance(); return At(new ConstantExpr { Value = false }, tok);
                 case TokenKind.KwNone: Advance(); return At(new ConstantExpr { Value = null }, tok);
+                case TokenKind.Ellipsis: Advance(); return At(new ConstantExpr { Value = EllipsisConstant.Instance }, tok);
                 case TokenKind.LParen: return ParseParenthesised();
                 case TokenKind.LBracket: return ParseListLiteral();
                 case TokenKind.LBrace: return ParseDictLiteral();

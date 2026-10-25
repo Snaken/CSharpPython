@@ -155,5 +155,11 @@ namespace CSharpPython.Tests.Editor
                 Does.StartWith("@:Operator property:Builtin def:Keyword p:FunctionName"));
             Assert.That(Show("@mine.deco(1)\ndef f(): pass"), Does.StartWith("@:Operator mine:Identifier .:Punctuation deco:Member"));
         }
+
+        [Test]
+        public void EllipsisIsAConstant()
+        {
+            Assert.That(Show("x = ..."), Is.EqualTo("x:Identifier =:Operator ...:Constant"));
+        }
     }
 }

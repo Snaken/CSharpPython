@@ -32,6 +32,7 @@ namespace CSharpPython
 
         public static readonly PyType None = Define("NoneType", ValueKind.None);
         public static readonly PyType NotImplementedType = Define("NotImplementedType", ValueKind.NotImplemented);
+        public static readonly PyType EllipsisType = Define("ellipsis", ValueKind.Ellipsis);
         public static readonly PyType Bool = Define("bool", ValueKind.Bool);
         public static readonly PyType Int = Define("int", ValueKind.Int);
         public static readonly PyType Float = Define("float", ValueKind.Float);

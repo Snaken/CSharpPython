@@ -238,5 +238,16 @@ namespace CSharpPython.Tests.Vm
             Assert.That(Out("x = 1, ~2, lambda: 3\nprint(x[1], x[2]())"), Is.EqualTo("-3 3"));
             Assert.That(Out("def g():\n    yield 1, lambda: 2\nprint(next(g())[1]())"), Is.EqualTo("2"));
         }
+
+        [Test]
+        public void EllipsisIsAValueWithIdentityAndNoOtherBehaviour()
+        {
+            Assert.That(Out("print(... is Ellipsis, ... == ..., repr(...), type(...).__name__)"), Is.EqualTo("True True Ellipsis ellipsis"));
+            Assert.That(Fails("... + 1").TypeName, Is.EqualTo("TypeError"));
+            Assert.That(Fails("len(...)").TypeName, Is.EqualTo("TypeError"));
+            Assert.That(Fails("...[0]").TypeName, Is.EqualTo("TypeError"));
+            Assert.Throws<CSharpPython.Syntax.PySyntaxError>(() => new PyVm().Compile("x = .."));
+            Assert.Throws<CSharpPython.Syntax.PySyntaxError>(() => new PyVm().Compile("x = ....a b"));
+        }
     }
 }

@@ -14,6 +14,12 @@ namespace CSharpPython.Syntax
     public abstract class Expr : Node { }
 
     /// <summary>A literal. <see cref="Value"/> is null (None), bool, long, double or string.</summary>
+    /// <summary>The value of <see cref="ConstantExpr"/> for the literal <c>...</c>.</summary>
+    public sealed class EllipsisConstant
+    {
+        public static readonly EllipsisConstant Instance = new EllipsisConstant();
+    }
+
     public sealed class ConstantExpr : Expr
     {
         public object Value;
