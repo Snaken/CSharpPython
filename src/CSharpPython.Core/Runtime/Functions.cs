@@ -21,6 +21,9 @@ namespace CSharpPython
 
         public readonly bool AcceptsKeywords;
 
+        /// <summary>Marks next(), send() and __next__, which the VM runs as frames when given a generator: 1, 2 or 3.</summary>
+        internal int StepKind;
+
         /// <summary>
         /// The parameter list as an editor should show it, such as <c>"x, y=0, *rest"</c>. When null, the editor
         /// makes one up from the argument counts.

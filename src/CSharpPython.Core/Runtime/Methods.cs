@@ -13,6 +13,7 @@ namespace CSharpPython
         private static readonly Dictionary<string, NativeFunction> DictMethods = new Dictionary<string, NativeFunction>();
         private static readonly Dictionary<string, NativeFunction> TupleMethods = new Dictionary<string, NativeFunction>();
         private static readonly Dictionary<string, NativeFunction> SetMethods = new Dictionary<string, NativeFunction>();
+        private static readonly Dictionary<string, NativeFunction> IteratorMethods = new Dictionary<string, NativeFunction>();
 
         // What super() reaches once the script classes run out: the methods every object has. They are looked up by
         // name when a snapshot is restored, which is why they live in a table instead of being made on the spot.
@@ -28,6 +29,7 @@ namespace CSharpPython
                 case ValueKind.Dict: table = DictMethods; break;
                 case ValueKind.Tuple: table = TupleMethods; break;
                 case ValueKind.Set: table = SetMethods; break;
+                case ValueKind.Iterator: table = IteratorMethods; break;
                 case ValueKind.Instance: table = InstanceMethods; break;
                 default: return null;
             }
@@ -44,6 +46,7 @@ namespace CSharpPython
                 case ValueKind.Dict: return DictMethods.Keys;
                 case ValueKind.Tuple: return TupleMethods.Keys;
                 case ValueKind.Set: return SetMethods.Keys;
+                case ValueKind.Iterator: return IteratorMethods.Keys;
                 default: return Enumerable.Empty<string>();
             }
         }
@@ -61,6 +64,7 @@ namespace CSharpPython
             InstallDict();
             InstallTuple();
             InstallSet();
+            InstallIterator();
             InstallInstance();
         }
 
@@ -665,6 +669,34 @@ namespace CSharpPython
             var set = new PySet();
             foreach (var v in Ops.ToList(iterable)) set.Add(v);
             return set;
+        }
+
+        // The methods of generators; on other iterators only __next__ and __iter__ make sense. The VM runs
+        // __next__ and send as frames when it can (see PyTask.TryStepGenerator), so these bodies are the fallback
+        // for calls made by native code, which cannot wait.
+        private static void InstallIterator()
+        {
+            var t = IteratorMethods;
+            Add(t, "generator", "__next__", 0, 0, (c, a) => StepIterator(a[0], Value.None, "__next__"));
+            Add(t, "generator", "send", 1, 1, (c, a) => StepIterator(a[0], a[1], "send"));
+            Add(t, "generator", "close", 0, 0, (c, a) =>
+            {
+                if (!(a[0].RawObject is PyGenerator g)) throw new PyError("AttributeError", "'iterator' object has no attribute 'close'");
+                g.Close();
+                return Value.None;
+            });
+            Add(t, "generator", "__iter__", 0, 0, (c, a) => a[0]);
+            t["__next__"].StepKind = 3;
+            t["send"].StepKind = 2;
+        }
+
+        private static Value StepIterator(Value iterator, Value sent, string method)
+        {
+            // Generators never get here: the VM resumes them itself (see PyTask.TryStepGenerator).
+            var it = (PyIterator)iterator.RawObject;
+            if (method == "send") throw new PyError("AttributeError", "'iterator' object has no attribute 'send'");
+            if (it.Next(out Value value)) return value;
+            throw new PyError("StopIteration", "");
         }
 
         private static void InstallSet()

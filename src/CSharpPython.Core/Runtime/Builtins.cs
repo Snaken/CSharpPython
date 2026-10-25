@@ -31,6 +31,7 @@ namespace CSharpPython
 
             // Names no script can write, used by the code a 'with' statement is rewritten into.
             into[".type"] = into["type"];
+            into[".iter"] = into["iter"];
             into[".Exception"] = Value.FromExceptionType(ExceptionTypes.Exception);
             into["NotImplemented"] = Value.NotImplemented;
             modules["math"] = MathModule();
@@ -64,7 +65,7 @@ namespace CSharpPython
             yield return F("print", 0, -1, Print, true);
             yield return F(".with", 1, 1, ContextManager);
             yield return F("iter", 1, 1, (c, a) => Value.FromIterator(Ops.GetIterator(a[0])));
-            yield return F("next", 1, 2, (c, a) =>
+            var next = F("next", 1, 2, (c, a) =>
             {
                 var it = a[0].Kind == ValueKind.Iterator ? (PyIterator)a[0].RawObject
                     : a[0].Kind == ValueKind.Instance && c.Task != null && Ops.HasNext(a[0]) ? new InstanceIterator(a[0])
@@ -73,6 +74,8 @@ namespace CSharpPython
                 if (a.Length > 1) return a[1];
                 throw new PyError("StopIteration", "");
             });
+            next.StepKind = 1;
+            yield return next;
             yield return F("hash", 1, 1, (c, a) => Value.FromInt(Ops.Hash(a[0])));
             yield return F("len", 1, 1, (c, a) => Value.FromInt(Ops.Length(a[0])));
             yield return F("range", 1, 3, Range);

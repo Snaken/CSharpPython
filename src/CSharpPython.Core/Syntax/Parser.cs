@@ -619,7 +619,7 @@ namespace CSharpPython.Syntax
         private Stmt ParseExpressionOrAssignment()
         {
             var startTok = Cur;
-            var first = ParseExprList();
+            var first = Cur.Kind == TokenKind.KwYield ? ParseYield() : ParseExprList();
 
             if (Cur.Kind == TokenKind.Assign)
             {
@@ -629,7 +629,7 @@ namespace CSharpPython.Syntax
                 {
                     CheckTarget(current);
                     node.Targets.Add(current);
-                    current = ParseExprList();
+                    current = Cur.Kind == TokenKind.KwYield ? ParseYield() : ParseExprList();
                 }
                 node.Value = current;
                 return node;
@@ -703,6 +703,7 @@ namespace CSharpPython.Syntax
                 case UnaryExpr _: what = "expression"; break;
                 case DictExpr _: what = "dict literal"; break;
                 case SetExpr _: what = "set display"; break;
+                case YieldExpr _: what = "yield expression"; break;
                 case IfExpr _: what = "conditional expression"; break;
                 default: what = "expression"; break;
             }
@@ -734,6 +735,23 @@ namespace CSharpPython.Syntax
                 default:
                     return false;
             }
+        }
+
+        // 'yield', 'yield value', 'yield a, b' (a tuple) or 'yield from iterable'. Positioned at 'yield'.
+        private Expr ParseYield()
+        {
+            var tok = Advance();
+            var node = At(new YieldExpr(), tok);
+            if (Accept(TokenKind.KwFrom))
+            {
+                node.IsFrom = true;
+                node.Value = ParseTernary();
+            }
+            else if (IsExprStart(Cur.Kind))
+            {
+                node.Value = ParseExprList();
+            }
+            return node;
         }
 
         /// <summary>Parses one expression or a comma separated list, which becomes a tuple.</summary>
@@ -1045,7 +1063,7 @@ namespace CSharpPython.Syntax
 
         // A comprehension is rewritten into a call of a function that builds the result with nested loops, so it
         // has its own scope as in Python: the first iterable is evaluated outside and passed in as ".0"; the loop
-        // variables and the result (".r") are locals of the function. A generator expression builds a list.
+        // variables and the result (".r") are locals of the function. A generator expression is the same function with 'yield' in place of the append.
         // Positioned at the first 'for'; 'key' is the element (or dict key) and 'value' the dict value or null.
         private Expr ParseComprehension(Token open, Expr key, Expr value, string name)
         {
@@ -1071,8 +1089,13 @@ namespace CSharpPython.Syntax
 
             Expr Name(string n) => At(new NameExpr { Name = n }, open);
             bool isSet = name == "<setcomp>";
+            bool lazy = name == "<genexpr>";
             Stmt inner;
-            if (value == null)
+            if (lazy)
+            {
+                inner = At(new ExprStmt { Value = At(new YieldExpr { Value = key, Synthetic = true }, open) }, open);
+            }
+            else if (value == null)
             {
                 var append = At(new CallExpr { Func = At(new AttributeExpr { Target = Name(".r"), Name = isSet ? "add" : "append" }, open) }, open);
                 append.Args.Add(key);
@@ -1094,12 +1117,22 @@ namespace CSharpPython.Syntax
 
             var def = At(new DefStmt { Name = name }, open);
             def.Params.Add(new Param { Name = ".0", Line = LineOf(open), Column = ColumnOf(open) });
-            Expr empty = value != null ? (Expr)At(new DictExpr(), open) : isSet ? At(new SetExpr(), open) : At(new ListExpr(), open);
-            def.Body.Add(At(new AssignStmt { Value = empty, Targets = { Name(".r") } }, open));
+            if (!lazy)
+            {
+                Expr empty = value != null ? (Expr)At(new DictExpr(), open) : isSet ? At(new SetExpr(), open) : At(new ListExpr(), open);
+                def.Body.Add(At(new AssignStmt { Value = empty, Targets = { Name(".r") } }, open));
+            }
             def.Body.Add(inner);
-            def.Body.Add(At(new ReturnStmt { Value = Name(".r") }, open));
+            if (!lazy) def.Body.Add(At(new ReturnStmt { Value = Name(".r") }, open));
             var call = At(new CallExpr { Func = At(new LambdaExpr { Function = def }, open) }, open);
-            call.Args.Add(clauses[0].iter);
+            if (lazy)
+            {
+                // The first iterable is evaluated, and checked to be iterable, when the generator is made.
+                var first = At(new CallExpr { Func = Name(".iter") }, open);
+                first.Args.Add(clauses[0].iter);
+                call.Args.Add(first);
+            }
+            else call.Args.Add(clauses[0].iter);
             return call;
         }
 
@@ -1111,6 +1144,12 @@ namespace CSharpPython.Syntax
             try
             {
                 if (Accept(TokenKind.RParen)) return At(new TupleExpr(), open);
+                if (Cur.Kind == TokenKind.KwYield)
+                {
+                    var y = ParseYield();
+                    Expect(TokenKind.RParen, "')'");
+                    return y;
+                }
                 var first = ParseTernary();
                 if (Cur.Kind == TokenKind.KwFor)
                 {

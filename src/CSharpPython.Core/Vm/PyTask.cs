@@ -34,7 +34,13 @@ namespace CSharpPython
             public bool IsConstructor; // running __init__ for a call of a class; the call's result is Constructed
             public Value Constructed;
             public PyClass Owner;   // the class whose method is running, for super()
+            public PyGenerator Generator; // set while the frame is a generator's body
+            public GenMode GenMode;       // who resumed the generator, and so what a yield or the end delivers
+            public Value GenDefault;      // next(g, default): Unbound when there is none
         }
+
+        // How a generator was resumed.
+        private enum GenMode { None, Call, For, Sync }
 
         // Raised by 'raise' so that it travels the same path as errors thrown by native code.
         // Thrown when a call made by a native function runs past MaxSteps; the task then fails with StepLimitExceeded.
@@ -85,6 +91,8 @@ namespace CSharpPython
         private int _nested;                   // how many native-initiated calls (CallSync) are in progress
         private bool _boundaryHit;
         private Value _boundaryResult;
+        private bool _boundaryDone;            // the boundary frame was a generator that finished rather than yielded
+        private Value _lastReturn;             // what the generator that most recently finished returned, for 'yield from'
         private long _totalSteps;
         private Value _result;
         private PyRuntimeError _error;
@@ -251,6 +259,8 @@ namespace CSharpPython
                     Push(fn);
                     foreach (var a in ev.Args) Push(a);
                     int mainWait = _state == TaskState.Waiting ? _waitTicks : -1;
+                    if (((PyFunction)fn.RawObject).Code.IsGenerator)
+                        throw new PyError("TypeError", "the event handler '" + ev.Name + "' is a generator function");
                     CallFunction((PyFunction)fn.RawObject, calleeIndex, calleeIndex + 1, ev.Args.Length, ev.Args.Length, null);
                     _frames[_frameCount - 1].IsEvent = true;
                     _inEvent = true;
@@ -281,11 +291,12 @@ namespace CSharpPython
                 catch (PyError e)
                 {
                     var exc = new PyExceptionValue(ExceptionTypes.GetOrCreate(e.TypeName), e.Problem);
-                    if (!Unwind(exc)) return TaskState.Error;
+                    if (!Unwind(ref exc)) return TaskState.Error;
                 }
                 catch (ScriptRaise r)
                 {
-                    if (!Unwind(r.Exception)) return TaskState.Error;
+                    var raised = r.Exception;
+                    if (!Unwind(ref raised)) return TaskState.Error;
                 }
                 catch (StepLimitSignal)
                 {
@@ -780,12 +791,58 @@ namespace CSharpPython
                     case Op.ForIter:
                     {
                         var iterator = (PyIterator)_stack[_sp - 1].RawObject;
+                        if (iterator is PyGenerator forGen)
+                        {
+                            // Run the generator as a frame of its own, so that it can wait.
+                            if (forGen.State == GeneratorState.Done)
+                            {
+                                _sp--;
+                                pc = ins.Arg;
+                                _lastReturn = Value.None;
+                                break;
+                            }
+                            ResumeGenerator(forGen, Value.None, _sp, GenMode.For, Value.Unbound);
+                            frame = _frames[_frameCount - 1];
+                            code = frame.Code;
+                            instructions = code.Instructions;
+                            pc = frame.Pc;
+                            bas = frame.Base;
+                            break;
+                        }
                         if (iterator.Next(out Value next)) Push(next);
                         else
                         {
                             _sp--;
                             pc = ins.Arg;
+                            _lastReturn = Value.None;
                         }
+                        break;
+                    }
+                    case Op.GenReturn:
+                        Push(_lastReturn);
+                        _lastReturn = Value.None;
+                        break;
+                    case Op.Yield:
+                    {
+                        Value yielded = _stack[--_sp];
+                        bool yieldToNative = frame.GenMode == GenMode.Sync || frame.IsBoundary;
+                        int yieldTo = frame.CalleeIndex;
+                        SuspendGenerator(frame);
+                        _sp = yieldTo;
+                        _frameCount--;
+                        if (yieldToNative)
+                        {
+                            _boundaryResult = yielded;
+                            _boundaryDone = false;
+                            _boundaryHit = true;
+                            return TaskState.Running;
+                        }
+                        Push(yielded);
+                        frame = _frames[_frameCount - 1];
+                        code = frame.Code;
+                        instructions = code.Instructions;
+                        pc = frame.Pc;
+                        bas = frame.Base;
                         break;
                     }
 
@@ -843,6 +900,44 @@ namespace CSharpPython
                     case Op.Return:
                     {
                         Value result = _stack[--_sp];
+                        if (frame.Generator != null)
+                        {
+                            // The end of a generator: for a loop it ends the loop, for next() it raises StopIteration.
+                            GenMode endMode = frame.GenMode;
+                            bool endsInNative = endMode == GenMode.Sync || frame.IsBoundary;
+                            Value endDefault = frame.GenDefault;
+                            int endTo = frame.CalleeIndex;
+                            frame.Generator.State = GeneratorState.Done;
+                            frame.Generator.Saved = null;
+                            frame.Generator.ReturnValue = result;
+                            _lastReturn = result;
+                            _sp = endTo;
+                            _frameCount--;
+                            if (endsInNative)
+                            {
+                                // Resumed by native code: it learns of the end from the flag, or from next(g, default).
+                                bool defaulted = endMode == GenMode.Call && endDefault.Kind != ValueKind.Unbound;
+                                if (endMode == GenMode.Call && !defaulted) throw new PyError("StopIteration", "");
+                                _boundaryResult = defaulted ? endDefault : default;
+                                _boundaryDone = !defaulted;
+                                _boundaryHit = true;
+                                return TaskState.Running;
+                            }
+                            frame = _frames[_frameCount - 1];
+                            code = frame.Code;
+                            instructions = code.Instructions;
+                            pc = frame.Pc;
+                            bas = frame.Base;
+                            if (endMode == GenMode.For)
+                            {
+                                _sp = endTo - 1; // the exhausted iterator
+                                pc = instructions[pc - 1].Arg;
+                                frame.Pc = pc;
+                            }
+                            else if (endDefault.Kind != ValueKind.Unbound) Push(endDefault);
+                            else throw new PyError("StopIteration", "");
+                            break;
+                        }
                         if (frame.IsConstructor)
                         {
                             if (result.Kind != ValueKind.None)
@@ -1076,8 +1171,7 @@ namespace CSharpPython
                 // A method with its receiver in front of the arguments.
                 if (callee.Kind == ValueKind.Function)
                 {
-                    CallFunction((PyFunction)callee.RawObject, calleeIndex, calleeIndex + 1, argc + 1, positional + 1, kwNames);
-                    return CallFrame;
+                    return CallFunction((PyFunction)callee.RawObject, calleeIndex, calleeIndex + 1, argc + 1, positional + 1, kwNames);
                 }
                 return CallNative((NativeFunction)callee.RawObject, calleeIndex, calleeIndex + 1, argc + 1, positional + 1, kwNames, 1);
             }
@@ -1085,8 +1179,7 @@ namespace CSharpPython
             switch (callee.Kind)
             {
                 case ValueKind.Function:
-                    CallFunction((PyFunction)callee.RawObject, calleeIndex, argStart, argc, positional, kwNames);
-                    return CallFrame;
+                    return CallFunction((PyFunction)callee.RawObject, calleeIndex, argStart, argc, positional, kwNames);
                 case ValueKind.Native:
                     return CallNative((NativeFunction)callee.RawObject, calleeIndex, argStart, argc, positional, kwNames, 0);
                 case ValueKind.Type:
@@ -1101,8 +1194,7 @@ namespace CSharpPython
                 {
                     var bound = (ScriptMethod)callee.RawObject;
                     _stack[argStart - 1] = bound.Self;
-                    CallFunction(bound.Function, calleeIndex, argStart - 1, argc + 1, positional + 1, kwNames);
-                    return CallFrame;
+                    return CallFunction(bound.Function, calleeIndex, argStart - 1, argc + 1, positional + 1, kwNames);
                 }
                 case ValueKind.Class:
                     return Construct(callee, calleeIndex, argStart, argc, positional, kwNames);
@@ -1111,8 +1203,7 @@ namespace CSharpPython
                     // An object whose class defines __call__ runs it as an ordinary frame, so it can wait.
                     var call = CallMethodOf(callee);
                     _stack[argStart - 1] = callee;
-                    CallFunction(call, calleeIndex, argStart - 1, argc + 1, positional + 1, kwNames);
-                    return CallFrame;
+                    return CallFunction(call, calleeIndex, argStart - 1, argc + 1, positional + 1, kwNames);
                 }
                 case ValueKind.ExceptionType:
                 {
@@ -1151,6 +1242,8 @@ namespace CSharpPython
             {
                 if (init.Kind != ValueKind.Function) throw new PyError("TypeError", "__init__ must be a function");
                 _stack[argStart - 1] = self;
+                if (((PyFunction)init.RawObject).Code.IsGenerator)
+                    throw new PyError("TypeError", "__init__() should return None, not 'generator'");
                 CallFunction((PyFunction)init.RawObject, calleeIndex, argStart - 1, argc + 1, positional + 1, kwNames);
                 var frame = _frames[_frameCount - 1];
                 frame.IsConstructor = true;
@@ -1239,6 +1332,12 @@ namespace CSharpPython
                 throw new PyError("TypeError", fn.Name + "() takes " + expected + " (" + given + " given)");
             }
 
+            if (fn.StepKind != 0)
+            {
+                int stepped = TryStepGenerator(fn, calleeIndex, start, count);
+                if (stepped >= 0) return stepped;
+            }
+
             _ctx.SetCall(positional, kwNames);
             _ctx.WaitTicks = -1;
             Value result = fn.Fn(_ctx, new ReadOnlySpan<Value>(_stack, start, count));
@@ -1256,7 +1355,7 @@ namespace CSharpPython
             return CallDone;
         }
 
-        private void CallFunction(PyFunction fn, int calleeIndex, int argStart, int argc, int positional, string[] kwNames)
+        private int CallFunction(PyFunction fn, int calleeIndex, int argStart, int argc, int positional, string[] kwNames)
         {
             Code c = fn.Code;
             if (_frameCount >= Vm.Options.MaxCallDepth)
@@ -1290,9 +1389,19 @@ namespace CSharpPython
             }
 
             _sp = argStart + c.NumLocals;
+            if (c.IsGenerator)
+            {
+                // The body does not run yet: the bound arguments become the generator's starting locals.
+                var locals = new Value[c.NumLocals];
+                Array.Copy(_stack, argStart, locals, 0, c.NumLocals);
+                _sp = calleeIndex;
+                Push(Value.FromIterator(new PyGenerator(c, fn.Closure, fn.Owner, locals)));
+                return CallDone;
+            }
             PushFrame(c, argStart, calleeIndex);
             _frames[_frameCount - 1].Closure = fn.Closure;
             _frames[_frameCount - 1].Owner = fn.Owner;
+            return CallFrame;
         }
 
         // Argument binding for functions with keyword-only parameters, *args or **kwargs.
@@ -1410,7 +1519,7 @@ namespace CSharpPython
         // Finds a handler for the exception, unwinding frames as needed. Returns false if the task failed.
         // With a floor, only frames above it are unwound and the task does not fail: false means the exception
         // left the call made by a native function and must continue through that native.
-        private bool Unwind(PyExceptionValue exc, int floor = 0)
+        private bool Unwind(ref PyExceptionValue exc, int floor = 0)
         {
             if (exc.Trace.Count == 0) exc.Trace = CurrentTrace();
             if (exc.Instance != null) exc.Instance.Trace = exc.Trace;
@@ -1428,6 +1537,13 @@ namespace CSharpPython
                     return true;
                 }
                 if (f.IsEvent) break; // an event handler's error must not unwind into the interrupted script
+                if (f.Generator != null)
+                {
+                    f.Generator.State = GeneratorState.Done;
+                    f.Generator.Saved = null;
+                    if (exc.Type.IsSubclassOf(ExceptionTypes.StopIteration))
+                        exc = new PyExceptionValue(ExceptionTypes.GetOrCreate("RuntimeError"), "generator raised StopIteration") { Trace = exc.Trace };
+                }
                 _sp = f.CalleeIndex;
                 _frameCount--;
             }
@@ -1488,8 +1604,7 @@ namespace CSharpPython
                 switch (callee.Kind)
                 {
                     case ValueKind.Function:
-                        CallFunction((PyFunction)callee.RawObject, calleeIndex, argStart, argc, argc, null);
-                        status = CallFrame;
+                        status = CallFunction((PyFunction)callee.RawObject, calleeIndex, argStart, argc, argc, null);
                         break;
                     case ValueKind.Native:
                         status = CallNative((NativeFunction)callee.RawObject, calleeIndex, argStart, argc, argc, null, 0);
@@ -1508,8 +1623,7 @@ namespace CSharpPython
                     {
                         var bound = (ScriptMethod)callee.RawObject;
                         _stack[argStart - 1] = bound.Self;
-                        CallFunction(bound.Function, calleeIndex, argStart - 1, argc + 1, argc + 1, null);
-                        status = CallFrame;
+                        status = CallFunction(bound.Function, calleeIndex, argStart - 1, argc + 1, argc + 1, null);
                         break;
                     }
                     case ValueKind.Class:
@@ -1519,8 +1633,7 @@ namespace CSharpPython
                     {
                         var call = CallMethodOf(callee);
                         _stack[argStart - 1] = callee;
-                        CallFunction(call, calleeIndex, argStart - 1, argc + 1, argc + 1, null);
-                        status = CallFrame;
+                        status = CallFunction(call, calleeIndex, argStart - 1, argc + 1, argc + 1, null);
                         break;
                     }
                     default:
@@ -1531,33 +1644,7 @@ namespace CSharpPython
                 if (status == CallDone) return _stack[--_sp];
                 if (status == CallWait) return CancelWait(calleeIndex);
 
-                int floor = _frameCount - 1;
-                _frames[floor].IsBoundary = true;
-                while (true)
-                {
-                    try
-                    {
-                        var state = Loop();
-                        if (_boundaryHit)
-                        {
-                            _boundaryHit = false;
-                            Value result = _boundaryResult;
-                            _boundaryResult = default;
-                            return result;
-                        }
-                        if (state == TaskState.Waiting) return CancelWait(calleeIndex, floor);
-                        RefillBudget();
-                    }
-                    catch (PyError e)
-                    {
-                        var exc = new PyExceptionValue(ExceptionTypes.GetOrCreate(e.TypeName), e.Problem);
-                        if (!Unwind(exc, floor)) throw new ScriptRaise(exc);
-                    }
-                    catch (ScriptRaise r)
-                    {
-                        if (!Unwind(r.Exception, floor)) throw;
-                    }
-                }
+                return RunBoundary(calleeIndex);
             }
             finally
             {
@@ -1566,10 +1653,47 @@ namespace CSharpPython
             }
         }
 
+        // Runs the frame just pushed (the top one) until it returns, as the body of a call made by a native function.
+        private Value RunBoundary(int calleeIndex)
+        {
+            int floor = _frameCount - 1;
+            _frames[floor].IsBoundary = true;
+            while (true)
+            {
+                try
+                {
+                    var state = Loop();
+                    if (_boundaryHit)
+                    {
+                        _boundaryHit = false;
+                        Value result = _boundaryResult;
+                        _boundaryResult = default;
+                        return result;
+                    }
+                    if (state == TaskState.Waiting) return CancelWait(calleeIndex, floor);
+                    RefillBudget();
+                }
+                catch (PyError e)
+                {
+                    var exc = new PyExceptionValue(ExceptionTypes.GetOrCreate(e.TypeName), e.Problem);
+                    if (!Unwind(ref exc, floor)) throw new ScriptRaise(exc);
+                }
+                catch (ScriptRaise r)
+                {
+                    var raised = r.Exception;
+                    if (!Unwind(ref raised, floor)) throw raised == r.Exception ? r : new ScriptRaise(raised);
+                }
+            }
+        }
+
         // The called function asked to wait, which a call made by a native function cannot do.
         private Value CancelWait(int calleeIndex, int floor = -1)
         {
-            if (floor >= 0) _frameCount = floor;
+            if (floor >= 0)
+            {
+                for (int i = _frameCount - 1; i >= floor; i--) FinishGenerator(_frames[i]);
+                _frameCount = floor;
+            }
             _sp = calleeIndex;
             _state = TaskState.Running;
             _waitTicks = 0;
@@ -1626,6 +1750,9 @@ namespace CSharpPython
             f.IsConstructor = false;
             f.Constructed = default;
             f.Owner = null;
+            f.Generator = null;
+            f.GenMode = GenMode.None;
+            f.GenDefault = default;
         }
     }
 }

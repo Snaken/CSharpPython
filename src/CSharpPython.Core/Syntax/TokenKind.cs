@@ -20,8 +20,9 @@ namespace CSharpPython.Syntax
         KwDef, KwIf, KwElif, KwElse, KwWhile, KwFor, KwIn, KwReturn, KwBreak, KwContinue, KwPass,
         KwAnd, KwOr, KwNot, KwIs, KwTrue, KwFalse, KwNone, KwGlobal, KwNonlocal, KwLambda,
         KwTry, KwExcept, KwFinally, KwRaise, KwImport, KwFrom, KwClass, KwAs, KwDel, KwAssert, KwWith,
+        KwYield,
 
-        /// <summary>A reserved Python keyword (class, lambda, yield, ...) that is not supported yet.</summary>
+        /// <summary>A reserved Python keyword (async, await, ...) that is not supported yet.</summary>
         KwUnsupported,
 
         // Operators and punctuation.

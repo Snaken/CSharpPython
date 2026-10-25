@@ -10,7 +10,7 @@ namespace CSharpPython.Editor
         Keyword,
         /// <summary>True, False and None.</summary>
         Constant,
-        /// <summary>A Python keyword this library does not support yet (yield, with, ...).</summary>
+        /// <summary>A Python keyword this library does not support yet (async, await, ...).</summary>
         UnsupportedKeyword,
         Number,
         String,

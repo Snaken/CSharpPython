@@ -180,6 +180,13 @@ namespace CSharpPython
                 case TupleIterator t: Collect(Value.FromTuple(t.Tuple)); break;
                 case DictKeyIterator d: Collect(Value.FromDict(d.Dict)); break;
                 case InstanceIterator i: Collect(i.Target); break;
+                case PyGenerator g:
+                    if (g.Closure != null) foreach (var cell in g.Closure) Collect(Value.FromCell(cell));
+                    if (g.Owner != null) Collect(Value.FromClass(g.Owner));
+                    if (g.Saved != null) foreach (var item in g.Saved) Collect(item);
+                    Collect(g.ExcInfo);
+                    Collect(g.ReturnValue);
+                    break;
                 case EnumerateIterator e: Collect(Value.FromIterator(e.Source)); break;
                 case ZipIterator z:
                     foreach (var s in z.Sources) Collect(Value.FromIterator(s));
@@ -396,6 +403,30 @@ namespace CSharpPython
                     w.Write((byte)7);
                     WriteValue(w, i.Target);
                     break;
+                case PyGenerator g:
+                {
+                    int codeIndex = _script.IndexOf(g.Code);
+                    if (codeIndex < 0) throw new SnapshotException("generator '" + g.Name + "' does not belong to this script");
+                    w.Write((byte)8);
+                    w.Write(codeIndex);
+                    w.Write((byte)g.State);
+                    w.Write(g.Pc);
+                    w.Write(g.Closure?.Length ?? 0);
+                    if (g.Closure != null) foreach (var cell in g.Closure) WriteValue(w, Value.FromCell(cell));
+                    WriteValue(w, g.Owner == null ? Value.None : Value.FromClass(g.Owner));
+                    WriteValue(w, g.ExcInfo);
+                    WriteValue(w, g.ReturnValue);
+                    w.Write(g.Saved != null);
+                    if (g.Saved != null) w.Write(g.Saved.Length);
+                    if (g.Saved != null) foreach (var item in g.Saved) WriteValue(w, item);
+                    w.Write(g.HandlerAddresses.Length);
+                    for (int h = 0; h < g.HandlerAddresses.Length; h++)
+                    {
+                        w.Write(g.HandlerAddresses[h]);
+                        w.Write(g.HandlerHeights[h]);
+                    }
+                    break;
+                }
                 default:
                     throw new SnapshotException("cannot save an iterator of type " + it.GetType().Name);
             }
@@ -480,7 +511,7 @@ namespace CSharpPython
                     foreach (var member in module.Value.Members)
                         if (member.Value.Kind == ValueKind.Native && !_natives.ContainsKey((NativeFunction)member.Value.RawObject))
                             _natives[(NativeFunction)member.Value.RawObject] = "m:" + module.Key + ":" + member.Key;
-                foreach (var kind in new[] { ValueKind.Str, ValueKind.List, ValueKind.Dict, ValueKind.Tuple, ValueKind.Set })
+                foreach (var kind in new[] { ValueKind.Str, ValueKind.List, ValueKind.Dict, ValueKind.Tuple, ValueKind.Set, ValueKind.Iterator })
                     foreach (var name in Methods.NamesOf(kind))
                     {
                         var method = Methods.Find(kind, name);
@@ -783,9 +814,54 @@ namespace CSharpPython
                     if (target.Kind != ValueKind.Instance) throw new SnapshotException("the snapshot is damaged");
                     return new InstanceIterator(target);
                 }
+                case 8: return ReadGenerator(r);
                 default:
                     throw new SnapshotException("the snapshot is damaged");
             }
+        }
+
+        private PyGenerator ReadGenerator(BinaryReader r)
+        {
+            int codeIndex = r.ReadInt32();
+            if (codeIndex <= 0 || codeIndex >= _script.Codes.Length || !_script.Codes[codeIndex].IsGenerator)
+                throw new SnapshotException("the snapshot does not match this script");
+            var code = _script.Codes[codeIndex];
+            byte state = r.ReadByte();
+            if (state > (byte)GeneratorState.Done) throw new SnapshotException("the snapshot is damaged");
+            int pc = r.ReadInt32();
+            if (pc < 0 || pc > code.Instructions.Length) throw new SnapshotException("the snapshot is damaged");
+            var closure = ReadClosure(r, code);
+            Value owner = ReadValue(r);
+            if (owner.Kind != ValueKind.Class && owner.Kind != ValueKind.None) throw new SnapshotException("the snapshot is damaged");
+            var generator = new PyGenerator(code, closure, owner.Kind == ValueKind.Class ? (PyClass)owner.RawObject : null, null)
+            {
+                State = (GeneratorState)state,
+                Pc = pc,
+                ExcInfo = ReadValue(r),
+                ReturnValue = ReadValue(r),
+            };
+            bool live = r.ReadBoolean();
+            if (live != (generator.State == GeneratorState.Suspended || generator.State == GeneratorState.NotStarted))
+                throw new SnapshotException("the snapshot is damaged");
+            int saved = 0;
+            if (live)
+            {
+                saved = SnapshotIo.ReadCount(r, 1);
+                if (saved < code.NumLocals) throw new SnapshotException("the snapshot is damaged");
+                generator.Saved = new Value[saved];
+                for (int i = 0; i < saved; i++) generator.Saved[i] = ReadValue(r);
+            }
+            int handlers = SnapshotIo.ReadCount(r, 8);
+            generator.HandlerAddresses = new int[handlers];
+            generator.HandlerHeights = new int[handlers];
+            for (int h = 0; h < handlers; h++)
+            {
+                generator.HandlerAddresses[h] = r.ReadInt32();
+                generator.HandlerHeights[h] = r.ReadInt32();
+                if (generator.HandlerAddresses[h] < 0 || generator.HandlerAddresses[h] > code.Instructions.Length || generator.HandlerHeights[h] < 0 || (live && generator.HandlerHeights[h] > saved))
+                    throw new SnapshotException("the snapshot is damaged");
+            }
+            return generator;
         }
 
         private static PyIterator AsIterator(Value v)

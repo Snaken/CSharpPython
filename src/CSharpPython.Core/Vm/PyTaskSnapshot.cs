@@ -7,7 +7,7 @@ namespace CSharpPython
 {
     public sealed partial class PyTask
     {
-        private const ushort SnapshotVersion = 6;
+        private const ushort SnapshotVersion = 7;
         private static readonly byte[] SnapshotMagic = { (byte)'C', (byte)'S', (byte)'P', (byte)'Y' };
 
         // The deepest value stack a restored snapshot may claim, so that damaged data cannot ask for gigabytes.
@@ -35,9 +35,13 @@ namespace CSharpPython
                 writer.Collect(_frames[i].ExcInfo);
                 if (_frames[i].IsConstructor) writer.Collect(_frames[i].Constructed);
                 if (_frames[i].Owner != null) writer.Collect(Value.FromClass(_frames[i].Owner));
+                if (_frames[i].Generator != null) writer.Collect(Value.FromIterator(_frames[i].Generator));
+                writer.Collect(_frames[i].GenDefault);
                 if (_frames[i].Closure != null)
                     foreach (var cell in _frames[i].Closure) writer.Collect(Value.FromCell(cell));
             }
+
+            writer.Collect(_lastReturn);
 
             var stream = new MemoryStream();
             var w = new BinaryWriter(stream);
@@ -110,7 +114,11 @@ namespace CSharpPython
                 w.Write(f.IsConstructor);
                 if (f.IsConstructor) writer.WriteValue(w, f.Constructed);
                 writer.WriteValue(w, f.Owner == null ? Value.None : Value.FromClass(f.Owner));
+                writer.WriteValue(w, f.Generator == null ? Value.None : Value.FromIterator(f.Generator));
+                w.Write((byte)f.GenMode);
+                writer.WriteValue(w, f.GenDefault);
             }
+            writer.WriteValue(w, _lastReturn);
 
             w.Flush();
             return stream.ToArray();
@@ -236,12 +244,22 @@ namespace CSharpPython
                 Value owner = reader.ReadValue(r);
                 if (owner.Kind == ValueKind.Class) f.Owner = (PyClass)owner.RawObject;
                 else if (owner.Kind != ValueKind.None) throw new SnapshotException("the snapshot is damaged");
+                Value generator = reader.ReadValue(r);
+                if (generator.Kind == ValueKind.Iterator && generator.RawObject is PyGenerator running && running.Code == code
+                    && running.State == GeneratorState.Running)
+                    f.Generator = running;
+                else if (generator.Kind != ValueKind.None) throw new SnapshotException("the snapshot is damaged");
+                byte genMode = r.ReadByte();
+                if (genMode > (byte)GenMode.Sync || (genMode != 0) != (f.Generator != null)) throw new SnapshotException("the snapshot is damaged");
+                f.GenMode = (GenMode)genMode;
+                f.GenDefault = reader.ReadValue(r);
                 if (f.Pc < 0 || f.Pc > code.Instructions.Length || f.Base < 0 || f.Base + code.NumLocals > sp ||
                     f.CalleeIndex < 0 || f.CalleeIndex > f.Base)
                     throw new SnapshotException("the snapshot is damaged");
                 task._frames[i] = f;
             }
             task._frameCount = frames;
+            task._lastReturn = reader.ReadValue(r);
 
             if (task._state != TaskState.Finished && task._state != TaskState.Error && frames == 0)
                 throw new SnapshotException("the snapshot is damaged");

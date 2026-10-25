@@ -47,6 +47,7 @@ namespace CSharpPython
         public static readonly PyType Method = Define("method", ValueKind.BoundMethod);
         public static readonly PyType Module = Define("module", ValueKind.Module);
         public static readonly PyType Iterator = Define("iterator", ValueKind.Iterator);
+        public static readonly PyType Generator = Define("generator", ValueKind.Iterator);
         public static readonly PyType Handle = Define("handle", ValueKind.Handle);
         public static readonly PyType Type = Define("type", null);
 
@@ -69,6 +70,7 @@ namespace CSharpPython
             {
                 case ValueKind.Exception: return Value.FromExceptionType(((PyExceptionValue)v.RawObject).Type);
                 case ValueKind.Instance: return Value.FromClass(((PyInstance)v.RawObject).Class);
+                case ValueKind.Iterator when v.RawObject is PyGenerator: return Value.FromType(Generator);
                 case ValueKind.ExceptionType:
                 case ValueKind.Class:
                 case ValueKind.Type:

@@ -48,6 +48,9 @@ namespace CSharpPython.Compilation
         /// </summary>
         public bool IsClass;
 
+        /// <summary>Whether the body contains <c>yield</c>, which makes calls return a generator.</summary>
+        public bool IsGenerator;
+
         public int LocalCount => Locals.Count;
 
         public bool TryGetLocal(string name, out int slot)

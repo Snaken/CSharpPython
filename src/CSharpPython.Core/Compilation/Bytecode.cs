@@ -116,6 +116,8 @@ namespace CSharpPython.Compilation
         DeleteIndex,  // obj index ->
         LoadSuper,    // -> super().names[arg], bound to the first argument of the running method
         LoadSuper2,   // class obj -> super(class, obj).names[arg]
+        Yield,        // value -> sent; suspends the generator, giving value to whoever resumed it
+        GenReturn,    // -> the value the last exhausted generator returned (None for other iterators); ends 'yield from'
     }
 
     internal readonly struct Instruction
@@ -178,6 +180,9 @@ namespace CSharpPython.Compilation
         /// <summary>The names of the enclosing functions' variables this function uses, in closure order.</summary>
         public string[] FreeNames;
         public bool IsModule;
+
+        /// <summary>Calling a generator function binds the arguments and returns a generator without running the body.</summary>
+        public bool IsGenerator;
 
         /// <summary>A readable listing, used by tests and for debugging.</summary>
         public string Disassemble()
@@ -255,6 +260,8 @@ namespace CSharpPython.Compilation
                     case Op.DictSetUnique:
                     case Op.DictMerge:
                     case Op.Return:
+                    case Op.Yield:
+                    case Op.GenReturn:
                     case Op.PopTry:
                     case Op.Raise:
                     case Op.Reraise:

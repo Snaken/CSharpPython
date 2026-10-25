@@ -303,6 +303,14 @@ namespace CSharpPython.Compilation
                 case LambdaExpr l:
                     VisitFunction(l.Function);
                     break;
+                case YieldExpr y:
+                    if (_scope.IsModule || _scope.IsClass) throw Error("'yield' outside function", y);
+                    if (_scope.Function.Name.StartsWith("<") && _scope.Function.Name != "<lambda>"
+                        && !(y.Synthetic && _scope.Function.Name == "<genexpr>"))
+                        throw Error("'yield' inside " + _scope.Function.Name.Trim('<', '>') + " is not allowed", y);
+                    _scope.IsGenerator = true;
+                    VisitExpr(y.Value);
+                    break;
                 case UnaryExpr u:
                     VisitExpr(u.Operand);
                     break;

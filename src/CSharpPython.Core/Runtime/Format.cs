@@ -127,7 +127,12 @@ namespace CSharpPython
                     sb.Append("<built-in method ").Append(((BoundMethod)v.RawObject).Function.Name).Append('>');
                     return;
                 case ValueKind.Module: sb.Append("<module '").Append(((PyModule)v.RawObject).Name).Append("'>"); return;
-                case ValueKind.Iterator: sb.Append("<iterator>"); return;
+                case ValueKind.Iterator:
+                    if (v.RawObject is PyGenerator gen)
+                        sb.Append("<generator object ").Append(gen.Name).Append(" at 0x")
+                            .Append(System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(gen).ToString("x8")).Append('>');
+                    else sb.Append("<iterator>");
+                    return;
                 case ValueKind.Exception:
                 {
                     var e = (PyExceptionValue)v.RawObject;

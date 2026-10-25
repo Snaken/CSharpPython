@@ -93,6 +93,7 @@ namespace CSharpPython.Compilation
                 LocalNames = u.Scope.Locals.ToArray(),
                 FreeNames = u.Scope.FreeVars.ToArray(),
                 IsModule = isModule,
+                IsGenerator = u.Scope.IsGenerator,
                 NumDefaults = numDefaults,
                 NumPosDefaults = numPosDefaults,
             };
@@ -400,6 +401,29 @@ namespace CSharpPython.Compilation
             foreach (int b in loop.BreakJumps) Patch(b);
         }
 
+        private void CompileYield(YieldExpr y)
+        {
+            if (!y.IsFrom)
+            {
+                if (y.Value != null) CompileExpr(y.Value);
+                else Emit(Op.LoadConst, Constant(Value.None));
+                SetLine(y);
+                Emit(Op.Yield);
+                return;
+            }
+            // yield from: hand on every item of the iterable, then the value it returned is the result.
+            CompileExpr(y.Value);
+            SetLine(y);
+            Emit(Op.GetIter);
+            int top = Here;
+            int forIter = Emit(Op.ForIter);
+            Emit(Op.Yield);
+            Emit(Op.Pop); // what send() delivered; not passed on to the inner iterator
+            Emit(Op.Jump, top);
+            Patch(forIter);
+            Emit(Op.GenReturn);
+        }
+
         private void CompileBreak(Stmt at)
         {
             var loop = _unit.Loops[_unit.Loops.Count - 1];
@@ -684,6 +708,9 @@ namespace CSharpPython.Compilation
                 case TupleExpr t:
                     foreach (var item in t.Items) CompileExpr(item);
                     Emit(Op.BuildTuple, t.Items.Count);
+                    break;
+                case YieldExpr y:
+                    CompileYield(y);
                     break;
                 case SetExpr se:
                     foreach (var item in se.Items) CompileExpr(item);

@@ -226,6 +226,16 @@ namespace CSharpPython.Syntax
         public DefStmt Body;
     }
 
+    /// <summary>A <c>yield</c> or <c>yield from</c> expression; it makes the enclosing function a generator.</summary>
+    public sealed class YieldExpr : Expr
+    {
+        public Expr Value;
+        public bool IsFrom;
+
+        /// <summary>Made by the parser for a generator expression, rather than written by the script.</summary>
+        public bool Synthetic;
+    }
+
     public sealed class ReturnStmt : Stmt
     {
         public Expr Value;

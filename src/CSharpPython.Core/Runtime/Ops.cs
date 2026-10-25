@@ -46,7 +46,7 @@ namespace CSharpPython
                 case ValueKind.Native: return "builtin_function_or_method";
                 case ValueKind.BoundMethod: return "method";
                 case ValueKind.Module: return "module";
-                case ValueKind.Iterator: return "iterator";
+                case ValueKind.Iterator: return v.RawObject is PyGenerator ? "generator" : "iterator";
                 case ValueKind.Exception: return ((PyExceptionValue)v.RawObject).Type.Name;
                 case ValueKind.Instance: return ((PyInstance)v.RawObject).Class.Name;
                 case ValueKind.ScriptMethod: return "method";
