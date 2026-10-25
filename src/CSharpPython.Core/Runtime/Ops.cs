@@ -608,7 +608,11 @@ namespace CSharpPython
                 InstanceSetItem(target, index, value);
                 return;
             }
-            if (index.Kind == ValueKind.Slice) throw TypeError("slice assignment is not supported yet");
+            if (index.Kind == ValueKind.Slice && target.Kind == ValueKind.List)
+            {
+                AssignSlice(((PyList)target.RawObject).Items, (PySlice)index.RawObject, value);
+                return;
+            }
             switch (target.Kind)
             {
                 case ValueKind.List:
@@ -623,6 +627,23 @@ namespace CSharpPython
                 default:
                     throw TypeError("'" + TypeName(target) + "' object does not support item assignment");
             }
+        }
+
+        // xs[a:b] = iterable replaces the items (the count may change); xs[a:b:c] = iterable needs the same count.
+        private static void AssignSlice(List<Value> items, PySlice slice, Value value)
+        {
+            if (value.Kind <= ValueKind.Float) throw TypeError("can only assign an iterable");
+            var source = new List<Value>(ToList(value));
+            SliceBounds(slice, items.Count, out long start, out _, out long step, out long count);
+            if (step == 1)
+            {
+                items.RemoveRange((int)start, (int)count);
+                items.InsertRange((int)start, source);
+                return;
+            }
+            if (source.Count != count)
+                throw ValueError("attempt to assign sequence of size " + source.Count + " to extended slice of size " + count);
+            for (long i = 0, k = start; i < count; i++, k += step) items[(int)k] = source[(int)i];
         }
 
         public static void DelItem(Value target, Value index)
