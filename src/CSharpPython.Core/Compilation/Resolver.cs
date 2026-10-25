@@ -62,6 +62,7 @@ namespace CSharpPython.Compilation
                     _loopDepth++;
                     VisitBody(w.Body);
                     _loopDepth--;
+                    VisitBody(w.Else);
                     break;
                 case ForStmt f:
                     VisitExpr(f.Iterable);
@@ -69,6 +70,7 @@ namespace CSharpPython.Compilation
                     _loopDepth++;
                     VisitBody(f.Body);
                     _loopDepth--;
+                    VisitBody(f.Else);
                     break;
                 case DefStmt d:
                     VisitDef(d);

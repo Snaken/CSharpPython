@@ -176,6 +176,8 @@ namespace CSharpPython.Syntax
     {
         public Expr Test;
         public List<Stmt> Body = new List<Stmt>();
+        /// <summary>Runs when the condition becomes false, but not after a <c>break</c>.</summary>
+        public List<Stmt> Else = new List<Stmt>();
     }
 
     public sealed class ForStmt : Stmt
@@ -183,6 +185,8 @@ namespace CSharpPython.Syntax
         public Expr Target;
         public Expr Iterable;
         public List<Stmt> Body = new List<Stmt>();
+        /// <summary>Runs when the iterable is exhausted, but not after a <c>break</c>.</summary>
+        public List<Stmt> Else = new List<Stmt>();
     }
 
     public sealed class Param

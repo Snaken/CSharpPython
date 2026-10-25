@@ -381,6 +381,7 @@ namespace CSharpPython.Compilation
             _unit.Loops.RemoveAt(_unit.Loops.Count - 1);
             Emit(Op.Jump, top);
             Patch(toEnd);
+            CompileBody(w.Else);
             foreach (int b in loop.BreakJumps) Patch(b);
         }
 
@@ -398,6 +399,7 @@ namespace CSharpPython.Compilation
             _unit.Loops.RemoveAt(_unit.Loops.Count - 1);
             Emit(Op.Jump, top);
             Patch(forIter);
+            CompileBody(f.Else);
             foreach (int b in loop.BreakJumps) Patch(b);
         }
 

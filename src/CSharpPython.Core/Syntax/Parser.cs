@@ -335,8 +335,17 @@ namespace CSharpPython.Syntax
             node.Test = ParseTernary();
             Expect(TokenKind.Colon, "':'");
             node.Body = ParseBlock("'while' statement");
-            if (Cur.Kind == TokenKind.KwElse) throw Error("'else' on a loop is not supported yet", Cur);
+            node.Else = ParseLoopElse();
             return node;
+        }
+
+        // The optional 'else:' after a loop body.
+        private List<Stmt> ParseLoopElse()
+        {
+            if (Cur.Kind != TokenKind.KwElse) return new List<Stmt>();
+            Advance();
+            Expect(TokenKind.Colon, "':'");
+            return ParseBlock("'else' statement");
         }
 
         private ForStmt ParseFor()
@@ -351,7 +360,7 @@ namespace CSharpPython.Syntax
             node.Iterable = ParseExprList();
             Expect(TokenKind.Colon, "':'");
             node.Body = ParseBlock("'for' statement");
-            if (Cur.Kind == TokenKind.KwElse) throw Error("'else' on a loop is not supported yet", Cur);
+            node.Else = ParseLoopElse();
             return node;
         }
 
