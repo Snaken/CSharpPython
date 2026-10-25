@@ -79,7 +79,7 @@ namespace CSharpPython.Editor
                 {
                     if (depth > 0) depth--;
                     else return i > 0 && (tokens[i - 1].Kind == TokenKind.Name || tokens[i - 1].Kind == TokenKind.RParen) &&
-                                !(i > 1 && tokens[i - 2].Kind == TokenKind.KwDef);
+                                !(i > 1 && (tokens[i - 2].Kind == TokenKind.KwDef || tokens[i - 2].Kind == TokenKind.KwClass));
                 }
                 else if (k == TokenKind.Newline && depth == 0) return false;
             }

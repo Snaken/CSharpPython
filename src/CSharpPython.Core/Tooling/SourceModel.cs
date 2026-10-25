@@ -11,6 +11,7 @@ namespace CSharpPython.Editor
         Function,
         Module,
         ImportedName,
+        Class,
     }
 
     internal sealed class Definition
@@ -22,7 +23,7 @@ namespace CSharpPython.Editor
         public ValueKind? Type;         // guessed from the assigned value, when it is obvious
         public string Module;           // for imports: the module imported (or imported from)
         public string Member;           // for 'from m import a': the member name
-        public string Signature;        // for functions: the text inside the parentheses
+        public string Signature;        // for functions: the text inside the parentheses; for classes: the one of __init__ without self
     }
 
     internal sealed class FunctionScope
@@ -43,12 +44,14 @@ namespace CSharpPython.Editor
         public readonly List<Token> Tokens;
         public readonly List<Definition> Definitions = new List<Definition>();
         public readonly List<FunctionScope> Scopes = new List<FunctionScope>();
+        private readonly Dictionary<int, FunctionScope> ClassScopes = new Dictionary<int, FunctionScope>();
 
         public SourceModel(string source)
         {
             Source = source ?? "";
             Tokens = Lexer.TokenizeTolerant(Source, out _);
             Build();
+            LinkClassSignatures();
         }
 
         // ---- Queries --------------------------------------------------------------------------------------------
@@ -133,6 +136,9 @@ namespace CSharpPython.Editor
                     case TokenKind.KwDef:
                         i = ReadDef(i, depth, scope, open);
                         break;
+                    case TokenKind.KwClass:
+                        i = ReadClass(i, depth, scope, open);
+                        break;
                     case TokenKind.KwFor:
                         for (int j = i + 1; j < Tokens.Count && Tokens[j].Kind != TokenKind.KwIn && Tokens[j].Kind != TokenKind.Newline && Tokens[j].Kind != TokenKind.Colon; j++)
                             if (Tokens[j].Kind == TokenKind.Name && (Tokens[j - 1].Kind == TokenKind.KwFor || Tokens[j - 1].Kind == TokenKind.Comma || Tokens[j - 1].Kind == TokenKind.LParen))
@@ -152,6 +158,51 @@ namespace CSharpPython.Editor
                     case TokenKind.Name:
                         if (statementStart) ReadAssignment(i, scope);
                         break;
+                }
+            }
+        }
+
+        // A class is a scope of its own, so the names assigned in its body do not leak into the code around it.
+        private int ReadClass(int i, int depth, FunctionScope outer, List<FunctionScope> open)
+        {
+            if (i + 1 >= Tokens.Count || Tokens[i + 1].Kind != TokenKind.Name) return i;
+            var name = Tokens[i + 1];
+            var scope = new FunctionScope { Name = name.Text, Start = Tokens[i].Start, BodyDepth = depth + 1 };
+            Scopes.Add(scope);
+            open.Add(scope);
+            Definitions.Add(new Definition { Name = name.Text, Kind = DefinitionKind.Class, TokenStart = name.Start, Scope = outer });
+            ClassScopes[name.Start] = scope;
+
+            // Skip the base class list.
+            int j = i + 2;
+            if (j < Tokens.Count && Tokens[j].Kind == TokenKind.LParen)
+            {
+                int paren = 0;
+                for (; j < Tokens.Count; j++)
+                {
+                    var k = Tokens[j].Kind;
+                    if (k == TokenKind.LParen) paren++;
+                    else if (k == TokenKind.RParen && --paren == 0) break;
+                    else if (k == TokenKind.Newline) { j--; break; }
+                }
+            }
+            return Math.Max(i + 1, j);
+        }
+
+        // The signature that calling a class shows is the one of its __init__ without the self parameter.
+        private void LinkClassSignatures()
+        {
+            foreach (var cls in Definitions)
+            {
+                if (cls.Kind != DefinitionKind.Class || !ClassScopes.TryGetValue(cls.TokenStart, out var scope)) continue;
+                foreach (var d in Definitions)
+                {
+                    if (d.Kind != DefinitionKind.Function || d.Name != "__init__" || d.Scope != scope) continue;
+                    string sig = d.Signature ?? "";
+                    if (sig == "self") sig = "";
+                    else if (sig.StartsWith("self, ", StringComparison.Ordinal)) sig = sig.Substring(6);
+                    cls.Signature = sig;
+                    break;
                 }
             }
         }

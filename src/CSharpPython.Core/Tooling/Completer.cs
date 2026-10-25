@@ -63,7 +63,7 @@ namespace CSharpPython.Editor
     {
         private static readonly string[] StatementKeywords =
         {
-            "def", "if", "elif", "else", "while", "for", "return", "break", "continue", "pass", "global", "nonlocal",
+            "def", "class", "if", "elif", "else", "while", "for", "return", "break", "continue", "pass", "global", "nonlocal",
             "try", "except", "finally", "raise", "import", "from",
         };
 
@@ -108,7 +108,7 @@ namespace CSharpPython.Editor
                 FromContext(line, vm, items);
             else if (last.HasValue && last.Value.Kind == TokenKind.Dot)
                 AddMembers(model, before, before.Count - 1, offset, vm, items);
-            else if (last.HasValue && (last.Value.Kind == TokenKind.KwDef || last.Value.Kind == TokenKind.KwAs || last.Value.Kind == TokenKind.KwFor))
+            else if (last.HasValue && (last.Value.Kind == TokenKind.KwDef || last.Value.Kind == TokenKind.KwClass || last.Value.Kind == TokenKind.KwAs || last.Value.Kind == TokenKind.KwFor))
             {
                 // A new name is being introduced; there is nothing sensible to suggest.
             }
@@ -253,6 +253,9 @@ namespace CSharpPython.Editor
                 {
                     case DefinitionKind.Function:
                         items.Add(new CompletionItem(d.Name, CompletionKind.Function, "def " + d.Name + "(" + d.Signature + ")"));
+                        break;
+                    case DefinitionKind.Class:
+                        items.Add(new CompletionItem(d.Name, CompletionKind.Class, "class " + d.Name + (d.Signature != null ? "(" + d.Signature + ")" : "")));
                         break;
                     case DefinitionKind.Parameter:
                         items.Add(new CompletionItem(d.Name, CompletionKind.Parameter, "parameter"));

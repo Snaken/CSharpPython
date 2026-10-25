@@ -10,7 +10,7 @@ namespace CSharpPython.Editor
         Keyword,
         /// <summary>True, False and None.</summary>
         Constant,
-        /// <summary>A Python keyword this library does not support yet (class, lambda, ...).</summary>
+        /// <summary>A Python keyword this library does not support yet (yield, with, ...).</summary>
         UnsupportedKeyword,
         Number,
         String,
@@ -28,6 +28,8 @@ namespace CSharpPython.Editor
         Member,
         /// <summary>Malformed text, such as an unterminated string or a stray character.</summary>
         Error,
+        /// <summary>The name being defined by a <c>class</c>.</summary>
+        ClassName,
     }
 
     /// <summary>A coloured stretch of source text.</summary>
@@ -97,6 +99,7 @@ namespace CSharpPython.Editor
                     case TokenKind.Name:
                         if (prev == TokenKind.Dot) kind = HighlightKind.Member;
                         else if (prev == TokenKind.KwDef) kind = HighlightKind.FunctionName;
+                        else if (prev == TokenKind.KwClass) kind = HighlightKind.ClassName;
                         else if (inImport && prev != TokenKind.KwAs) kind = HighlightKind.Module;
                         else if (vm.Builtins.ContainsKey(t.Text) && !IsDefined(tokens, ref defined, t.Text))
                             kind = HighlightKind.Builtin;
@@ -145,7 +148,7 @@ namespace CSharpPython.Editor
             {
                 defined = new HashSet<string>();
                 for (int i = 0; i + 1 < tokens.Count; i++)
-                    if (tokens[i].Kind == TokenKind.KwDef && tokens[i + 1].Kind == TokenKind.Name)
+                    if ((tokens[i].Kind == TokenKind.KwDef || tokens[i].Kind == TokenKind.KwClass) && tokens[i + 1].Kind == TokenKind.Name)
                         defined.Add(tokens[i + 1].Text);
             }
             return defined.Contains(name);

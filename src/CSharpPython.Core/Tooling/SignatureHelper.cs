@@ -133,13 +133,14 @@ namespace CSharpPython.Editor
                 return kinds.Count == 1 && Method(kinds[0], name, out origin, out parameters);
             }
 
-            if (nameIndex >= 1 && before[nameIndex - 1].Kind == TokenKind.KwDef) return false;
+            if (nameIndex >= 1 && (before[nameIndex - 1].Kind == TokenKind.KwDef || before[nameIndex - 1].Kind == TokenKind.KwClass)) return false;
 
             var def = model.Resolve(name, offset);
             if (def != null)
             {
                 switch (def.Kind)
                 {
+                    case DefinitionKind.Class:
                     case DefinitionKind.Function:
                         origin = "script";
                         parameters = def.Signature ?? "";
@@ -162,7 +163,8 @@ namespace CSharpPython.Editor
                 if (builtin.Kind == ValueKind.Type)
                 {
                     origin = "built-in";
-                    parameters = Signatures.For(((PyType)builtin.RawObject).Constructor, name, 0);
+                    var constructor = ((PyType)builtin.RawObject).Constructor;
+                    parameters = constructor == null ? "" : Signatures.For(constructor, name, 0);
                     return true;
                 }
                 if (builtin.Kind == ValueKind.ExceptionType)

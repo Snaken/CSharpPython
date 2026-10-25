@@ -39,6 +39,10 @@ namespace CSharpPython.Editor
             { "isinstance", "obj, classinfo" },
             { "issubclass", "cls, classinfo" },
             { "callable", "obj" },
+            { "object", "" },
+            { "getattr", "obj, name, default=None" },
+            { "setattr", "obj, name, value" },
+            { "hasattr", "obj, name" },
 
             // math module.
             { "math.sqrt", "x" }, { "math.log", "x, base=e" }, { "math.log2", "x" }, { "math.log10", "x" },
