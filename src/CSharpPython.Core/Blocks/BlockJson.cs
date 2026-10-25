@@ -159,11 +159,11 @@ namespace CSharpPython.Blocks
             var graph = new BlockGraph();
             if (obj.TryGetValue("Version", out var version) && version != null)
             {
-                if (!(version is double d) || d != Math.Floor(d) || d < 0 || d > int.MaxValue)
+                if (!(version is long number) || number < 0 || number > int.MaxValue)
                     throw new BlockGraphFormatException("'Version' must be a whole number");
-                if (d > BlockGraph.CurrentVersion)
-                    throw new BlockGraphFormatException("the document is version " + d.ToString(CultureInfo.InvariantCulture) + ", newer than this library understands (" + BlockGraph.CurrentVersion + ")");
-                graph.Version = (int)d;
+                if (number > BlockGraph.CurrentVersion)
+                    throw new BlockGraphFormatException("the document is version " + number.ToString(CultureInfo.InvariantCulture) + ", newer than this library understands (" + BlockGraph.CurrentVersion + ")");
+                graph.Version = (int)number;
             }
             foreach (var v in Items(obj, "Variables"))
             {
@@ -340,7 +340,9 @@ namespace CSharpPython.Blocks
             {
                 int start = _i;
                 while (_i < _s.Length && "+-0123456789.eE".IndexOf(_s[_i]) >= 0) _i++;
-                if (!double.TryParse(_s.Substring(start, _i - start), NumberStyles.Float, CultureInfo.InvariantCulture, out double d))
+                string text = _s.Substring(start, _i - start);
+                if (long.TryParse(text, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out long whole)) return whole;
+                if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out double d))
                 {
                     _i = start;
                     Fail("a bad number");
