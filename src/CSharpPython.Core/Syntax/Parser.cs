@@ -169,6 +169,7 @@ namespace CSharpPython.Syntax
                 case TokenKind.KwWhile: into.Add(ParseWhile()); return;
                 case TokenKind.KwFor: into.Add(ParseFor()); return;
                 case TokenKind.KwTry: into.Add(ParseTry()); return;
+                case TokenKind.KwWith: ParseWith(into); return;
                 default: ParseSimpleLine(into); return;
             }
         }
@@ -352,6 +353,90 @@ namespace CSharpPython.Syntax
             node.Body = ParseBlock("'for' statement");
             if (Cur.Kind == TokenKind.KwElse) throw Error("'else' on a loop is not supported yet", Cur);
             return node;
+        }
+
+        private int _withCount;
+
+        // 'with a as x, b as y: body' is rewritten into the try/except/finally of PEP 343. The names that start with
+        // a '.' cannot clash with the script's own, and the built-ins '.with', '.type' and '.Exception' cannot be
+        // shadowed. The calls of __enter__ and __exit__ are ordinary calls, so they can wait.
+        //
+        //   .w1 = .with(a)               # checks the protocol, gives (__enter__, __exit__)
+        //   .w1v = .w1[0]()
+        //   .w1h = False
+        //   try:
+        //       x = .w1v
+        //       body
+        //   except .Exception as .w1e:
+        //       .w1h = True
+        //       if not .w1[1](.type(.w1e), .w1e, None):
+        //           raise
+        //   finally:
+        //       if not .w1h:
+        //           .w1[1](None, None, None)
+        private void ParseWith(List<Stmt> into)
+        {
+            var tok = Advance();
+            var items = new List<(Token tok, Expr context, Expr target)>();
+            do
+            {
+                var itemTok = Cur;
+                var context = ParseTernary();
+                Expr target = null;
+                if (Accept(TokenKind.KwAs))
+                {
+                    target = ParseTernary();
+                    CheckTarget(target);
+                }
+                items.Add((itemTok, context, target));
+            }
+            while (Accept(TokenKind.Comma));
+            Expect(TokenKind.Colon, "':'");
+            var body = ParseBlock("'with' statement");
+            for (int i = items.Count - 1; i >= 0; i--)
+                body = WrapWith(items[i].tok, items[i].context, items[i].target, body);
+            into.AddRange(body);
+        }
+
+        private List<Stmt> WrapWith(Token tok, Expr context, Expr target, List<Stmt> body)
+        {
+            string id = ".w" + (++_withCount);
+            Expr Name(string n) => At(new NameExpr { Name = n }, tok);
+            Expr Const(object v) => At(new ConstantExpr { Value = v }, tok);
+            Expr Item(string n, long k) => At(new SubscriptExpr { Target = Name(n), Index = Const(k) }, tok);
+            Expr Call(Expr f, params Expr[] args)
+            {
+                var call = At(new CallExpr { Func = f }, tok);
+                call.Args.AddRange(args);
+                return call;
+            }
+            Stmt Assign(string n, Expr value) => At(new AssignStmt { Value = value, Targets = { Name(n) } }, tok);
+
+            var result = new List<Stmt>
+            {
+                Assign(id, Call(Name(".with"), context)),
+                Assign(id + "v", Call(Item(id, 0))),
+                Assign(id + "h", Const(false)),
+            };
+
+            var tryBody = new List<Stmt>();
+            if (target != null) tryBody.Add(At(new AssignStmt { Value = Name(id + "v"), Targets = { target } }, tok));
+            tryBody.AddRange(body);
+
+            var handler = new ExceptHandler { Type = Name(".Exception"), Name = id + "e", Line = LineOf(tok), Column = ColumnOf(tok) };
+            handler.Body.Add(Assign(id + "h", Const(true)));
+            var suppressed = Call(Item(id, 1), Call(Name(".type"), Name(id + "e")), Name(id + "e"), Const(null));
+            var reraise = At(new IfStmt { Test = At(new UnaryExpr { Op = UnaryOp.Not, Operand = suppressed }, tok) }, tok);
+            reraise.Body.Add(At(new RaiseStmt(), tok));
+            handler.Body.Add(reraise);
+
+            var node = At(new TryStmt { Body = tryBody, Finally = new List<Stmt>() }, tok);
+            node.Handlers.Add(handler);
+            var cleanup = At(new IfStmt { Test = At(new UnaryExpr { Op = UnaryOp.Not, Operand = Name(id + "h") }, tok) }, tok);
+            cleanup.Body.Add(At(new ExprStmt { Value = Call(Item(id, 1), Const(null), Const(null), Const(null)) }, tok));
+            node.Finally.Add(cleanup);
+            result.Add(node);
+            return result;
         }
 
         private TryStmt ParseTry()

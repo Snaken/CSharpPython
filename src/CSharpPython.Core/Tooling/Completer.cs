@@ -64,7 +64,7 @@ namespace CSharpPython.Editor
         private static readonly string[] StatementKeywords =
         {
             "def", "class", "if", "elif", "else", "while", "for", "return", "break", "continue", "pass", "global", "nonlocal",
-            "try", "except", "finally", "raise", "import", "from", "del", "assert",
+            "try", "except", "finally", "raise", "import", "from", "del", "assert", "with",
         };
 
         private static readonly string[] ExpressionKeywords = { "and", "or", "not", "in", "is", "if", "else", "lambda" };
@@ -277,7 +277,7 @@ namespace CSharpPython.Editor
 
             foreach (var kv in vm.Builtins)
             {
-                if (!seen.Add(kv.Key)) continue;
+                if (kv.Key[0] == '.' || !seen.Add(kv.Key)) continue; // the names a 'with' statement is rewritten with
                 switch (kv.Value.Kind)
                 {
                     case ValueKind.Native:

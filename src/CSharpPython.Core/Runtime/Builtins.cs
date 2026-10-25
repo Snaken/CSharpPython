@@ -28,6 +28,10 @@ namespace CSharpPython
             }
             foreach (var type in ExceptionTypes.All) into[type.Name] = Value.FromExceptionType(type);
             into["object"] = Value.FromType(PyTypes.Object);
+
+            // Names no script can write, used by the code a 'with' statement is rewritten into.
+            into[".type"] = into["type"];
+            into[".Exception"] = Value.FromExceptionType(ExceptionTypes.Exception);
             into["NotImplemented"] = Value.NotImplemented;
             modules["math"] = MathModule();
         }
@@ -58,6 +62,7 @@ namespace CSharpPython
         private static IEnumerable<NativeFunction> Functions()
         {
             yield return F("print", 0, -1, Print, true);
+            yield return F(".with", 1, 1, ContextManager);
             yield return F("iter", 1, 1, (c, a) => Value.FromIterator(Ops.GetIterator(a[0])));
             yield return F("next", 1, 2, (c, a) =>
             {
@@ -423,6 +428,23 @@ namespace CSharpPython
                 if (name != "start") throw Ops.TypeError("enumerate() got an unexpected keyword argument '" + name + "'");
             if (ctx.TryGetKeyword(a, "start", out Value s)) start = s.AsInt();
             return Value.FromIterator(new EnumerateIterator(Ops.GetIterator(a[0]), start));
+        }
+
+        // The (__enter__, __exit__) pair of a context manager; the 'with' statement calls them as ordinary methods.
+        private static Value ContextManager(CallContext ctx, ReadOnlySpan<Value> a)
+        {
+            Value mgr = a[0];
+            Value enter = default, exit = default;
+            if (mgr.Kind == ValueKind.Instance)
+            {
+                var cls = ((PyInstance)mgr.RawObject).Class;
+                if (cls.TryFind("__enter__", out Value e) && e.Kind == ValueKind.Function) enter = Value.FromScriptMethod(new ScriptMethod(mgr, (PyFunction)e.RawObject));
+                if (cls.TryFind("__exit__", out Value x) && x.Kind == ValueKind.Function) exit = Value.FromScriptMethod(new ScriptMethod(mgr, (PyFunction)x.RawObject));
+            }
+            string missing = exit.Kind == ValueKind.None ? "__exit__" : enter.Kind == ValueKind.None ? "__enter__" : null;
+            if (missing != null)
+                throw Ops.TypeError("'" + mgr.TypeName + "' object does not support the context manager protocol (missed " + missing + " method)");
+            return Value.Tuple(enter, exit);
         }
 
         private static Value Reversed(CallContext ctx, ReadOnlySpan<Value> a)

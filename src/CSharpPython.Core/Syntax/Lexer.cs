@@ -30,7 +30,7 @@ namespace CSharpPython.Syntax
             { "try", TokenKind.KwTry }, { "except", TokenKind.KwExcept }, { "finally", TokenKind.KwFinally },
             { "raise", TokenKind.KwRaise }, { "import", TokenKind.KwImport }, { "from", TokenKind.KwFrom },
             { "as", TokenKind.KwAs }, { "class", TokenKind.KwClass },
-            { "yield", TokenKind.KwUnsupported }, { "with", TokenKind.KwUnsupported },
+            { "yield", TokenKind.KwUnsupported }, { "with", TokenKind.KwWith },
             { "del", TokenKind.KwDel }, { "assert", TokenKind.KwAssert }, { "async", TokenKind.KwUnsupported },
             { "await", TokenKind.KwUnsupported },
         };
