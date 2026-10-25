@@ -113,7 +113,7 @@ namespace CSharpPython.Blocks
         {
             { "add", "+" }, { "sub", "-" }, { "mul", "*" }, { "div", "/" }, { "floordiv", "//" }, { "mod", "%" }, { "pow", "**" },
             { "eq", "==" }, { "ne", "!=" }, { "lt", "<" }, { "le", "<=" }, { "gt", ">" }, { "ge", ">=" },
-            { "and", "and" }, { "or", "or" },
+            { "and", "and" }, { "or", "or" }, { "contains", "in" },
         };
 
         private readonly BlockGraph _graph;
@@ -316,7 +316,7 @@ namespace CSharpPython.Blocks
                 foreach (var input in n.Inputs ?? new List<BlockInput>())
                     if (input != null && !string.IsNullOrEmpty(input.From)) _referenced.Add(input.From);
 
-                bool assigns = n.Block == "set" || n.Block == "change" || n.Block == "for_each" || (n.Block == "repeat" && !string.IsNullOrEmpty(n.Name));
+                bool assigns = n.Block == "set" || n.Block == "change" || n.Block == "for_each" || n.Block == "for_range" || (n.Block == "repeat" && !string.IsNullOrEmpty(n.Name));
                 if (!assigns || !IsIdentifier(n.Name) || paramSet.Contains(n.Name)) continue;
                 if (_globals.ContainsKey(n.Name))
                 {
@@ -333,7 +333,7 @@ namespace CSharpPython.Blocks
             int bodyStart = _out.Count;
             if (globalsAssigned.Count > 0) _out.Add(new Line(Indent(1) + "global " + string.Join(", ", globalsAssigned), null));
             EmitBody(_fn.Start, 1);
-            if (_out.Count == bodyStart) _out.Add(new Line(Indent(1) + "pass", null));
+            if (!HasStatement(bodyStart)) _out.Add(new Line(Indent(1) + "pass", null));
 
             foreach (var n in _nodes.Values)
                 if (!_flowSeen.Contains(n.Id) && !_valueUsed.Contains(n.Id))
@@ -351,8 +351,26 @@ namespace CSharpPython.Blocks
             _scope = new Scope(saved);
             int before = _out.Count;
             EmitChain(start, depth);
-            if (_out.Count == before) _out.Add(new Line(Indent(depth) + "pass", null));
+            if (!HasStatement(before)) _out.Add(new Line(Indent(depth) + "pass", null));
             _scope = saved;
+        }
+
+        // Whether the lines written since 'from' include code, not just comments (a body needs at least one statement).
+        private bool HasStatement(int from)
+        {
+            for (int i = from; i < _out.Count; i++)
+                if (!_out[i].Text.TrimStart().StartsWith("#", StringComparison.Ordinal)) return true;
+            return false;
+        }
+
+        // A comment block's text, one '#' line per line of text. Control characters would end the line, so they become spaces.
+        private void EmitComment(BlockNode node, int depth)
+        {
+            var text = new StringBuilder();
+            foreach (char c in (node.Name ?? "").Replace("\r\n", "\n"))
+                text.Append(c == '\n' ? '\n' : (c < ' ' && c != '\t') || c == '\u0085' || c == '\u2028' || c == '\u2029' ? ' ' : c);
+            foreach (var line in text.ToString().Split('\n'))
+                Emit(depth, line.Length == 0 ? "#" : "# " + line, node);
         }
 
         private string FlowTarget(BlockNode node, string pin)
@@ -406,6 +424,15 @@ namespace CSharpPython.Blocks
                     case "append":
                         Emit(depth, Input(node, "list").Atom + ".append(" + Input(node, "value").Text + ")", node);
                         break;
+                    case "remove_at":
+                        Emit(depth, "del " + Input(node, "list").Atom + "[" + Input(node, "index").Text + "]", node);
+                        break;
+                    case "set_attr":
+                        Emit(depth, AttributeBase(Input(node, "object")) + "." + node.Name + " = " + Input(node, "value").Text, node);
+                        break;
+                    case "comment":
+                        EmitComment(node, depth);
+                        break;
                     case "call":
                         EmitCall(node, depth);
                         break;
@@ -431,6 +458,17 @@ namespace CSharpPython.Blocks
                         Emit(depth, "for " + counter + " in range(" + Input(node, "count").Text + "):", node);
                         EmitLoopBody(node, depth);
                         break;
+                    case "for_range":
+                    {
+                        var stop = Input(node, "stop");
+                        var start = Input(node, "start", optional: true);
+                        var step = Input(node, "step", optional: true);
+                        string range = step.Text != null ? (start.Text ?? "0") + ", " + stop.Text + ", " + step.Text
+                            : start.Text != null ? start.Text + ", " + stop.Text : stop.Text;
+                        Emit(depth, "for " + RequireVariable(node, false) + " in range(" + range + "):", node);
+                        EmitLoopBody(node, depth);
+                        break;
+                    }
                     case "for_each":
                         Emit(depth, "for " + RequireVariable(node, false) + " in " + Input(node, "items").Text + ":", node);
                         EmitLoopBody(node, depth);
@@ -505,7 +543,7 @@ namespace CSharpPython.Blocks
                 bool optionalName = node.Block == "repeat" && string.IsNullOrEmpty(node.Name);
                 if ((spec.NeedsName || node.Block == "repeat") && !optionalName && !IsIdentifier(node.Name))
                 {
-                    Error("'" + node.Name + "' is not a valid variable name", node);
+                    Error("'" + node.Name + "' is not a valid " + (node.Block == "get_attr" || node.Block == "set_attr" ? "field" : "variable") + " name", node);
                     ok = false;
                 }
             }
@@ -653,6 +691,12 @@ namespace CSharpPython.Blocks
                         return new Ex("-" + Input(node, "a").Atom, true);
                     case "not":
                         return new Ex("not " + Input(node, "a").Atom, true);
+                    case "is_none":
+                        return new Ex(Input(node, "a").Atom + " is None", true);
+                    case "choose":
+                        return new Ex(Input(node, "a").Atom + " if " + Input(node, "cond").Atom + " else " + Input(node, "b").Atom, true);
+                    case "get_attr":
+                        return new Ex(AttributeBase(Input(node, "object")) + "." + node.Name, false);
                     case "index":
                         return new Ex(Input(node, "list").Atom + "[" + Input(node, "index").Text + "]", false);
                     case "list":
@@ -668,6 +712,10 @@ namespace CSharpPython.Blocks
                 _evaluating.Remove(node.Id);
             }
         }
+
+        // The text an attribute is read from; a bare number needs brackets, since 5.real reads as a float.
+        private static string AttributeBase(Ex value) =>
+            value.Text.Length > 0 && char.IsDigit(value.Text[0]) ? "(" + value.Text + ")" : value.Atom;
 
         private Ex ListOf(BlockNode node)
         {

@@ -111,19 +111,28 @@ namespace CSharpPython.Blocks
             AddBlock("and", "And", "Logic", BlockKind.Value, AB, None, false);
             AddBlock("or", "Or", "Logic", BlockKind.Value, AB, None, false);
             AddBlock("not", "Not", "Logic", BlockKind.Value, A, None, false);
+            AddBlock("contains", "Is in", "Logic", BlockKind.Value, AB, None, false);
+            AddBlock("is_none", "Is nothing", "Logic", BlockKind.Value, A, None, false);
+            AddBlock("choose", "Choose", "Logic", BlockKind.Value, new[] { "cond", "a", "b" }, None, false);
 
             AddBlock("index", "Item at", "Lists", BlockKind.Value, new[] { "list", "index" }, None, false);
             AddBlock("list", "List of", "Lists", BlockKind.Value, None, None, false);
             AddBlock("set_index", "Set item at", "Lists", BlockKind.Flow, new[] { "list", "index", "value" }, Next, false);
             AddBlock("append", "Append to list", "Lists", BlockKind.Flow, new[] { "list", "value" }, Next, false);
+            AddBlock("remove_at", "Remove item at", "Lists", BlockKind.Flow, new[] { "list", "index" }, Next, false);
+            AddBlock("get_attr", "Get field", "Objects", BlockKind.Value, new[] { "object" }, None, true);
+            AddBlock("set_attr", "Set field", "Objects", BlockKind.Flow, new[] { "object", "value" }, Next, true);
 
             AddBlock("if", "If", "Flow", BlockKind.Flow, new[] { "cond" }, new[] { "then", "else", "next" }, false);
             AddBlock("while", "While", "Flow", BlockKind.Flow, new[] { "cond" }, new[] { "body", "next" }, false);
             AddBlock("repeat", "Repeat", "Flow", BlockKind.Flow, new[] { "count" }, new[] { "body", "next" }, false);
             AddBlock("for_each", "For each", "Flow", BlockKind.Flow, new[] { "items" }, new[] { "body", "next" }, true);
+            AddBlock("for_range", "Count from", "Flow", BlockKind.Flow, new[] { "start", "stop", "step" }, new[] { "body", "next" }, true);
             AddBlock("break", "Break", "Flow", BlockKind.Flow, None, None, false);
             AddBlock("continue", "Continue", "Flow", BlockKind.Flow, None, None, false);
             AddBlock("return", "Return", "Flow", BlockKind.Flow, new[] { "value" }, None, false);
+
+            AddBlock("comment", "Comment", "Notes", BlockKind.Flow, None, Next, false);
 
             AddFunction("print", new[] { "value" });
             foreach (var name in new[] { "len", "abs", "str", "int", "float", "round" })
