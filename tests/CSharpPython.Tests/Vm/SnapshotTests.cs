@@ -149,6 +149,9 @@ namespace CSharpPython.Tests.Vm
             "import game\nx = NotImplemented\ngame.wait(1)\nprint(x, x is NotImplemented)",
             "import game\nclass V:\n    def __init__(self, x, y):\n        self.x = x\n        self.y = y\n    def __add__(self, o):\n        return V(self.x + o.x, self.y + o.y)\n    def __mul__(self, k):\n        return V(self.x * k, self.y * k)\n    def __rmul__(self, k):\n        return self * k\n    def __neg__(self):\n        return V(-self.x, -self.y)\n    def __repr__(self):\n        return 'V(' + str(self.x) + ', ' + str(self.y) + ')'\na = V(1, 2)\ngame.wait(1)\nb = a + V(3, 4)\ngame.wait(1)\nprint(b, 2 * b, -b, b * 3)",
             "import game\nclass Acc:\n    def __init__(self):\n        self.n = 0\n    def __iadd__(self, o):\n        self.n += o\n        return self\na = Acc()\nb = a\nfor i in range(3):\n    a += i\n    game.wait(1)\nprint(a.n, a is b)",
+            "import game\nclass Count:\n    def __init__(self, n):\n        self.n = n\n        self.i = 0\n    def __iter__(self):\n        return self\n    def __next__(self):\n        if self.i >= self.n:\n            raise StopIteration\n        self.i += 1\n        return self.i\nfor x in Count(3):\n    game.wait(1)\n    print(x)\nprint([y * 2 for y in Count(2)])",
+            "import game\nclass Bag:\n    def __init__(self):\n        self.items = ['a', 'b']\n    def __iter__(self):\n        return iter(self.items)\n    def __getitem__(self, i):\n        return self.items[i]\n    def __contains__(self, x):\n        return x in self.items\nb = Bag()\nfor x in b:\n    game.wait(1)\n    print(x, b[0], 'a' in b)",
+            "import game\nclass Job:\n    def __init__(self):\n        self.done = []\n    def __call__(self, n):\n        game.wait(1)\n        self.done.append(n)\n        game.wait(1)\n        return len(self.done)\nj = Job()\nprint(j(1), j(2))\nprint(j.done)",
         };
 
         [TestCaseSource(nameof(Scripts))]
