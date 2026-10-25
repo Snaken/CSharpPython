@@ -31,6 +31,15 @@ namespace CSharpPython.Tests.Editor
         }
 
         [Test]
+        public void DelIsAKeywordForCompletionAndHighlighting()
+        {
+            Assert.That(Names("de"), Does.Contain("del"));
+            var spans = SyntaxHighlighter.Highlight("del x[0]\n");
+            Assert.That(spans[0].Kind, Is.EqualTo(HighlightKind.Keyword));
+            Assert.That(Analyzer.Analyze("x = [1]\ndel x[0]\ndel x\n"), Is.Empty);
+        }
+
+        [Test]
         public void SetMethodsHaveSignatures()
         {
             var help = SignatureHelper.Get("s = {1}\ns.add(", 14, new PyVm());
