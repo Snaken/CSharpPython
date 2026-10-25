@@ -25,7 +25,7 @@ namespace CSharpPython.Tests.Vm
             Assert.That(Message("class A:\n    __init__ = 5\nA()"), Is.EqualTo("__init__ must be a function"));
             Assert.That(Message("class A(5): pass"), Is.EqualTo("bases must be classes, not 'int'"));
             Assert.That(Message("class A(int): pass"), Is.EqualTo("cannot inherit from the built-in type 'int' yet"));
-            Assert.That(Message("class A(ValueError): pass"), Is.EqualTo("cannot inherit from the built-in type 'ValueError' yet"));
+            Assert.That(Message("class A(str): pass"), Is.EqualTo("cannot inherit from the built-in type 'str' yet"));
             Assert.That(Message("object()"), Is.EqualTo("cannot create 'object' instances"));
             Assert.That(Message("getattr(1, 2)"), Is.EqualTo("getattr(): attribute name must be string"));
             Assert.That(Message("setattr(1, 'x', 2)"), Does.Contain("has no attribute 'x'"));

@@ -141,6 +141,9 @@ namespace CSharpPython.Tests.Vm
             "import game\nclass A:\n    def f(self):\n        return 'A'\nclass B(A):\n    def f(self):\n        return 'B' + super().f()\nm = B().f\nunbound = A.f\ngame.wait(1)\nprint(m(), unbound(B()))",
             "class P:\n    def __init__(self, x):\n        self.x = x\n    def __str__(self):\n        return 'P' + str(self.x)\n    def __repr__(self):\n        return '<' + str(self.x) + '>'\nps = [P(1), P(2)]\nprint(ps, str(ps[0]), ps[1])",
             "import game\nclass P:\n    def __str__(self):\n        return 'p'\np = P()\ngame.wait(1)\nprint(p, len([p]))\ngame.wait(1)\nprint(f'{p}')",
+            "import game\nclass E(Exception):\n    def __init__(self, n):\n        super().__init__('n=' + str(n))\n        self.n = n\ndef work():\n    game.wait(1)\n    raise E(3)\ntry:\n    work()\nexcept E as e:\n    game.wait(1)\n    print(e, e.n, e.args)",
+            "import game\nclass A(ValueError):\n    pass\nclass B(A):\n    code = 7\ntry:\n    try:\n        raise B('x')\n    except A as e:\n        game.wait(1)\n        raise\nexcept ValueError as e2:\n    game.wait(1)\n    print(type(e2).__name__, e2.code, e2)",
+            "import game\nclass E(Exception):\n    pass\nerrs = [E('a'), E('b', 1)]\ngame.wait(1)\nprint(errs, [str(e) for e in errs])",
         };
 
         [TestCaseSource(nameof(Scripts))]
