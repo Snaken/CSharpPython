@@ -69,6 +69,8 @@ namespace CSharpPython.Tests.Vm
 
         private static readonly string[] Scripts =
         {
+            "for i in range(3):\n    if i == 5:\n        break\nelse:\n    print('else', i)\nwhile True:\n    break\nelse:\n    print('no')\nprint('end')",
+            "def g():\n    for i in range(3):\n        yield i\n    else:\n        yield 'e'\nprint(list(g()))",
             "x = 1\nprint(x + 2)",
             "total = 0\nfor i in range(6):\n    total += i * i\nprint(total)",
             "xs = [3, 1, 2]\nfor x in xs:\n    print(x)\nprint(sorted(xs))",

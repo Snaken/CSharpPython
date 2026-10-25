@@ -649,10 +649,15 @@ namespace CSharpPython.Tests.Syntax
         public void ConditionalExpressionNeedsElse() => Assert.That(Fails("x = a if b\n").Problem, Does.Contain("'else'"));
 
         [Test]
-        public void LoopElseIsRejected()
+        public void LoopsParseTheirElseBlocks()
         {
-            Assert.That(Fails("while a:\n    pass\nelse:\n    pass\n").Problem, Does.Contain("'else' on a loop"));
-            Assert.That(Fails("for a in b:\n    pass\nelse:\n    pass\n").Problem, Does.Contain("'else' on a loop"));
+            var w = (WhileStmt)Parser.ParseModule("while a:\n    pass\nelse:\n    x = 1\n").Body[0];
+            Assert.That(w.Else.Count, Is.EqualTo(1));
+            var f = (ForStmt)Parser.ParseModule("for a in b:\n    pass\nelse:\n    x = 1\n    y = 2\n").Body[0];
+            Assert.That(f.Else.Count, Is.EqualTo(2));
+            Assert.That(((ForStmt)Parser.ParseModule("for a in b:\n    pass\n").Body[0]).Else, Is.Empty);
+            Assert.That(Fails("for a in b:\n    pass\nelse\n    pass\n").Problem, Does.Contain("':'"));
+            Assert.That(Fails("while a:\n    pass\nelse:\npass\n").Problem, Does.Contain("indented block"));
         }
 
         [Test]
