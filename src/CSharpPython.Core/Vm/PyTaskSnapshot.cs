@@ -7,7 +7,7 @@ namespace CSharpPython
 {
     public sealed partial class PyTask
     {
-        private const ushort SnapshotVersion = 3;
+        private const ushort SnapshotVersion = 4;
         private static readonly byte[] SnapshotMagic = { (byte)'C', (byte)'S', (byte)'P', (byte)'Y' };
 
         // The deepest value stack a restored snapshot may claim, so that damaged data cannot ask for gigabytes.
@@ -34,6 +34,7 @@ namespace CSharpPython
             {
                 writer.Collect(_frames[i].ExcInfo);
                 if (_frames[i].IsConstructor) writer.Collect(_frames[i].Constructed);
+                if (_frames[i].Owner != null) writer.Collect(Value.FromClass(_frames[i].Owner));
                 if (_frames[i].Closure != null)
                     foreach (var cell in _frames[i].Closure) writer.Collect(Value.FromCell(cell));
             }
@@ -108,6 +109,7 @@ namespace CSharpPython
                 for (int c = 0; c < cells; c++) writer.WriteValue(w, Value.FromCell(f.Closure[c]));
                 w.Write(f.IsConstructor);
                 if (f.IsConstructor) writer.WriteValue(w, f.Constructed);
+                writer.WriteValue(w, f.Owner == null ? Value.None : Value.FromClass(f.Owner));
             }
 
             w.Flush();
@@ -231,6 +233,9 @@ namespace CSharpPython
                     f.Constructed = reader.ReadValue(r);
                     if (f.Constructed.Kind != ValueKind.Instance) throw new SnapshotException("the snapshot is damaged");
                 }
+                Value owner = reader.ReadValue(r);
+                if (owner.Kind == ValueKind.Class) f.Owner = (PyClass)owner.RawObject;
+                else if (owner.Kind != ValueKind.None) throw new SnapshotException("the snapshot is damaged");
                 if (f.Pc < 0 || f.Pc > code.Instructions.Length || f.Base < 0 || f.Base + code.NumLocals > sp ||
                     f.CalleeIndex < 0 || f.CalleeIndex > f.Base)
                     throw new SnapshotException("the snapshot is damaged");

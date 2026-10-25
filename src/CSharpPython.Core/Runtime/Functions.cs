@@ -72,6 +72,9 @@ namespace CSharpPython
         /// <summary>The cells of the enclosing functions' variables this function uses, in <see cref="Compilation.Code.FreeNames"/> order.</summary>
         public readonly Cell[] Closure;
 
+        /// <summary>The class whose body defined this function, which <c>super()</c> starts from; null for other functions.</summary>
+        public PyClass Owner;
+
         public PyFunction(Code code, Value[] defaults, Cell[] closure = null)
         {
             Code = code;

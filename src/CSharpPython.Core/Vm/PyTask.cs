@@ -33,6 +33,7 @@ namespace CSharpPython
             public Value ExcInfo;   // the exception being handled, for a bare 'raise'
             public bool IsConstructor; // running __init__ for a call of a class; the call's result is Constructed
             public Value Constructed;
+            public PyClass Owner;   // the class whose method is running, for super()
         }
 
         // Raised by 'raise' so that it travels the same path as errors thrown by native code.
@@ -77,6 +78,10 @@ namespace CSharpPython
         private bool _moduleDone;
         private long _budget;
         private long _sliceSize, _sliceSpent; // the current slice's budget, and steps used by earlier refills within it
+        /// <summary>The task whose script is running on this thread, so that str() can call a class's __str__.</summary>
+        [ThreadStatic]
+        internal static PyTask Current;
+
         private int _nested;                   // how many native-initiated calls (CallSync) are in progress
         private bool _boundaryHit;
         private Value _boundaryResult;
@@ -194,7 +199,11 @@ namespace CSharpPython
             _budget = slice;
             _sliceSize = slice;
             _sliceSpent = 0;
-            var result = Execute();
+            var previous = Current;
+            Current = this;
+            TaskState result;
+            try { result = Execute(); }
+            finally { Current = previous; }
             _totalSteps += _sliceSpent + _sliceSize - Math.Max(_budget, 0);
             _sliceSpent = 0;
             if (result == TaskState.Running && max > 0 && _totalSteps >= max)
@@ -706,6 +715,24 @@ namespace CSharpPython
                         Push(Value.FromDict(ns));
                         break;
                     }
+                    case Op.LoadSuper:
+                    {
+                        if (frame.Owner == null || code.NumParams == 0)
+                            throw new PyError("RuntimeError", "super(): no arguments");
+                        Value self = _stack[bas];
+                        if (self.Kind == ValueKind.Cell) self = ((Cell)self.RawObject).Value;
+                        Push(Ops.SuperAttr(frame.Owner, self, code.Names[ins.Arg]));
+                        break;
+                    }
+                    case Op.LoadSuper2:
+                    {
+                        Value obj = _stack[--_sp];
+                        Value cls = _stack[--_sp];
+                        if (cls.Kind != ValueKind.Class)
+                            throw new PyError("TypeError", "super() argument 1 must be a class, not " + cls.TypeName);
+                        Push(Ops.SuperAttr((PyClass)cls.RawObject, obj, code.Names[ins.Arg]));
+                        break;
+                    }
                     case Op.BuildClass:
                         BuildClass(ins.Arg);
                         break;
@@ -1032,7 +1059,9 @@ namespace CSharpPython
                 else throw new PyError("TypeError", "bases must be classes, not '" + b.TypeName + "'");
             }
             string name = (string)_stack[--_sp].RawObject;
-            Push(Value.FromClass(new PyClass(name, parent, ns)));
+            var cls = new PyClass(name, parent, ns);
+            cls.AdoptMethods();
+            Push(Value.FromClass(cls));
         }
 
         private static NativeFunction ConstructorOf(Value type)
@@ -1109,6 +1138,7 @@ namespace CSharpPython
             _sp = argStart + c.NumLocals;
             PushFrame(c, argStart, calleeIndex);
             _frames[_frameCount - 1].Closure = fn.Closure;
+            _frames[_frameCount - 1].Owner = fn.Owner;
         }
 
         // Argument binding for functions with keyword-only parameters, *args or **kwargs.
@@ -1432,6 +1462,7 @@ namespace CSharpPython
             f.ExcInfo = default;
             f.IsConstructor = false;
             f.Constructed = default;
+            f.Owner = null;
         }
     }
 }

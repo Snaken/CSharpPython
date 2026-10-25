@@ -15,7 +15,24 @@ namespace CSharpPython
         {
             if (v.Kind == ValueKind.Str) return (string)v.RawObject;
             if (v.Kind == ValueKind.Exception) return ((PyExceptionValue)v.RawObject).Message;
+            if (v.Kind == ValueKind.Instance && CallDunder(v, "__str__", out string text)) return text;
             return Repr(v);
+        }
+
+        // Runs the instance's __str__ or __repr__ if its class defines one. Outside a running script (the host
+        // printing a value) there is no task to run it on, so the default text is used.
+        private static bool CallDunder(Value instance, string name, out string text)
+        {
+            text = null;
+            var task = PyTask.Current;
+            if (task == null) return false;
+            if (!((PyInstance)instance.RawObject).Class.TryFind(name, out Value member) || member.Kind != ValueKind.Function)
+                return false;
+            Value result = task.CallSync(Value.FromScriptMethod(new ScriptMethod(instance, (PyFunction)member.RawObject)), Array.Empty<Value>());
+            if (result.Kind != ValueKind.Str)
+                throw new PyError("TypeError", name + " returned non-string (type " + result.TypeName + ")");
+            text = (string)result.RawObject;
+            return true;
         }
 
         public static string Repr(Value v)
@@ -78,7 +95,9 @@ namespace CSharpPython
                     return;
                 }
                 case ValueKind.Class: sb.Append("<class '__main__.").Append(((PyClass)v.RawObject).Name).Append("'>"); return;
-                case ValueKind.Instance: sb.Append(((PyInstance)v.RawObject).DefaultRepr()); return;
+                case ValueKind.Instance:
+                    sb.Append(CallDunder(v, "__repr__", out string text) ? text : ((PyInstance)v.RawObject).DefaultRepr());
+                    return;
                 case ValueKind.ScriptMethod:
                 {
                     var m = (ScriptMethod)v.RawObject;

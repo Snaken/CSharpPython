@@ -624,6 +624,9 @@ namespace CSharpPython.Compilation
                 }
                 case CompareExpr c: CompileCompare(c); break;
                 case CallExpr c: CompileCall(c); break;
+                case AttributeExpr a when IsSuperCall(a.Target):
+                    CompileSuperAttr((CallExpr)a.Target, a);
+                    break;
                 case AttributeExpr a:
                     CompileExpr(a.Target);
                     SetLine(a);
@@ -728,10 +731,40 @@ namespace CSharpPython.Compilation
             Patch(done);
         }
 
+        private static bool IsSuperCall(Expr e) => e is CallExpr c && c.Func is NameExpr n && n.Name == "super";
+
+        // super().name or super(Class, obj).name: the lookup starts in the parent of the class, so it is one instruction.
+        private void CompileSuperAttr(CallExpr call, AttributeExpr attr)
+        {
+            if (call.KeywordNames.Count > 0 || call.Args.Exists(a => a is StarExpr))
+                throw Error("super() takes no keyword or starred arguments", call);
+            if (call.Args.Count == 0)
+            {
+                SetLine(attr);
+                Emit(Op.LoadSuper, Name(attr.Name));
+            }
+            else if (call.Args.Count == 2)
+            {
+                CompileExpr(call.Args[0]);
+                CompileExpr(call.Args[1]);
+                SetLine(attr);
+                Emit(Op.LoadSuper2, Name(attr.Name));
+            }
+            else
+            {
+                throw Error("super() takes either no arguments or two", call);
+            }
+        }
+
         private void CompileCall(CallExpr c)
         {
-            bool method = c.Func is AttributeExpr;
-            if (method)
+            if (IsSuperCall(c)) throw Error("super() is only supported as super().name", c);
+            bool method = c.Func is AttributeExpr && !IsSuperCall(((AttributeExpr)c.Func).Target);
+            if (c.Func is AttributeExpr sup && IsSuperCall(sup.Target))
+            {
+                CompileSuperAttr((CallExpr)sup.Target, sup);
+            }
+            else if (method)
             {
                 var attr = (AttributeExpr)c.Func;
                 CompileExpr(attr.Target);

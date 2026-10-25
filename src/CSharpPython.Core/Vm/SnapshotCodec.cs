@@ -123,6 +123,7 @@ namespace CSharpPython
                         var fn = (PyFunction)v.RawObject;
                         foreach (var d in fn.Defaults) Collect(d);
                         foreach (var cell in fn.Closure) Collect(Value.FromCell(cell));
+                        if (fn.Owner != null) Collect(Value.FromClass(fn.Owner));
                     }
                     break;
                 case ValueKind.Cell:
@@ -293,6 +294,7 @@ namespace CSharpPython
                     foreach (var d in fn.Defaults) WriteValue(w, d);
                     w.Write(fn.Closure.Length);
                     foreach (var cell in fn.Closure) WriteValue(w, Value.FromCell(cell));
+                    WriteValue(w, fn.Owner == null ? Value.None : Value.FromClass(fn.Owner));
                     break;
                 }
                 case ValueKind.BoundMethod:
@@ -558,6 +560,7 @@ namespace CSharpPython
                 for (var c = ((PyClass)_objects[i]).Base; c != null; c = c.Base)
                     if (++steps > containers) throw new SnapshotException("the snapshot is damaged");
             }
+
             foreach (var it in _dictIterators) it.FinishRestore();
             _filled = true;
         }
@@ -646,7 +649,11 @@ namespace CSharpPython
                     var defaults = new Value[n];
                     for (int i = 0; i < n; i++) defaults[i] = ReadValue(r);
                     var code = _script.Codes[codeIndex];
-                    _objects[id] = new PyFunction(code, defaults, ReadClosure(r, code));
+                    var function = new PyFunction(code, defaults, ReadClosure(r, code));
+                    Value owner = ReadValue(r);
+                    if (owner.Kind == ValueKind.Class) function.Owner = (PyClass)owner.RawObject;
+                    else if (owner.Kind != ValueKind.None) throw new SnapshotException("the snapshot is damaged");
+                    _objects[id] = function;
                     break;
                 }
                 case ValueKind.BoundMethod:

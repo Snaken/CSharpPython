@@ -30,6 +30,17 @@ namespace CSharpPython
             return false;
         }
 
+        /// <summary>Marks the functions in the namespace as methods of this class, so that <c>super()</c> knows where to start.</summary>
+        public void AdoptMethods()
+        {
+            foreach (var kv in Namespace.Pairs())
+                if (kv.Value.Kind == ValueKind.Function)
+                {
+                    var f = (PyFunction)kv.Value.RawObject;
+                    if (f.Owner == null) f.Owner = this;
+                }
+        }
+
         public bool IsSubclassOf(PyClass other)
         {
             for (var c = this; c != null; c = c.Base)

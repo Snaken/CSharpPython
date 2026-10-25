@@ -101,6 +101,8 @@ namespace CSharpPython.Compilation
 
         ClassNamespace, // -> dict of the class body's assigned names; ends a class body
         BuildClass,   // name [base] namespace -> class; arg = number of bases (0 or 1)
+        LoadSuper,    // -> super().names[arg], bound to the first argument of the running method
+        LoadSuper2,   // class obj -> super(class, obj).names[arg]
     }
 
     internal readonly struct Instruction
@@ -180,6 +182,8 @@ namespace CSharpPython.Compilation
                     case Op.LoadAttr:
                     case Op.StoreAttr:
                     case Op.LoadMethod:
+                    case Op.LoadSuper:
+                    case Op.LoadSuper2:
                     case Op.Import:
                     case Op.ImportFrom: sb.Append(' ').Append(Names[ins.Arg]); break;
                     case Op.LoadLocal:

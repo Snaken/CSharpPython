@@ -23,6 +23,39 @@ namespace CSharpPython
             return true;
         }
 
+        /// <summary>Looks <paramref name="name"/> up on <paramref name="self"/> starting at the parent of <paramref name="owner"/>.</summary>
+        public static Value SuperAttr(PyClass owner, Value self, string name)
+        {
+            if (self.Kind != ValueKind.Instance || !((PyInstance)self.RawObject).Class.IsSubclassOf(owner))
+                throw new PyError("TypeError", "super(type, obj): obj must be an instance or subtype of type");
+            var key = Value.FromString(name);
+            for (var c = owner.Base; c != null; c = c.Base)
+                if (c.Namespace.TryGetValue(key, out Value member))
+                    return member.Kind == ValueKind.Function
+                        ? Value.FromScriptMethod(new ScriptMethod(self, (PyFunction)member.RawObject))
+                        : member;
+
+            // Past the last script class is object.
+            var instance = (PyInstance)self.RawObject;
+            switch (name)
+            {
+                case "__init__":
+                    return Value.FromNative(ObjectInit);
+                case "__repr__":
+                case "__str__":
+                    return Value.FromNative(new NativeFunction("object." + name,
+                        (ctx, args) => Value.FromString(instance.DefaultRepr()), 0, 0));
+            }
+            throw new PyError("AttributeError", "'super' object has no attribute '" + name + "'");
+        }
+
+        private static readonly NativeFunction ObjectInit = new NativeFunction("object.__init__", (ctx, args) =>
+        {
+            if (args.Length > 0)
+                throw new PyError("TypeError", "object.__init__() takes exactly one argument (the instance to initialize)");
+            return Value.None;
+        });
+
         public static Value GetAttr(Value obj, string name)
         {
             if (name == "__class__") return PyTypes.TypeOf(obj);
