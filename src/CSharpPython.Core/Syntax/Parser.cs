@@ -516,15 +516,26 @@ namespace CSharpPython.Syntax
         private void ParseSimpleLine(List<Stmt> into)
         {
             into.Add(ParseSimpleStatement());
+            FlushExtra(into);
             while (Cur.Kind == TokenKind.Semicolon)
             {
                 Advance();
                 if (Cur.Kind == TokenKind.Newline || Cur.Kind == TokenKind.EndOfFile) break;
                 into.Add(ParseSimpleStatement());
+                FlushExtra(into);
             }
             if (Cur.Kind == TokenKind.Newline) Advance();
             else if (Cur.Kind != TokenKind.EndOfFile && Cur.Kind != TokenKind.Dedent)
                 throw Error("unexpected " + Describe(Cur), Cur);
+        }
+
+        // Statements a simple statement produced beyond the one it returned: 'import a, b' is two imports.
+        private readonly List<Stmt> _extra = new List<Stmt>();
+
+        private void FlushExtra(List<Stmt> into)
+        {
+            into.AddRange(_extra);
+            _extra.Clear();
         }
 
         private static bool EndsStatement(TokenKind kind)
@@ -602,11 +613,18 @@ namespace CSharpPython.Syntax
 
         private Stmt ParseImport()
         {
-            var node = At(new ImportStmt(), Advance());
+            var first = ParseImportItem(Advance());
+            while (Cur.Kind == TokenKind.Comma)
+                _extra.Add(ParseImportItem(Advance()));
+            return first;
+        }
+
+        // One 'name' or 'name as alias' of an import statement; 'at' is the token before it.
+        private ImportStmt ParseImportItem(Token at)
+        {
+            var node = At(new ImportStmt(), at);
             node.Module = ParseModuleName();
             if (Accept(TokenKind.KwAs)) node.Alias = Expect(TokenKind.Name, "a name").Text;
-            if (Cur.Kind == TokenKind.Comma)
-                throw Error("importing several modules in one statement is not supported yet", Cur);
             return node;
         }
 

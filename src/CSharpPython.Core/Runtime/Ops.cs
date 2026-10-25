@@ -571,8 +571,21 @@ namespace CSharpPython
             }
         }
 
+        /// <summary>
+        /// The integer an object stands for as an index: itself for an int or bool, the result of <c>__index__</c>
+        /// for an instance that defines it, else the value unchanged.
+        /// </summary>
+        public static Value IndexValue(Value v)
+        {
+            if (v.Kind != ValueKind.Instance || !TryCallDunder(v, "__index__", Array.Empty<Value>(), out Value result)) return v;
+            if (result.Kind != ValueKind.Int && result.Kind != ValueKind.Bool)
+                throw TypeError("__index__ returned non-int (type " + TypeName(result) + ")");
+            return result;
+        }
+
         private static long ToIndex(Value v, string what)
         {
+            v = IndexValue(v);
             if (v.IsIntLike()) return v.RawInt;
             throw TypeError(what + " must be integers or slices, not " + TypeName(v));
         }
@@ -725,6 +738,7 @@ namespace CSharpPython
 
         private static long SliceIndex(Value v)
         {
+            v = IndexValue(v);
             if (v.IsIntLike()) return v.RawInt;
             throw TypeError("slice indices must be integers or None");
         }

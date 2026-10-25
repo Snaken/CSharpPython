@@ -692,7 +692,8 @@ namespace CSharpPython.Tests.Syntax
             Assert.That(Fails("import a.\n").Problem, Does.Contain("module name"));
             Assert.That(Fails("from a.b. import c\n").Problem, Does.Contain("module name"));
             Assert.That(Fails("import a..b\n").Problem, Does.Contain("module name"));
-            Assert.That(Fails("import a, b\n").Problem, Does.Contain("several modules"));
+            Assert.That(Fails("import a,\n").Problem, Does.Contain("module name"));
+            Assert.That(Fails("import a, b as\n").Problem, Does.Contain("a name"));
             Assert.That(Fails("from a import *\n").Problem, Does.Contain("import *"));
             Assert.That(Fails("from a b\n").Problem, Does.Contain("expected 'import'"));
             Assert.That(Fails("import 1\n").Problem, Does.Contain("module name"));

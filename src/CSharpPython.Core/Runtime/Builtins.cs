@@ -226,6 +226,7 @@ namespace CSharpPython
 
         private static long RangeArg(Value v)
         {
+            v = Ops.IndexValue(v);
             if (v.IsIntLike()) return v.RawInt;
             throw Ops.TypeError("'" + v.TypeName + "' object cannot be interpreted as an integer");
         }
@@ -259,6 +260,8 @@ namespace CSharpPython
                         if (converted.Kind != ValueKind.Int) throw Ops.TypeError("__int__ returned non-int (type " + converted.TypeName + ")");
                         return converted;
                     }
+                    Value index = Ops.IndexValue(v);
+                    if (index.Kind != ValueKind.Instance) return Value.FromInt(index.RawInt);
                     throw Ops.TypeError("int() argument must be a string or a number, not '" + v.TypeName + "'");
                 default:
                     throw Ops.TypeError("int() argument must be a string or a number, not '" + v.TypeName + "'");
@@ -374,6 +377,12 @@ namespace CSharpPython
         {
             Value v = a[0];
             bool hasDigits = a.Length > 1 && !a[1].IsNone;
+            if (v.Kind == ValueKind.Instance)
+            {
+                var args = a.Length > 1 && !a[1].IsNone ? new[] { a[1] } : Array.Empty<Value>();
+                if (Ops.TryCallDunder(v, "__round__", args, out Value rounded)) return rounded;
+                throw Ops.TypeError("type " + v.TypeName + " doesn't define __round__ method");
+            }
             if (v.IsIntLike())
             {
                 if (hasDigits && a[1].AsInt() < 0) return RoundInt(v.RawInt, a[1].AsInt());
@@ -537,6 +546,7 @@ namespace CSharpPython
 
         private static string Radix(Value v, int radix, string prefix, string function)
         {
+            v = Ops.IndexValue(v);
             if (v.Kind != ValueKind.Int && v.Kind != ValueKind.Bool)
                 throw Ops.TypeError("'" + v.TypeName + "' object cannot be interpreted as an integer");
             long n = v.AsInt();
@@ -591,6 +601,7 @@ namespace CSharpPython
         private static Value Reversed(CallContext ctx, ReadOnlySpan<Value> a)
         {
             Value v = a[0];
+            if (v.Kind == ValueKind.Instance && Ops.TryCallDunder(v, "__reversed__", Array.Empty<Value>(), out Value custom)) return custom;
             if (v.Kind == ValueKind.Iterator || v.Kind == ValueKind.Set || v.Kind == ValueKind.Int || v.Kind == ValueKind.Float || v.Kind == ValueKind.Bool || v.Kind == ValueKind.None)
                 throw Ops.TypeError("'" + v.TypeName + "' object is not reversible");
             var items = Ops.ToList(v);

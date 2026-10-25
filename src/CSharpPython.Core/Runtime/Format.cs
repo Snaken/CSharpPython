@@ -285,7 +285,13 @@ namespace CSharpPython
         /// <summary>Applies a format spec such as <c>&gt;10.2f</c> to a value.</summary>
         public static string FormatValue(Value v, string spec)
         {
+            if (v.Kind == ValueKind.Instance && TryCallDunder(v, "__format__", new[] { Value.FromString(spec ?? "") }, out Value formatted))
+            {
+                if (formatted.Kind != ValueKind.Str) throw TypeError("__format__ must return a str, not " + TypeName(formatted));
+                return (string)formatted.RawObject;
+            }
             if (string.IsNullOrEmpty(spec)) return Str(v);
+            if (v.Kind == ValueKind.Instance) throw TypeError("unsupported format string passed to " + TypeName(v) + ".__format__");
 
             int i = 0;
             char fill = ' ';
