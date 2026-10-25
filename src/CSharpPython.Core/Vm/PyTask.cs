@@ -1126,6 +1126,12 @@ namespace CSharpPython
                         Push(Value.FromModule(module));
                         break;
                     }
+                    case Op.ImportTop:
+                    {
+                        string name = code.Names[ins.Arg];
+                        _stack[_sp - 1] = Value.FromModule(Vm.Modules[name]);
+                        break;
+                    }
                     case Op.ImportFrom:
                     {
                         var module = (PyModule)_stack[_sp - 1].RawObject;

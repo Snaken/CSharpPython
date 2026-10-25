@@ -98,6 +98,7 @@ namespace CSharpPython.Compilation
 
         Import,       // -> module; arg = name index
         ImportFrom,   // module -> module value; arg = name index
+        ImportTop,    // module -> the top-level package of that module (the 'a' of 'import a.b'); arg = name index of 'a'
 
         // Calls with *iterable and **mapping arguments: the positional arguments are collected in a list and the
         // keyword arguments in a dict, then CallEx spreads them out and calls as usual.
@@ -212,7 +213,8 @@ namespace CSharpPython.Compilation
                     case Op.LoadSuper:
                     case Op.LoadSuper2:
                     case Op.Import:
-                    case Op.ImportFrom: sb.Append(' ').Append(Names[ins.Arg]); break;
+                    case Op.ImportFrom:
+                    case Op.ImportTop: sb.Append(' ').Append(Names[ins.Arg]); break;
                     case Op.LoadLocal:
                     case Op.StoreLocal: sb.Append(' ').Append(ins.Arg); break;
                     case Op.DeleteLocal:

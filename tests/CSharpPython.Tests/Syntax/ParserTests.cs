@@ -689,8 +689,9 @@ namespace CSharpPython.Tests.Syntax
         [Test]
         public void ImportErrors()
         {
-            Assert.That(Fails("import a.b\n").Problem, Does.Contain("dotted"));
-            Assert.That(Fails("from a.b import c\n").Problem, Does.Contain("dotted"));
+            Assert.That(Fails("import a.\n").Problem, Does.Contain("module name"));
+            Assert.That(Fails("from a.b. import c\n").Problem, Does.Contain("module name"));
+            Assert.That(Fails("import a..b\n").Problem, Does.Contain("module name"));
             Assert.That(Fails("import a, b\n").Problem, Does.Contain("several modules"));
             Assert.That(Fails("from a import *\n").Problem, Does.Contain("import *"));
             Assert.That(Fails("from a b\n").Problem, Does.Contain("expected 'import'"));

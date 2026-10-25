@@ -324,8 +324,12 @@ namespace CSharpPython.Syntax
 
     public sealed class ImportStmt : Stmt
     {
+        /// <summary>The module's full name, such as <c>game.ai</c>.</summary>
         public string Module;
         public string Alias;
+
+        /// <summary>The name <c>import</c> binds without an alias: the top-level package.</summary>
+        public string BoundName => Module.IndexOf('.') < 0 ? Module : Module.Substring(0, Module.IndexOf('.'));
     }
 
     public sealed class ImportFromStmt : Stmt

@@ -97,7 +97,7 @@ namespace CSharpPython.Editor
                 switch (t.Kind)
                 {
                     case TokenKind.Name:
-                        if (prev == TokenKind.Dot) kind = HighlightKind.Member;
+                        if (prev == TokenKind.Dot) kind = inImport ? HighlightKind.Module : HighlightKind.Member;
                         else if (prev == TokenKind.KwDef) kind = HighlightKind.FunctionName;
                         else if (prev == TokenKind.KwClass) kind = HighlightKind.ClassName;
                         else if (inImport && prev != TokenKind.KwAs) kind = HighlightKind.Module;

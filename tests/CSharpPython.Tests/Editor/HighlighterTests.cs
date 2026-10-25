@@ -161,5 +161,13 @@ namespace CSharpPython.Tests.Editor
         {
             Assert.That(Show("x = ..."), Is.EqualTo("x:Identifier =:Operator ...:Constant"));
         }
+
+        [Test]
+        public void DottedModuleNamesAreModulesThroughout()
+        {
+            Assert.That(Show("import game.ai as b"), Is.EqualTo("import:Keyword game:Module .:Punctuation ai:Module as:Keyword b:Identifier"));
+            Assert.That(Show("from game.ai import think"), Is.EqualTo("from:Keyword game:Module .:Punctuation ai:Module import:Keyword think:Identifier"));
+            Assert.That(Show("import game.ai\ngame.ai.think()"), Does.EndWith("game:Identifier .:Punctuation ai:Member .:Punctuation think:Member (:Punctuation ):Punctuation"));
+        }
     }
 }

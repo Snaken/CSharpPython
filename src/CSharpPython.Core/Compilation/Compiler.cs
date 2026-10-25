@@ -259,7 +259,8 @@ namespace CSharpPython.Compilation
                 case RaiseStmt r: CompileRaise(r); break;
                 case ImportStmt i:
                     Emit(Op.Import, Name(i.Module));
-                    StoreName(i.Alias ?? i.Module);
+                    if (i.Alias == null && i.Module.IndexOf('.') >= 0) Emit(Op.ImportTop, Name(i.Module.Substring(0, i.Module.IndexOf('.'))));
+                    StoreName(i.Alias ?? i.BoundName);
                     break;
                 case ImportFromStmt i:
                     Emit(Op.Import, Name(i.Module));

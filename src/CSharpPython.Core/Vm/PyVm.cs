@@ -30,10 +30,37 @@ namespace CSharpPython
         {
             var builder = new ModuleBuilder(name);
             configure(builder);
-            Modules[name] = builder.Module;
+            AddModule(builder.Module);
         }
 
-        public void RegisterModule(PyModule module) => Modules[module.Name] = module;
+        public void RegisterModule(PyModule module) => AddModule(module);
+
+        // Modules are kept in a flat table under their full names ("game.ai"). Registering one also creates the
+        // packages above it that are missing, and links each module into its parent as an attribute, so that
+        // "import game.ai" gives game.ai and "from game import ai" works.
+        private void AddModule(PyModule module)
+        {
+            Modules[module.Name] = module;
+            foreach (var other in Modules.Values)
+            {
+                string leaf = DirectChild(module.Name, other.Name);
+                if (leaf != null && !module.Members.ContainsKey(leaf)) module.Members[leaf] = Value.FromModule(other);
+            }
+            for (var child = module; ; )
+            {
+                int dot = child.Name.LastIndexOf('.');
+                if (dot < 0) break;
+                string parentName = child.Name.Substring(0, dot);
+                if (!Modules.TryGetValue(parentName, out PyModule parent)) Modules[parentName] = parent = new PyModule(parentName);
+                parent.Members[child.Name.Substring(dot + 1)] = Value.FromModule(child);
+                child = parent;
+            }
+        }
+
+        // The last part of 'child' when it is a module directly inside 'parent', else null.
+        private static string DirectChild(string parent, string child) =>
+            child.Length > parent.Length + 1 && child.StartsWith(parent + ".", StringComparison.Ordinal) && child.IndexOf('.', parent.Length + 1) < 0
+                ? child.Substring(parent.Length + 1) : null;
 
         /// <summary>Adds a name that every script can use without importing, such as a global helper function.</summary>
         public void SetBuiltin(string name, Value value) => Builtins[name] = value;

@@ -102,8 +102,8 @@ namespace CSharpPython.Editor
             var last = before.Count > 0 ? before[before.Count - 1] : (Token?)null;
 
             var line = CurrentLine(before);
-            if (line.Count > 0 && line[0].Kind == TokenKind.KwImport && (last.Value.Kind == TokenKind.KwImport || last.Value.Kind == TokenKind.Comma))
-                AddModules(vm, items);
+            if (line.Count > 0 && line[0].Kind == TokenKind.KwImport && (last.Value.Kind == TokenKind.KwImport || last.Value.Kind == TokenKind.Comma || last.Value.Kind == TokenKind.Dot))
+                AddModules(vm, items, ModulePrefix(line));
             else if (line.Count > 0 && line[0].Kind == TokenKind.KwFrom)
                 FromContext(line, vm, items);
             else if (last.HasValue && last.Value.Kind == TokenKind.Dot)
@@ -127,20 +127,49 @@ namespace CSharpPython.Editor
             if (import < 0)
             {
                 // 'from' or 'from name': modules first, then the 'import' keyword once a module is named.
-                if (line.Count == 1) AddModules(vm, items);
-                else if (line.Count == 2 && line[1].Kind == TokenKind.Name) items.Add(new CompletionItem("import", CompletionKind.Keyword));
+                var lastKind = line[line.Count - 1].Kind;
+                if (line.Count == 1 || lastKind == TokenKind.Dot) AddModules(vm, items, ModulePrefix(line));
+                else if (lastKind == TokenKind.Name) items.Add(new CompletionItem("import", CompletionKind.Keyword));
                 return;
             }
-            if (import != 2 || line[1].Kind != TokenKind.Name) return;
+            string name = DottedName(line, 1, import);
+            if (name == null) return;
             var last = line[line.Count - 1].Kind;
             if (last != TokenKind.KwImport && last != TokenKind.Comma && last != TokenKind.LParen) return;
-            if (vm.Modules.TryGetValue(line[1].Text, out var module)) AddModuleMembers(module, items);
+            if (vm.Modules.TryGetValue(name, out var module)) AddModuleMembers(module, items);
         }
 
-        private static void AddModules(PyVm vm, List<CompletionItem> items)
+        // The text of tokens [from, to) when they are a.b.c, else null.
+        private static string DottedName(List<Token> line, int from, int to)
         {
+            if (to <= from || (to - from) % 2 == 0) return null;
+            var sb = new System.Text.StringBuilder();
+            for (int i = from; i < to; i++)
+            {
+                bool expectName = (i - from) % 2 == 0;
+                if (line[i].Kind != (expectName ? TokenKind.Name : TokenKind.Dot)) return null;
+                sb.Append(line[i].Text);
+            }
+            return sb.ToString();
+        }
+
+        // The package typed so far in "import a.b." or "from a.b.": "a.b", or "" when the line ends before a name.
+        private static string ModulePrefix(List<Token> line)
+        {
+            int end = line.Count;
+            if (end == 0 || line[end - 1].Kind != TokenKind.Dot) return "";
+            int start = end - 1;
+            while (start - 1 >= 0 && (line[start - 1].Kind == TokenKind.Name || line[start - 1].Kind == TokenKind.Dot)) start--;
+            return DottedName(line, start, end - 1) ?? "";
+        }
+
+        // The modules whose names continue 'prefix' by one part: the top-level ones when the prefix is empty.
+        private static void AddModules(PyVm vm, List<CompletionItem> items, string prefix = "")
+        {
+            string dotted = prefix.Length == 0 ? "" : prefix + ".";
             foreach (var name in vm.Modules.Keys)
-                items.Add(new CompletionItem(name, CompletionKind.Module, "module"));
+                if (name.StartsWith(dotted, System.StringComparison.Ordinal) && name.IndexOf('.', dotted.Length) < 0 && name.Length > dotted.Length)
+                    items.Add(new CompletionItem(name.Substring(dotted.Length), CompletionKind.Module, "module"));
         }
 
         private static void AddModuleMembers(PyModule module, List<CompletionItem> items)

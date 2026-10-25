@@ -328,20 +328,36 @@ namespace CSharpPython.Editor
                 if (prev != TokenKind.KwImport && prev != TokenKind.Comma) continue;
                 var original = Tokens[j];
                 var alias = original;
+                string full = original.Text;
+                while (j + 2 < Tokens.Count && Tokens[j + 1].Kind == TokenKind.Dot && Tokens[j + 2].Kind == TokenKind.Name)
+                {
+                    full += "." + Tokens[j + 2].Text;
+                    j += 2;
+                }
+                bool aliased = false;
                 if (j + 2 < Tokens.Count && Tokens[j + 1].Kind == TokenKind.KwAs && Tokens[j + 2].Kind == TokenKind.Name)
                 {
                     alias = Tokens[j + 2];
+                    aliased = true;
                     j += 2;
                 }
-                Definitions.Add(new Definition { Name = alias.Text, Kind = DefinitionKind.Module, TokenStart = alias.Start, Scope = scope, Module = original.Text });
+                // Without an alias, 'import a.b' binds the package 'a'.
+                Definitions.Add(new Definition { Name = alias.Text, Kind = DefinitionKind.Module, TokenStart = alias.Start, Scope = scope, Module = aliased ? full : original.Text });
             }
         }
 
         private void ReadFrom(int i, FunctionScope scope)
         {
-            if (i + 2 >= Tokens.Count || Tokens[i + 1].Kind != TokenKind.Name || Tokens[i + 2].Kind != TokenKind.KwImport) return;
+            if (i + 2 >= Tokens.Count || Tokens[i + 1].Kind != TokenKind.Name) return;
             string module = Tokens[i + 1].Text;
-            for (int j = i + 3; j < Tokens.Count && Tokens[j].Kind != TokenKind.Newline; j++)
+            int at = i + 2;
+            while (at + 1 < Tokens.Count && Tokens[at].Kind == TokenKind.Dot && Tokens[at + 1].Kind == TokenKind.Name)
+            {
+                module += "." + Tokens[at + 1].Text;
+                at += 2;
+            }
+            if (at >= Tokens.Count || Tokens[at].Kind != TokenKind.KwImport) return;
+            for (int j = at + 1; j < Tokens.Count && Tokens[j].Kind != TokenKind.Newline; j++)
             {
                 if (Tokens[j].Kind != TokenKind.Name) continue;
                 var prev = Tokens[j - 1].Kind;

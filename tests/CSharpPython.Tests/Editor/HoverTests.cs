@@ -131,5 +131,19 @@ namespace CSharpPython.Tests.Editor
             Assert.That(At("def deco(f):\n    return f\n@deco\ndef move(a):\n    pass\nmo|ve(1)\n").Label, Is.EqualTo("def move(a)"));
             Assert.That(At("@prop|erty\ndef f(self): pass\n").Label, Does.StartWith("property"));
         }
+
+        [Test]
+        public void DottedImportsHoverAsTheirModule()
+        {
+            Assert.That(At("import game.ai as br|ain\n", Dotted()).Label, Is.EqualTo("import game.ai"));
+            Assert.That(At("import game.ai\ngam|e.ai.think()\n", Dotted()).Label, Is.EqualTo("import game"));
+        }
+
+        private static PyVm Dotted()
+        {
+            var vm = new PyVm();
+            vm.RegisterModule("game.ai", m => m.Function("think", () => Value.None));
+            return vm;
+        }
     }
 }

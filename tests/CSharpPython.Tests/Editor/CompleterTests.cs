@@ -321,5 +321,43 @@ namespace CSharpPython.Tests.Editor
             Assert.That(Names("class A:\n    @class|\n"), Does.Contain("classmethod"));
             Assert.That(Names("def deco(f):\n    return f\n@de|\ndef g(): pass\n"), Does.Contain("deco"));
         }
+
+        private static PyVm DottedVm()
+        {
+            var vm = new PyVm();
+            vm.RegisterModule("game.ai", m => m.Function("think", () => Value.None));
+            vm.RegisterModule("game.ai.paths", m => m.Function("find", () => Value.None));
+            vm.RegisterModule("game.ui", m => m.Function("draw", () => Value.None));
+            return vm;
+        }
+
+        [Test]
+        public void ImportOffersOnlyTopLevelPackagesThenTheirChildren()
+        {
+            var vm = DottedVm();
+            Assert.That(Names("import |", vm), Does.Contain("game").And.Contain("math").And.Not.Contain("game.ai"));
+            Assert.That(Names("import game.|", vm), Is.EquivalentTo(new[] { "ai", "ui" }));
+            Assert.That(Names("import game.ai.|", vm), Is.EquivalentTo(new[] { "paths" }));
+            Assert.That(Names("import game.a|", vm), Is.EquivalentTo(new[] { "ai" }));
+        }
+
+        [Test]
+        public void FromOffersDottedPackagesAndTheirMembers()
+        {
+            var vm = DottedVm();
+            Assert.That(Names("from |", vm), Does.Contain("game"));
+            Assert.That(Names("from game.|", vm), Is.EquivalentTo(new[] { "ai", "ui" }));
+            Assert.That(Names("from game.ai import |", vm), Is.EquivalentTo(new[] { "think", "paths" }));
+            Assert.That(Names("from game.ai.paths import |", vm), Is.EquivalentTo(new[] { "find" }));
+            Assert.That(Names("from game.ai |", vm), Is.EquivalentTo(new[] { "import" }));
+        }
+
+        [Test]
+        public void MembersOfADottedImportAreOffered()
+        {
+            var vm = DottedVm();
+            Assert.That(Names("import game.ai\ngame.|", vm), Is.EquivalentTo(new[] { "ai", "ui" }));
+            Assert.That(Names("import game.ai as brain\nbrain.|", vm), Is.EquivalentTo(new[] { "think", "paths" }));
+        }
     }
 }

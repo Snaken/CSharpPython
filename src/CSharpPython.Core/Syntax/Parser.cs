@@ -613,7 +613,7 @@ namespace CSharpPython.Syntax
         private string ParseModuleName()
         {
             string name = Expect(TokenKind.Name, "a module name").Text;
-            if (Cur.Kind == TokenKind.Dot) throw Error("dotted module names are not supported yet", Cur);
+            while (Accept(TokenKind.Dot)) name += "." + Expect(TokenKind.Name, "a module name").Text;
             return name;
         }
 

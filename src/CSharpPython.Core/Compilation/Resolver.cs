@@ -109,7 +109,7 @@ namespace CSharpPython.Compilation
                     if (r.Value != null) VisitExpr(r.Value);
                     break;
                 case ImportStmt i:
-                    Bind(i.Alias ?? i.Module);
+                    Bind(i.Alias ?? i.BoundName);
                     break;
                 case ImportFromStmt i:
                     for (int k = 0; k < i.Names.Count; k++) Bind(i.Aliases[k] ?? i.Names[k]);
