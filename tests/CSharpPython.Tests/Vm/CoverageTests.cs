@@ -262,11 +262,8 @@ print(len(d), keys[0], keys[-1], d[199], d['new'])"), Is.EqualTo("51 150 new 199
         public void LoneBangIsInvalid() =>
             Assert.That(FirstProblem("x = !y"), Does.Contain("unexpected character '!'"));
 
-        [TestCase("&")]
-        [TestCase("|")]
-        [TestCase("^")]
         [TestCase("@")]
-        public void BitwiseAndMatrixOperatorsAreUnsupported(string op) =>
+        public void MatrixOperatorIsUnsupported(string op) =>
             Assert.That(FirstProblem("x = 1 " + op + " 2"), Does.Contain("not supported yet"));
 
         [Test]

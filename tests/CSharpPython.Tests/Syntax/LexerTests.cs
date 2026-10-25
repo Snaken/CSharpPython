@@ -501,18 +501,21 @@ namespace CSharpPython.Tests.Syntax
         }
 
         [Test]
+        public void BitOperatorsAreTokens()
+        {
+            Assert.That(Kinds("| & ^ ~ << >>"), Is.EqualTo("Pipe Ampersand Caret Tilde LShift RShift Newline EndOfFile"));
+            Assert.That(Kinds("|= &= ^= <<= >>="), Is.EqualTo("PipeAssign AmpersandAssign CaretAssign LShiftAssign RShiftAssign Newline EndOfFile"));
+            Assert.That(Kinds("a<<b>>c<d"), Is.EqualTo("Name LShift Name RShift Name Lt Name Newline EndOfFile"));
+            Assert.That(Lex("<<=")[0].Text, Is.EqualTo("<<="));
+        }
+
+        [Test]
         public void OperatorTextIsPreserved()
         {
             Assert.That(Lex("//=")[0].Text, Is.EqualTo("//="));
         }
 
-        [TestCase("&")]
-        [TestCase("|")]
-        [TestCase("^")]
-        [TestCase("~")]
         [TestCase("@")]
-        [TestCase("<<")]
-        [TestCase(">>")]
         [TestCase("->")]
         [TestCase(":=")]
         public void UnsupportedOperatorsGiveHelpfulErrors(string op)

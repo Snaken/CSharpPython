@@ -154,6 +154,8 @@ namespace CSharpPython.Tests.Vm
             "import game\nseen = {3, 1, 2}\nfor x in seen:\n    game.wait(1)\n    print(x, len(seen))\nseen.add(9)\nprint(seen, {k: {k, k + 1} for k in range(2)})",
             "import game\nclass P:\n    def __init__(self, x):\n        self.x = x\n    def __eq__(self, o):\n        return self.x == o.x\n    def __hash__(self):\n        return hash(self.x)\ns = {P(1), P(2)}\ngame.wait(1)\nprint(P(2) in s, P(3) in s, len(s))\ns.add(P(2))\ngame.wait(1)\nprint(len(s), sorted(p.x for p in s))",
             "import game\na = {1, 2, 3}\nit = iter(a)\nprint(next(it))\ngame.wait(1)\nprint(next(it))\ngame.wait(1)\nb = a\nb -= {3}\nprint(a is b, a)\ntry:\n    next(it)\nexcept RuntimeError as e:\n    print(e)",
+            "import game\nflags = 1\nmask = {1, 2}\nfor i in range(3):\n    game.wait(1)\n    flags = (flags << 1) | i\n    mask ^= {i}\n    mask |= {i + 10}\nprint(flags, ~flags, flags >> 1 & 3, sorted(mask))",
+            "import game\nclass Bits:\n    def __init__(self, v):\n        self.v = v\n    def __or__(self, o):\n        return Bits(self.v | o.v)\n    def __ior__(self, o):\n        game.wait(0) if False else None\n        self.v |= o.v\n        return self\n    def __invert__(self):\n        return Bits(~self.v)\nb = Bits(1)\ngame.wait(1)\nb |= Bits(4)\ngame.wait(1)\nprint(b.v, (~b).v, (b | Bits(8)).v)",
             "import game\nclass Job:\n    def __init__(self):\n        self.done = []\n    def __call__(self, n):\n        game.wait(1)\n        self.done.append(n)\n        game.wait(1)\n        return len(self.done)\nj = Job()\nprint(j(1), j(2))\nprint(j.done)",
         };
 
