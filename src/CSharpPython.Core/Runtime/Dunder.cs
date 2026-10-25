@@ -130,7 +130,7 @@ namespace CSharpPython
 
         public static Value SubInPlace(Value a, Value b)
         {
-            if (a.Kind == ValueKind.Set && b.Kind == ValueKind.Set)
+            if (a.Kind == ValueKind.Set && b.Kind == ValueKind.Set && !((PySet)a.RawObject).Frozen)
             {
                 var target = (PySet)a.RawObject;
                 foreach (var v in ((PySet)b.RawObject).Members().ToList()) target.Remove(v);

@@ -7,7 +7,7 @@ namespace CSharpPython
 {
     public sealed partial class PyTask
     {
-        private const ushort SnapshotVersion = 7;
+        private const ushort SnapshotVersion = 8;
         private static readonly byte[] SnapshotMagic = { (byte)'C', (byte)'S', (byte)'P', (byte)'Y' };
 
         // The deepest value stack a restored snapshot may claim, so that damaged data cannot ask for gigabytes.

@@ -14,9 +14,10 @@ namespace CSharpPython.Tests.Vm
         }
 
         [Test]
-        public void DictsRejectSliceKeysAsUnhashable()
+        public void SlicesAreHashableDictKeys()
         {
-            Assert.That(Out("d = {}\ntry:\n    d[1:2] = 3\nexcept TypeError as e:\n    print('TypeError')"), Is.EqualTo("TypeError"));
+            Assert.That(Out("d = {}\nd[1:2] = 3\nprint(d[slice(1, 2)], len(d), hash(slice(1, 2)) == hash(slice(1, 2)))"), Is.EqualTo("3 1 True"));
+            Assert.That(Fails("hash(slice([], 1))").TypeName, Is.EqualTo("TypeError"));
         }
 
         [Test]

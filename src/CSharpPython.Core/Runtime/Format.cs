@@ -99,8 +99,10 @@ namespace CSharpPython
                 case ValueKind.Set:
                 {
                     var set = (PySet)v.RawObject;
-                    if (set.Count == 0) { sb.Append("set()"); return; }
+                    if (set.Count == 0) { sb.Append(set.Frozen ? "frozenset()" : "set()"); return; }
+                    if (set.Frozen) sb.Append("frozenset(");
                     WriteSequence(sb, set.Members().ToList(), set, "{", "}", seen);
+                    if (set.Frozen) sb.Append(')');
                     return;
                 }
                 case ValueKind.Range:

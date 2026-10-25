@@ -18,9 +18,9 @@ namespace CSharpPython
             {
                 var x = (PySet)a.RawObject;
                 var y = (PySet)b.RawObject;
-                if (kind == 2) return Value.FromSet(Methods.SetIntersection(x, y));
-                if (kind == 1) return Value.FromSet(Methods.SetSymmetricDifference(x, y));
-                var union = x.Copy();
+                if (kind == 2) return Value.FromSet(Methods.SetIntersection(x, y).LikeOf(x));
+                if (kind == 1) return Value.FromSet(Methods.SetSymmetricDifference(x, y).LikeOf(x));
+                var union = x.Copy().LikeOf(x);
                 foreach (var v in y.Members()) union.Add(v);
                 return Value.FromSet(union);
             }
@@ -74,6 +74,7 @@ namespace CSharpPython
             if (a.Kind != ValueKind.Set || b.Kind != ValueKind.Set) return false;
             var x = (PySet)a.RawObject;
             var y = (PySet)b.RawObject;
+            if (x.Frozen) return false;
             if (kind == 0) foreach (var v in y.Members().ToList()) x.Add(v);
             else Methods.ReplaceMembers(x, kind == 1 ? Methods.SetSymmetricDifference(x, y) : Methods.SetIntersection(x, y));
             return true;

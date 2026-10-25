@@ -33,21 +33,42 @@ namespace CSharpPython
     {
         internal PyDict Items;
 
+        /// <summary>True for a <c>frozenset</c>: it cannot change and can be a dictionary key or a member of a set.</summary>
+        public bool Frozen;
+
         public PySet() { Items = new PyDict { ForSet = true }; }
 
         public int Count => Items.Count;
 
         // Like CPython, looking up a set finds nothing instead of complaining that it cannot be hashed (members are
         // never sets, because sets are unhashable).
-        public bool Contains(Value v) => v.Kind != ValueKind.Set && Items.ContainsKey(v);
+        public bool Contains(Value v) => Items.ContainsKey(Keyed(v));
 
         public void Add(Value v) => Items.Set(v, Value.None);
 
-        public bool Remove(Value v) => v.Kind != ValueKind.Set && Items.Remove(v);
+        public bool Remove(Value v) => Items.Remove(Keyed(v));
+
+        // A set that is looked up is compared as the frozenset with the same members, the way Python does.
+        private static Value Keyed(Value v)
+        {
+            if (v.Kind != ValueKind.Set) return v;
+            var set = (PySet)v.RawObject;
+            if (set.Frozen) return v;
+            var frozen = set.Copy();
+            frozen.Frozen = true;
+            return Value.FromSet(frozen);
+        }
 
         public IEnumerable<Value> Members()
         {
             foreach (var kv in Items.Pairs()) yield return kv.Key;
+        }
+
+        /// <summary>Makes this set frozen when <paramref name="model"/> is, and returns it.</summary>
+        internal PySet LikeOf(PySet model)
+        {
+            Frozen = model.Frozen;
+            return this;
         }
 
         public PySet Copy()
@@ -156,6 +177,8 @@ namespace CSharpPython
         private static bool NeedsScript(Value key)
         {
             if (key.Kind == ValueKind.Instance) return true;
+            if (key.Kind == ValueKind.Set)
+                foreach (var item in ((PySet)key.RawObject).Members()) if (NeedsScript(item)) return true;
             if (key.Kind == ValueKind.Tuple)
                 foreach (var item in ((PyTuple)key.RawObject).Items) if (NeedsScript(item)) return true;
             return false;

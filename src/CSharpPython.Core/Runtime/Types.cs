@@ -40,6 +40,7 @@ namespace CSharpPython
         public static readonly PyType Tuple = Define("tuple", ValueKind.Tuple);
         public static readonly PyType Dict = Define("dict", ValueKind.Dict);
         public static readonly PyType Set = Define("set", ValueKind.Set);
+        public static readonly PyType FrozenSet = Define("frozenset", ValueKind.Set);
         public static readonly PyType Range = Define("range", ValueKind.Range);
         public static readonly PyType Slice = Define("slice", ValueKind.Slice);
         public static readonly PyType Function = Define("function", ValueKind.Function);
@@ -71,6 +72,7 @@ namespace CSharpPython
                 case ValueKind.Exception: return Value.FromExceptionType(((PyExceptionValue)v.RawObject).Type);
                 case ValueKind.Instance: return Value.FromClass(((PyInstance)v.RawObject).Class);
                 case ValueKind.Iterator when v.RawObject is PyGenerator: return Value.FromType(Generator);
+                case ValueKind.Set: return Value.FromType(((PySet)v.RawObject).Frozen ? FrozenSet : Set);
                 case ValueKind.ExceptionType:
                 case ValueKind.Class:
                 case ValueKind.Type:
@@ -99,6 +101,7 @@ namespace CSharpPython
                     if (t == Object) return true;
                     if (t == Type) return IsClass(value);
                     if (t == Int && value.Kind == ValueKind.Bool) return true; // bool is a kind of int
+                    if (t.Kind == ValueKind.Set && value.Kind == ValueKind.Set) return ((PySet)value.RawObject).Frozen == (t == FrozenSet);
                     return t.Kind == KindOf(value);
                 }
                 case ValueKind.Class:

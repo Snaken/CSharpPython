@@ -19,6 +19,20 @@ namespace CSharpPython
         // name when a snapshot is restored, which is why they live in a table instead of being made on the spot.
         private static readonly Dictionary<string, NativeFunction> InstanceMethods = new Dictionary<string, NativeFunction>();
 
+        // The set methods that change the set, which a frozenset does not have.
+        private static readonly HashSet<string> SetMutators = new HashSet<string>
+        {
+            "add", "remove", "discard", "pop", "clear", "update",
+            "intersection_update", "difference_update", "symmetric_difference_update",
+        };
+
+        /// <summary>Finds a method for a value, taking into account that a frozenset has only the set methods that do not change it.</summary>
+        public static NativeFunction FindFor(Value obj, string name)
+        {
+            if (obj.Kind == ValueKind.Set && ((PySet)obj.RawObject).Frozen && SetMutators.Contains(name)) return null;
+            return Find(obj.Kind, name);
+        }
+
         public static NativeFunction Find(ValueKind kind, string name)
         {
             Dictionary<string, NativeFunction> table;
@@ -720,7 +734,7 @@ namespace CSharpPython
                 throw new PyError("KeyError", "'pop from an empty set'");
             });
             Add(t, "set", "clear", 0, 0, (c, a) => { a[0].AsSet().Items.Clear(); return Value.None; });
-            Add(t, "set", "copy", 0, 0, (c, a) => Value.FromSet(a[0].AsSet().Copy()));
+            Add(t, "set", "copy", 0, 0, (c, a) => Value.FromSet(a[0].AsSet().Copy().LikeOf(a[0].AsSet())));
             Add(t, "set", "update", 0, -1, (c, a) =>
             {
                 var s = a[0].AsSet();
@@ -729,7 +743,7 @@ namespace CSharpPython
             });
             Add(t, "set", "union", 0, -1, (c, a) =>
             {
-                var result = a[0].AsSet().Copy();
+                var result = a[0].AsSet().Copy().LikeOf(a[0].AsSet());
                 for (int i = 1; i < a.Length; i++) foreach (var v in Ops.ToList(a[i])) result.Add(v);
                 return Value.FromSet(result);
             });
@@ -737,16 +751,16 @@ namespace CSharpPython
             {
                 var result = a[0].AsSet().Copy();
                 for (int i = 1; i < a.Length; i++) result = SetIntersection(result, ToSet(a[i]));
-                return Value.FromSet(result);
+                return Value.FromSet(result.LikeOf(a[0].AsSet()));
             });
             Add(t, "set", "difference", 0, -1, (c, a) =>
             {
                 var result = a[0].AsSet().Copy();
                 for (int i = 1; i < a.Length; i++) result = Ops.SetDifference(result, ToSet(a[i]));
-                return Value.FromSet(result);
+                return Value.FromSet(result.LikeOf(a[0].AsSet()));
             });
             Add(t, "set", "symmetric_difference", 1, 1, (c, a) =>
-                Value.FromSet(SetSymmetricDifference(a[0].AsSet(), ToSet(a[1]))));
+                Value.FromSet(SetSymmetricDifference(a[0].AsSet(), ToSet(a[1])).LikeOf(a[0].AsSet())));
             Add(t, "set", "intersection_update", 0, -1, (c, a) =>
             {
                 var s = a[0].AsSet();

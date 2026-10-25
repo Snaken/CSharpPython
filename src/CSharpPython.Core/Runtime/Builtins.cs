@@ -93,6 +93,15 @@ namespace CSharpPython
             yield return F("list", 0, 1, (c, a) => Value.FromList(new PyList(a.Length == 0 ? new List<Value>() : Ops.ToList(a[0]))));
             yield return F("tuple", 0, 1, (c, a) => Value.FromTuple(new PyTuple(a.Length == 0 ? new Value[0] : Ops.ToList(a[0]).ToArray())));
             yield return F("set", 0, 1, (c, a) => a.Length == 0 ? Value.FromSet(new PySet()) : Value.FromSet(Methods.ToSet(a[0]).Copy()));
+            yield return F("frozenset", 0, 1, (c, a) =>
+            {
+                var set = a.Length == 0 ? new PySet() : Methods.ToSet(a[0]).Copy();
+                set.Frozen = true;
+                return Value.FromSet(set);
+            });
+            yield return F("slice", 1, 3, (c, a) => a.Length == 1
+                ? Ops.MakeSlice(Value.None, a[0], Value.None)
+                : Ops.MakeSlice(a[0], a[1], a.Length > 2 ? a[2] : Value.None));
             yield return F("dict", 0, 1, MakeDict, true);
             yield return F("enumerate", 1, 2, Enumerate, true);
             yield return F("zip", 0, -1, (c, a) =>
@@ -117,6 +126,8 @@ namespace CSharpPython
                 Ops.DelAttr(a[0], NameArg(a[1], "delattr"));
                 return Value.None;
             });
+            yield return F("dir", 1, 1, (c, a) => Dir(a[0]));
+            yield return F("vars", 1, 1, (c, a) => Vars(a[0]));
             yield return F("ascii", 1, 1, (c, a) => Value.FromString(Ascii(Ops.Repr(a[0]))));
             yield return F("reversed", 1, 1, Reversed);
             yield return F("any", 1, 1, (c, a) => Value.FromBool(Ops.ToList(a[0]).Any(v => v.IsTruthy)));
@@ -439,6 +450,70 @@ namespace CSharpPython
             for (int i = 0; i < ctx.KeywordNames.Length; i++)
                 dict.Set(Value.FromString(ctx.KeywordNames[i]), a[ctx.PositionalCount + i]);
             return Value.FromDict(dict);
+        }
+
+        // The attribute names of a value, sorted. Unlike CPython's, the list leaves out the methods every object has.
+        private static Value Dir(Value v)
+        {
+            var names = new SortedSet<string>(StringComparer.Ordinal);
+            switch (v.Kind)
+            {
+                case ValueKind.Instance:
+                {
+                    var inst = (PyInstance)v.RawObject;
+                    foreach (var kv in inst.Fields.Pairs()) if (kv.Key.Kind == ValueKind.Str) names.Add((string)kv.Key.RawObject);
+                    for (var cls = inst.Class; cls != null; cls = cls.Base) AddNames(names, cls.Namespace);
+                    break;
+                }
+                case ValueKind.Class:
+                    for (var cls = (PyClass)v.RawObject; cls != null; cls = cls.Base) AddNames(names, cls.Namespace);
+                    break;
+                case ValueKind.Module:
+                    foreach (var name in ((PyModule)v.RawObject).Members.Keys) names.Add(name);
+                    break;
+                case ValueKind.Exception:
+                    names.Add("args");
+                    break;
+                case ValueKind.Slice:
+                    names.Add("start");
+                    names.Add("stop");
+                    names.Add("step");
+                    break;
+                default:
+                    foreach (var name in Methods.NamesOf(v.Kind))
+                        if (Methods.FindFor(v, name) != null && name[0] != '.') names.Add(name);
+                    break;
+            }
+            var items = new List<Value>();
+            foreach (var name in names) items.Add(Value.FromString(name));
+            return Value.FromList(new PyList(items));
+        }
+
+        private static void AddNames(SortedSet<string> names, PyDict namespaceDict)
+        {
+            foreach (var kv in namespaceDict.Pairs())
+                if (kv.Key.Kind == ValueKind.Str && ((string)kv.Key.RawObject).Length > 0 && ((string)kv.Key.RawObject)[0] != '.') names.Add((string)kv.Key.RawObject);
+        }
+
+        private static Value Vars(Value v)
+        {
+            var copy = new PyDict();
+            switch (v.Kind)
+            {
+                case ValueKind.Instance:
+                    foreach (var kv in ((PyInstance)v.RawObject).Fields.Pairs()) copy.Set(kv.Key, kv.Value);
+                    break;
+                case ValueKind.Class:
+                    foreach (var kv in ((PyClass)v.RawObject).Namespace.Pairs())
+                        if (kv.Key.Kind != ValueKind.Str || ((string)kv.Key.RawObject).Length == 0 || ((string)kv.Key.RawObject)[0] != '.') copy.Set(kv.Key, kv.Value);
+                    break;
+                case ValueKind.Module:
+                    foreach (var kv in ((PyModule)v.RawObject).Members) copy.Set(Value.FromString(kv.Key), kv.Value);
+                    break;
+                default:
+                    throw Ops.TypeError("vars() argument must have __dict__ attribute");
+            }
+            return Value.FromDict(copy);
         }
 
         private static string Radix(Value v, int radix, string prefix, string function)

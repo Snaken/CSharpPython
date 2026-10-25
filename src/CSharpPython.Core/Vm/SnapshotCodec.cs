@@ -55,7 +55,7 @@ namespace CSharpPython
 
     internal sealed class SnapshotWriter
     {
-        private const byte ContainerList = 0, ContainerTuple = 1, ContainerDict = 2, ContainerCell = 3, ContainerClass = 4, ContainerInstance = 5, ContainerSet = 6;
+        private const byte ContainerList = 0, ContainerTuple = 1, ContainerDict = 2, ContainerCell = 3, ContainerClass = 4, ContainerInstance = 5, ContainerSet = 6, ContainerFrozenSet = 7;
 
         private readonly PyVm _vm;
         private readonly Script _script;
@@ -247,7 +247,7 @@ namespace CSharpPython
                     }
                     case ValueKind.Set:
                     {
-                        w.Write(ContainerSet);
+                        w.Write(((PySet)c.RawObject).Frozen ? ContainerFrozenSet : ContainerSet);
                         WriteValue(pw, Value.FromDict(((PySet)c.RawObject).Items));
                         break;
                     }
@@ -586,6 +586,7 @@ namespace CSharpPython
                     case 4: shells[i] = new PyClass(null, null, new PyDict()); break;
                     case 5: shells[i] = new PyInstance(null); break;
                     case 6: shells[i] = new PySet(); break;
+                    case 7: shells[i] = new PySet { Frozen = true }; break;
                     default: throw new SnapshotException("the snapshot is damaged");
                 }
                 lengths[i] = SnapshotIo.ReadCount(r, 1);
@@ -618,7 +619,7 @@ namespace CSharpPython
             {
                 int kind = pass == 1 ? 1 : pass == 2 ? 3 : pass == 3 ? 0 : pass == 4 ? 2 : pass == 5 ? 4 : pass == 6 ? 5 : 6;
                 for (int i = 0; i < containers; i++)
-                    if (kinds[i] == kind) FillContainer(i);
+                    if (kinds[i] == kind || (kind == 6 && kinds[i] == 7)) FillContainer(i);
             }
             for (int i = 0; i < containers; i++)
             {

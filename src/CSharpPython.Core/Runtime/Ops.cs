@@ -39,7 +39,7 @@ namespace CSharpPython
                 case ValueKind.List: return "list";
                 case ValueKind.Tuple: return "tuple";
                 case ValueKind.Dict: return "dict";
-                case ValueKind.Set: return "set";
+                case ValueKind.Set: return ((PySet)v.RawObject).Frozen ? "frozenset" : "set";
                 case ValueKind.Range: return "range";
                 case ValueKind.Slice: return "slice";
                 case ValueKind.Function: return "function";
@@ -104,6 +104,12 @@ namespace CSharpPython
                     return DictEqual((PyDict)a.RawObject, (PyDict)b.RawObject, depth);
                 case ValueKind.Set: return SetEqual((PySet)a.RawObject, (PySet)b.RawObject);
                 case ValueKind.Handle: return a.RawAux == b.RawAux && a.RawInt == b.RawInt;
+                case ValueKind.Slice:
+                {
+                    var x = (PySlice)a.RawObject;
+                    var y = (PySlice)b.RawObject;
+                    return Equal(x.Start, y.Start, depth + 1) && Equal(x.Stop, y.Stop, depth + 1) && Equal(x.Step, y.Step, depth + 1);
+                }
                 case ValueKind.Range:
                 {
                     var x = (PyRange)a.RawObject;
@@ -160,10 +166,21 @@ namespace CSharpPython
                 }
                 case ValueKind.Handle: return unchecked(v.RawAux * 31 + HashInt(v.RawInt));
                 case ValueKind.Instance: return InstanceHash(v);
+                case ValueKind.Set:
+                {
+                    var set = (PySet)v.RawObject;
+                    if (!set.Frozen) throw TypeError("unhashable type: 'set'");
+                    int h = 0x5bd1e995;
+                    foreach (var item in set.Members()) h = unchecked(h + Hash(item) * 0x2545F491);
+                    return h;
+                }
+                case ValueKind.Slice:
+                {
+                    var slice = (PySlice)v.RawObject;
+                    return unchecked((Hash(slice.Start) * 31 + Hash(slice.Stop)) * 31 + Hash(slice.Step));
+                }
                 case ValueKind.List:
                 case ValueKind.Dict:
-                case ValueKind.Set:
-                case ValueKind.Slice:
                     throw TypeError("unhashable type: '" + TypeName(v) + "'");
                 case ValueKind.Range:
                 {
@@ -234,7 +251,7 @@ namespace CSharpPython
                 return Value.FromInt(r);
             }
             if (a.IsNumber && b.IsNumber) return Value.FromFloat(a.AsFloat() - b.AsFloat());
-            if (a.Kind == ValueKind.Set && b.Kind == ValueKind.Set) return Value.FromSet(SetDifference((PySet)a.RawObject, (PySet)b.RawObject));
+            if (a.Kind == ValueKind.Set && b.Kind == ValueKind.Set) return Value.FromSet(SetDifference((PySet)a.RawObject, (PySet)b.RawObject).LikeOf((PySet)a.RawObject));
             if (a.Kind == ValueKind.Instance || b.Kind == ValueKind.Instance) return InstanceBinary(a, b, "__sub__", "__rsub__", "-");
             throw BadOperands("-", a, b);
         }
@@ -567,7 +584,7 @@ namespace CSharpPython
         public static Value GetItem(Value target, Value index)
         {
             if (target.Kind == ValueKind.Instance) return InstanceGetItem(target, index);
-            if (index.Kind == ValueKind.Slice) return GetSlice(target, (PySlice)index.RawObject);
+            if (index.Kind == ValueKind.Slice && target.Kind != ValueKind.Dict) return GetSlice(target, (PySlice)index.RawObject);
 
             switch (target.Kind)
             {

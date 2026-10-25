@@ -8,7 +8,7 @@ namespace CSharpPython
         /// <summary>Finds a built-in method (such as <c>list.append</c>) for a value, if its type has one.</summary>
         public static bool TryGetMethod(Value obj, string name, out NativeFunction method)
         {
-            method = Methods.Find(obj.Kind, name);
+            method = Methods.FindFor(obj, name);
             return method != null;
         }
 
@@ -91,7 +91,7 @@ namespace CSharpPython
                     }
                     break;
             }
-            if (Methods.Find(obj.Kind, name) is NativeFunction method)
+            if (Methods.FindFor(obj, name) is NativeFunction method)
                 return Value.FromBound(new BoundMethod(obj, method));
             throw NoAttribute(obj, name);
         }

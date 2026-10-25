@@ -123,7 +123,7 @@ namespace CSharpPython.Tests.Runtime
         {
             Assert.That(Raises(() => L(1).GetHashCode()).Problem, Is.EqualTo("unhashable type: 'list'"));
             Assert.That(Raises(() => D().GetHashCode()).Problem, Is.EqualTo("unhashable type: 'dict'"));
-            Assert.That(Raises(() => Ops.MakeSlice(Value.None, Value.None, Value.None).GetHashCode()).Problem, Does.Contain("slice"));
+            Assert.That(Raises(() => Ops.MakeSlice(L(1), Value.None, Value.None).GetHashCode()).Problem, Is.EqualTo("unhashable type: 'list'"));
         }
 
         [Test]
