@@ -136,6 +136,11 @@ namespace CSharpPython.Tests.Vm
             "import game\nclass A:\n    items = []\n    def add(self, x):\n        A.items.append(x)\n        game.wait(1)\na = A()\na.add(1)\na.add(2)\nprint(A.items, a.items is A.items)",
             "class Outer:\n    class Inner:\n        v = 3\n    def make(self):\n        return Outer.Inner()\nprint(Outer().make().v)",
             "class A:\n    def __init__(self):\n        return None\nprint(type(A()).__name__)",
+            "import game\nclass A:\n    def __init__(self, x):\n        game.wait(1)\n        self.x = x\nclass B(A):\n    def __init__(self, x):\n        super().__init__(x + 1)\n        game.wait(1)\n        self.y = x\nclass C(B):\n    def __init__(self):\n        super(C, self).__init__(10)\nc = C()\nprint(c.x, c.y)",
+            "import game\nclass A:\n    def f(self, n):\n        return n * 2\nclass B(A):\n    def f(self, n):\n        return super().f(game.wait(1) or n) + 1\nprint(B().f(4))",
+            "import game\nclass A:\n    def f(self):\n        return 'A'\nclass B(A):\n    def f(self):\n        return 'B' + super().f()\nm = B().f\nunbound = A.f\ngame.wait(1)\nprint(m(), unbound(B()))",
+            "class P:\n    def __init__(self, x):\n        self.x = x\n    def __str__(self):\n        return 'P' + str(self.x)\n    def __repr__(self):\n        return '<' + str(self.x) + '>'\nps = [P(1), P(2)]\nprint(ps, str(ps[0]), ps[1])",
+            "import game\nclass P:\n    def __str__(self):\n        return 'p'\np = P()\ngame.wait(1)\nprint(p, len([p]))\ngame.wait(1)\nprint(f'{p}')",
         };
 
         [TestCaseSource(nameof(Scripts))]
