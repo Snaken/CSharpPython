@@ -597,11 +597,11 @@ namespace CSharpPython.Syntax
                     _pos++;
                     return;
                 case '<':
-                    if (n == '<') { Unsupported("'<<'", 2); return; }
+                    if (n == '<') { if (n2 == '=') { kind = TokenKind.LShiftAssign; len = 3; } else { kind = TokenKind.LShift; len = 2; } break; }
                     if (n == '=') { kind = TokenKind.Le; len = 2; } else kind = TokenKind.Lt;
                     break;
                 case '>':
-                    if (n == '>') { Unsupported("'>>'", 2); return; }
+                    if (n == '>') { if (n2 == '=') { kind = TokenKind.RShiftAssign; len = 3; } else { kind = TokenKind.RShift; len = 2; } break; }
                     if (n == '=') { kind = TokenKind.Ge; len = 2; } else kind = TokenKind.Gt;
                     break;
                 case '(': kind = TokenKind.LParen; OpenBracketAt(c); break;
@@ -617,7 +617,11 @@ namespace CSharpPython.Syntax
                     break;
                 case '.': kind = TokenKind.Dot; break;
                 case ';': kind = TokenKind.Semicolon; break;
-                case '&': case '|': case '^': case '~': case '@':
+                case '|': if (n == '=') { kind = TokenKind.PipeAssign; len = 2; } else kind = TokenKind.Pipe; break;
+                case '&': if (n == '=') { kind = TokenKind.AmpersandAssign; len = 2; } else kind = TokenKind.Ampersand; break;
+                case '^': if (n == '=') { kind = TokenKind.CaretAssign; len = 2; } else kind = TokenKind.Caret; break;
+                case '~': kind = TokenKind.Tilde; break;
+                case '@':
                     Unsupported("'" + c + "'", 1);
                     return;
                 default:

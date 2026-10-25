@@ -619,6 +619,39 @@ namespace CSharpPython
                         _stack[_sp - 1] = ins.Arg != 0 ? Ops.ModInPlace(_stack[_sp - 1], b) : Ops.Mod(_stack[_sp - 1], b);
                         break;
                     }
+                    case Op.BitOr:
+                    {
+                        Value b = _stack[--_sp];
+                        _stack[_sp - 1] = ins.Arg != 0 ? Ops.BitOrInPlace(_stack[_sp - 1], b) : Ops.BitOr(_stack[_sp - 1], b);
+                        break;
+                    }
+                    case Op.BitXor:
+                    {
+                        Value b = _stack[--_sp];
+                        _stack[_sp - 1] = ins.Arg != 0 ? Ops.BitXorInPlace(_stack[_sp - 1], b) : Ops.BitXor(_stack[_sp - 1], b);
+                        break;
+                    }
+                    case Op.BitAnd:
+                    {
+                        Value b = _stack[--_sp];
+                        _stack[_sp - 1] = ins.Arg != 0 ? Ops.BitAndInPlace(_stack[_sp - 1], b) : Ops.BitAnd(_stack[_sp - 1], b);
+                        break;
+                    }
+                    case Op.LShift:
+                    {
+                        Value b = _stack[--_sp];
+                        _stack[_sp - 1] = ins.Arg != 0 ? Ops.LShiftInPlace(_stack[_sp - 1], b) : Ops.LShift(_stack[_sp - 1], b);
+                        break;
+                    }
+                    case Op.RShift:
+                    {
+                        Value b = _stack[--_sp];
+                        _stack[_sp - 1] = ins.Arg != 0 ? Ops.RShiftInPlace(_stack[_sp - 1], b) : Ops.RShift(_stack[_sp - 1], b);
+                        break;
+                    }
+                    case Op.Invert:
+                        _stack[_sp - 1] = Ops.Invert(_stack[_sp - 1]);
+                        break;
                     case Op.Pow:
                     {
                         Value b = _stack[--_sp];

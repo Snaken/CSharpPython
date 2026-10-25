@@ -759,7 +759,7 @@ namespace CSharpPython
         }
 
         // Rewrites a set in place so that references to it (and iterators over it) see the new members.
-        private static void ReplaceMembers(PySet target, PySet members)
+        internal static void ReplaceMembers(PySet target, PySet members)
         {
             if (ReferenceEquals(target, members)) return;
             var keep = members.Members().ToList();

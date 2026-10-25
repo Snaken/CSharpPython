@@ -112,7 +112,22 @@ namespace CSharpPython
             return a.Kind == ValueKind.Instance && TryOne(a, method, b, out result);
         }
 
-        public static Value AddInPlace(Value a, Value b) => TryInPlace(a, "__iadd__", b, out Value r) ? r : Add(a, b);
+        // CPython words the error for a failed augmented assignment with the "op=" symbol.
+        private static PyError AsInPlace(PyError e, string symbol)
+        {
+            return new PyError("TypeError", "unsupported operand type(s) for " + symbol + "=" + e.Problem.Substring(e.Problem.IndexOf(':')));
+        }
+
+        private static bool IsOperandError(PyError e, string symbol) =>
+            e.TypeName == "TypeError" && e.Problem.StartsWith("unsupported operand type(s) for " + symbol + ":", StringComparison.Ordinal);
+
+        public static Value AddInPlace(Value a, Value b)
+        {
+            if (TryInPlace(a, "__iadd__", b, out Value r)) return r;
+            try { return Add(a, b); }
+            catch (PyError e) when (IsOperandError(e, "+")) { throw AsInPlace(e, "+"); }
+        }
+
         public static Value SubInPlace(Value a, Value b)
         {
             if (a.Kind == ValueKind.Set && b.Kind == ValueKind.Set)
@@ -121,13 +136,45 @@ namespace CSharpPython
                 foreach (var v in ((PySet)b.RawObject).Members().ToList()) target.Remove(v);
                 return a;
             }
-            return TryInPlace(a, "__isub__", b, out Value r) ? r : Sub(a, b);
+            if (TryInPlace(a, "__isub__", b, out Value r)) return r;
+            try { return Sub(a, b); }
+            catch (PyError e) when (IsOperandError(e, "-")) { throw AsInPlace(e, "-"); }
         }
-        public static Value MulInPlace(Value a, Value b) => TryInPlace(a, "__imul__", b, out Value r) ? r : Mul(a, b);
-        public static Value DivInPlace(Value a, Value b) => TryInPlace(a, "__itruediv__", b, out Value r) ? r : Div(a, b);
-        public static Value FloorDivInPlace(Value a, Value b) => TryInPlace(a, "__ifloordiv__", b, out Value r) ? r : FloorDiv(a, b);
-        public static Value ModInPlace(Value a, Value b) => TryInPlace(a, "__imod__", b, out Value r) ? r : Mod(a, b);
-        public static Value PowInPlace(Value a, Value b) => TryInPlace(a, "__ipow__", b, out Value r) ? r : Pow(a, b);
+
+        public static Value MulInPlace(Value a, Value b)
+        {
+            if (TryInPlace(a, "__imul__", b, out Value r)) return r;
+            try { return Mul(a, b); }
+            catch (PyError e) when (IsOperandError(e, "*")) { throw AsInPlace(e, "*"); }
+        }
+
+        public static Value DivInPlace(Value a, Value b)
+        {
+            if (TryInPlace(a, "__itruediv__", b, out Value r)) return r;
+            try { return Div(a, b); }
+            catch (PyError e) when (IsOperandError(e, "/")) { throw AsInPlace(e, "/"); }
+        }
+
+        public static Value FloorDivInPlace(Value a, Value b)
+        {
+            if (TryInPlace(a, "__ifloordiv__", b, out Value r)) return r;
+            try { return FloorDiv(a, b); }
+            catch (PyError e) when (IsOperandError(e, "//")) { throw AsInPlace(e, "//"); }
+        }
+
+        public static Value ModInPlace(Value a, Value b)
+        {
+            if (TryInPlace(a, "__imod__", b, out Value r)) return r;
+            try { return Mod(a, b); }
+            catch (PyError e) when (IsOperandError(e, "%")) { throw AsInPlace(e, "%"); }
+        }
+
+        public static Value PowInPlace(Value a, Value b)
+        {
+            if (TryInPlace(a, "__ipow__", b, out Value r)) return r;
+            try { return Pow(a, b); }
+            catch (PyError e) when (IsOperandError(e, "** or pow()")) { throw AsInPlace(e, "**"); }
+        }
 
         // ---- Containers and iteration ---------------------------------------------------------------------------
 

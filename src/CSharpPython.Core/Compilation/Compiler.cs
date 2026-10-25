@@ -568,6 +568,11 @@ namespace CSharpPython.Compilation
                 case BinaryOp.Divide: return Op.Div;
                 case BinaryOp.FloorDivide: return Op.FloorDiv;
                 case BinaryOp.Modulo: return Op.Mod;
+                case BinaryOp.BitOr: return Op.BitOr;
+                case BinaryOp.BitXor: return Op.BitXor;
+                case BinaryOp.BitAnd: return Op.BitAnd;
+                case BinaryOp.LeftShift: return Op.LShift;
+                case BinaryOp.RightShift: return Op.RShift;
                 default: return Op.Pow;
             }
         }
@@ -606,7 +611,7 @@ namespace CSharpPython.Compilation
                 case UnaryExpr u:
                     CompileExpr(u.Operand);
                     SetLine(u);
-                    Emit(u.Op == UnaryOp.Negate ? Op.Negate : u.Op == UnaryOp.Plus ? Op.Plus : Op.Not);
+                    Emit(u.Op == UnaryOp.Negate ? Op.Negate : u.Op == UnaryOp.Plus ? Op.Plus : u.Op == UnaryOp.Invert ? Op.Invert : Op.Not);
                     break;
                 case BinaryExpr b:
                     CompileExpr(b.Left);

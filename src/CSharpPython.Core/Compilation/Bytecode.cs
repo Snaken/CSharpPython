@@ -53,6 +53,12 @@ namespace CSharpPython.Compilation
         FloorDiv,
         Mod,
         Pow,
+        BitOr,
+        BitXor,
+        BitAnd,
+        LShift,
+        RShift,
+        Invert,
 
         Eq,
         Ne,
@@ -212,6 +218,12 @@ namespace CSharpPython.Compilation
                     case Op.FloorDiv:
                     case Op.Mod:
                     case Op.Pow:
+                    case Op.BitOr:
+                    case Op.BitXor:
+                    case Op.BitAnd:
+                    case Op.LShift:
+                    case Op.RShift:
+                    case Op.Invert:
                     case Op.Eq:
                     case Op.Ne:
                     case Op.Lt:

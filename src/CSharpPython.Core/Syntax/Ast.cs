@@ -24,7 +24,7 @@ namespace CSharpPython.Syntax
         public string Name;
     }
 
-    public enum UnaryOp { Negate, Plus, Not }
+    public enum UnaryOp { Negate, Plus, Not, Invert }
 
     public sealed class UnaryExpr : Expr
     {
@@ -32,7 +32,7 @@ namespace CSharpPython.Syntax
         public Expr Operand;
     }
 
-    public enum BinaryOp { Add, Subtract, Multiply, Divide, FloorDivide, Modulo, Power }
+    public enum BinaryOp { Add, Subtract, Multiply, Divide, FloorDivide, Modulo, Power, BitOr, BitXor, BitAnd, LeftShift, RightShift }
 
     public sealed class BinaryExpr : Expr
     {

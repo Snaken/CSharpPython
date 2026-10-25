@@ -12,6 +12,10 @@ namespace CSharpPython.Syntax
     public sealed class Parser
     {
         // Binding powers for the binary arithmetic operators.
+        private const int PowerBitOr = 2;
+        private const int PowerBitXor = 4;
+        private const int PowerBitAnd = 6;
+        private const int PowerShift = 8;
         private const int PowerAdditive = 10;
         private const int PowerMultiplicative = 20;
         private const int PowerUnary = 30;
@@ -498,6 +502,11 @@ namespace CSharpPython.Syntax
                 case TokenKind.DoubleSlashAssign: op = BinaryOp.FloorDivide; return true;
                 case TokenKind.PercentAssign: op = BinaryOp.Modulo; return true;
                 case TokenKind.DoubleStarAssign: op = BinaryOp.Power; return true;
+                case TokenKind.PipeAssign: op = BinaryOp.BitOr; return true;
+                case TokenKind.CaretAssign: op = BinaryOp.BitXor; return true;
+                case TokenKind.AmpersandAssign: op = BinaryOp.BitAnd; return true;
+                case TokenKind.LShiftAssign: op = BinaryOp.LeftShift; return true;
+                case TokenKind.RShiftAssign: op = BinaryOp.RightShift; return true;
                 default: op = default; return false;
             }
         }
@@ -710,6 +719,11 @@ namespace CSharpPython.Syntax
         {
             switch (kind)
             {
+                case TokenKind.Pipe: op = BinaryOp.BitOr; power = PowerBitOr; return true;
+                case TokenKind.Caret: op = BinaryOp.BitXor; power = PowerBitXor; return true;
+                case TokenKind.Ampersand: op = BinaryOp.BitAnd; power = PowerBitAnd; return true;
+                case TokenKind.LShift: op = BinaryOp.LeftShift; power = PowerShift; return true;
+                case TokenKind.RShift: op = BinaryOp.RightShift; power = PowerShift; return true;
                 case TokenKind.Plus: op = BinaryOp.Add; power = PowerAdditive; return true;
                 case TokenKind.Minus: op = BinaryOp.Subtract; power = PowerAdditive; return true;
                 case TokenKind.Star: op = BinaryOp.Multiply; power = PowerMultiplicative; return true;
@@ -736,7 +750,7 @@ namespace CSharpPython.Syntax
 
         private Expr ParseUnary()
         {
-            if (Cur.Kind == TokenKind.Minus || Cur.Kind == TokenKind.Plus)
+            if (Cur.Kind == TokenKind.Minus || Cur.Kind == TokenKind.Plus || Cur.Kind == TokenKind.Tilde)
             {
                 var tok = Advance();
                 var operand = ParseBinary(PowerUnary);
@@ -745,7 +759,7 @@ namespace CSharpPython.Syntax
                     if (c.Value is long l && l != long.MinValue) return Copy(new ConstantExpr { Value = -l }, At(new ConstantExpr(), tok));
                     if (c.Value is double d) return Copy(new ConstantExpr { Value = -d }, At(new ConstantExpr(), tok));
                 }
-                return At(new UnaryExpr { Op = tok.Kind == TokenKind.Minus ? UnaryOp.Negate : UnaryOp.Plus, Operand = operand }, tok);
+                return At(new UnaryExpr { Op = tok.Kind == TokenKind.Minus ? UnaryOp.Negate : tok.Kind == TokenKind.Tilde ? UnaryOp.Invert : UnaryOp.Plus, Operand = operand }, tok);
             }
             return ParsePostfix(ParsePrimary());
         }
