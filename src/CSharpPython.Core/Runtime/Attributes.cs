@@ -1,3 +1,5 @@
+using System;
+
 namespace CSharpPython
 {
     internal static partial class Ops
@@ -85,7 +87,38 @@ namespace CSharpPython
             return task.CallSync(function, argument.HasValue ? new[] { self, argument.Value } : new[] { self });
         }
 
+        public static string AttrName(Value v, string function)
+        {
+            if (v.Kind != ValueKind.Str) throw new PyError("TypeError", function + "(): attribute name must be string");
+            return (string)v.RawObject;
+        }
+
+        // The __getattr__, __setattr__ or __delattr__ function of an instance's class, when a script is running to call it.
+        private static bool TryHook(Value obj, string hook, out Value method)
+        {
+            method = default;
+            if (!PyClass.HooksExist || PyTask.Current == null) return false;
+            var cls = ((PyInstance)obj.RawObject).Class;
+            if (!cls.TryFind(hook, out Value member) || member.Kind != ValueKind.Function) return false;
+            method = Value.FromScriptMethod(new ScriptMethod(obj, (PyFunction)member.RawObject));
+            return true;
+        }
+
         public static Value GetAttr(Value obj, string name)
+        {
+            if (obj.Kind != ValueKind.Instance || !PyClass.HooksExist || name == "__class__") return GetAttrCore(obj, name);
+            try
+            {
+                return GetAttrCore(obj, name);
+            }
+            catch (Exception e) when (PyTask.IsAttributeError(e) && TryHook(obj, "__getattr__", out _))
+            {
+                TryHook(obj, "__getattr__", out Value hook);
+                return PyTask.Current.CallSync(hook, new[] { Value.FromString(name) });
+            }
+        }
+
+        private static Value GetAttrCore(Value obj, string name)
         {
             if (name == "__class__") return PyTypes.TypeOf(obj);
             switch (obj.Kind)
@@ -108,6 +141,9 @@ namespace CSharpPython
                 }
                 case ValueKind.Type:
                     if (name == "__name__") return Value.FromString(((PyType)obj.RawObject).Name);
+                    // object.__setattr__(self, name, value) and the like, for a class's own hooks to call.
+                    if ((PyType)obj.RawObject == PyTypes.Object && Methods.Find(ValueKind.Instance, name) is NativeFunction objectMethod)
+                        return Value.FromNative(objectMethod);
                     break;
                 case ValueKind.Function:
                     if (name == "__name__") return Value.FromString(((PyFunction)obj.RawObject).Name);
@@ -147,6 +183,16 @@ namespace CSharpPython
 
         public static void DelAttr(Value obj, string name)
         {
+            if (obj.Kind == ValueKind.Instance && TryHook(obj, "__delattr__", out Value hook))
+            {
+                PyTask.Current.CallSync(hook, new[] { Value.FromString(name) });
+                return;
+            }
+            DelAttrCore(obj, name);
+        }
+
+        internal static void DelAttrCore(Value obj, string name)
+        {
             var key = Value.FromString(name);
             if (obj.Kind == ValueKind.Instance)
             {
@@ -174,6 +220,16 @@ namespace CSharpPython
 
         public static void SetAttr(Value obj, string name, Value value)
         {
+            if (obj.Kind == ValueKind.Instance && TryHook(obj, "__setattr__", out Value hook))
+            {
+                PyTask.Current.CallSync(hook, new[] { Value.FromString(name), value });
+                return;
+            }
+            SetAttrCore(obj, name, value);
+        }
+
+        internal static void SetAttrCore(Value obj, string name, Value value)
+        {
             if (obj.Kind == ValueKind.Instance)
             {
                 var inst = (PyInstance)obj.RawObject;
@@ -190,6 +246,7 @@ namespace CSharpPython
             if (obj.Kind == ValueKind.Class)
             {
                 ((PyClass)obj.RawObject).Namespace.Set(Value.FromString(name), value);
+                if (PyClass.IsHookName(name)) PyClass.HooksExist = true;
                 return;
             }
             if (obj.Kind == ValueKind.Module)

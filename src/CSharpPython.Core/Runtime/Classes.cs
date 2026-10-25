@@ -27,6 +27,21 @@ namespace CSharpPython
             }
         }
 
+        /// <summary>
+        /// Set once any class defines <c>__getattr__</c>, <c>__setattr__</c> or <c>__delattr__</c>, so attribute access
+        /// only pays for looking the hooks up when one could exist. It never goes back to false.
+        /// </summary>
+        public static bool HooksExist;
+
+        public static bool IsHookName(string name) => name == "__getattr__" || name == "__setattr__" || name == "__delattr__";
+
+        /// <summary>Records that this class defines an attribute hook, if its namespace holds one.</summary>
+        public void NoteHooks()
+        {
+            foreach (var kv in Namespace.Pairs())
+                if (kv.Key.Kind == ValueKind.Str && IsHookName((string)kv.Key.RawObject)) HooksExist = true;
+        }
+
         public PyClass(string name, PyClass baseClass, PyDict ns)
         {
             Name = name;
@@ -47,6 +62,7 @@ namespace CSharpPython
         /// <summary>Marks the functions in the namespace as methods of this class, so that <c>super()</c> knows where to start.</summary>
         public void AdoptMethods()
         {
+            NoteHooks();
             foreach (var kv in Namespace.Pairs())
             {
                 if (kv.Value.Kind == ValueKind.Function) Adopt(kv.Value);

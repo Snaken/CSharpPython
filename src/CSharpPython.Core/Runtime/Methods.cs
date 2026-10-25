@@ -53,6 +53,9 @@ namespace CSharpPython
             return table.TryGetValue(name, out var fn) ? fn : null;
         }
 
+        /// <summary>The methods every script object has, such as <c>__setattr__</c>.</summary>
+        public static IEnumerable<string> InstanceNames => InstanceMethods.Keys;
+
         /// <summary>The names of the methods of a type, for editor auto-complete.</summary>
         public static IEnumerable<string> NamesOf(ValueKind kind)
         {
@@ -117,6 +120,16 @@ namespace CSharpPython
                 var items = new Value[a.Length - 1];
                 for (int i = 0; i < items.Length; i++) items[i] = a[i + 1];
                 instance.Fields.Set(Value.FromString("args"), Value.FromTuple(new PyTuple(items)));
+                return Value.None;
+            });
+            Add(t, "object", "__setattr__", 2, 2, (c, a) =>
+            {
+                Ops.SetAttrCore(a[0], Ops.AttrName(a[1], "__setattr__"), a[2]);
+                return Value.None;
+            });
+            Add(t, "object", "__delattr__", 1, 1, (c, a) =>
+            {
+                Ops.DelAttrCore(a[0], Ops.AttrName(a[1], "__delattr__"));
                 return Value.None;
             });
             Add(t, "object", "__str__", 0, 0, (c, a) =>

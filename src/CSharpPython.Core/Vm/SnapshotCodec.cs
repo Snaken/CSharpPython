@@ -557,6 +557,11 @@ namespace CSharpPython
                         var method = Methods.Find(kind, name);
                         if (!_natives.ContainsKey(method)) _natives[method] = "t:" + (int)kind + ":" + name;
                     }
+                foreach (var name in Methods.InstanceNames)
+                {
+                    var method = Methods.Find(ValueKind.Instance, name);
+                    if (!_natives.ContainsKey(method)) _natives[method] = "t:" + (int)ValueKind.Instance + ":" + name;
+                }
             }
             if (_natives.TryGetValue(fn, out string path)) return path;
             throw new SnapshotException("cannot save the host function '" + fn.Name +
@@ -684,6 +689,7 @@ namespace CSharpPython
                     string root = SnapshotIo.ReadString(r);
                     if (root.Length > 0) cls.RootType = ExceptionTypes.GetOrCreate(root);
                     ReadPairs(r, cls.Namespace);
+                    cls.NoteHooks();
                     break;
                 }
                 case PyInstance inst:
