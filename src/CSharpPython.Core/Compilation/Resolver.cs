@@ -268,6 +268,37 @@ namespace CSharpPython.Compilation
             _scope.AddLocal(name);
         }
 
+        private static bool IsComprehension(Scope scope) =>
+            !scope.IsModule && !scope.IsClass && scope.Function.Name.StartsWith("<") && scope.Function.Name != "<lambda>";
+
+        // 'name := value' binds in the scope around the comprehension it is written in, not in the comprehension.
+        private void BindNamed(NamedExpr ne)
+        {
+            if (!IsComprehension(_scope))
+            {
+                Bind(ne.Name);
+                return;
+            }
+            if (_scope.IsLocal(ne.Name))
+                throw Error("assignment expression cannot rebind comprehension iteration variable '" + ne.Name + "'", ne);
+            var home = _scope.Parent;
+            var between = new List<Scope> { _scope };
+            while (IsComprehension(home)) { between.Add(home); home = home.Parent; }
+            if (home.IsClass) throw Error("assignment expression within a comprehension cannot be used in a class body", ne);
+            foreach (var s in between)
+            {
+                if (s.IsLocal(ne.Name))
+                    throw Error("assignment expression cannot rebind comprehension iteration variable '" + ne.Name + "'", ne);
+                if (home.IsModule || home.DeclaredGlobals.Contains(ne.Name)) s.DeclaredGlobals.Add(ne.Name);
+                else
+                {
+                    s.DeclaredNonlocals.Add(ne.Name);
+                    if (!s.NonlocalSites.ContainsKey(ne.Name)) s.NonlocalSites[ne.Name] = ne;
+                }
+            }
+            if (!home.IsModule && !home.DeclaredGlobals.Contains(ne.Name) && !home.DeclaredNonlocals.Contains(ne.Name)) home.AddLocal(ne.Name);
+        }
+
         private void VisitTarget(Expr target)
         {
             switch (target)
@@ -307,6 +338,10 @@ namespace CSharpPython.Compilation
                     break;
                 case LambdaExpr l:
                     VisitFunction(l.Function);
+                    break;
+                case NamedExpr ne:
+                    VisitExpr(ne.Value);
+                    BindNamed(ne);
                     break;
                 case YieldExpr y:
                     if (_scope.IsModule || _scope.IsClass) throw Error("'yield' outside function", y);

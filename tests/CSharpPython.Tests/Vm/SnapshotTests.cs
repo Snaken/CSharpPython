@@ -69,6 +69,7 @@ namespace CSharpPython.Tests.Vm
 
         private static readonly string[] Scripts =
         {
+            "data = [1, 2, 3, 4]\nres = [y for x in data if (y := x * x) > 4]\ni = 0\nwhile (v := data[i]) < 3:\n    i += 1\ndef f(d):\n    out = [(last := x) for x in d]\n    def get():\n        return last\n    return get\nprint(res, y, v, f(data)(), (z := 5) + z)",
             "f = frozenset([1, 2])\nd = {f: 'a', frozenset(): 'e'}\ns = {f, frozenset([(1, 2)])}\nxs = [f | {3}, f & {1}, slice(1, 2)]\nprint(sorted(d.values()), len(s), xs[0] == {1, 2, 3}, type(xs[1]).__name__, frozenset([1, 2]) in s)\nfor k in d:\n    print(type(k).__name__)",
             "def f(x):\n    return x * 2\nm = map(f, [1, 2, 3])\nn = map(lambda a, b: a + b, [1, 2, 3], (4, 5, 6))\nk = filter(lambda x: x > 1, [1, 2, 3])\nprint(next(m), next(n), next(k))\nprint(list(m), list(n), list(k))\nprint(list(filter(None, [0, 1, 2])))",
             "a = [1, 2]\nd = {'k': 1}\nprint([*a, 3], (*a, 4), {*a, 5} == {1, 2, 5}, {**d, 'j': 2})\nh, *t = [*a, *a]\nprint(h, t)\nfor x, *y in [(1, 2, 3), (4,)]:\n    print(x, y)",

@@ -612,7 +612,7 @@ namespace CSharpPython.Syntax
                 case '}': kind = TokenKind.RBrace; if (!CloseBracket(c)) { _pos++; return; } break;
                 case ',': kind = TokenKind.Comma; break;
                 case ':':
-                    if (n == '=') { Unsupported("':=' (assignment expressions)", 2); return; }
+                    if (n == '=') { kind = TokenKind.Walrus; len = 2; break; }
                     kind = TokenKind.Colon;
                     break;
                 case '.': kind = TokenKind.Dot; break;

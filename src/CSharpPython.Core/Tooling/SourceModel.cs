@@ -137,6 +137,8 @@ namespace CSharpPython.Editor
                 var scope = open.Count > 0 ? open[open.Count - 1] : null;
                 bool statementStart = atStart;
                 atStart = false;
+                if (t.Kind == TokenKind.Name && i + 1 < Tokens.Count && Tokens[i + 1].Kind == TokenKind.Walrus)
+                    AddVariable(t, scope, InferType(i + 2));
 
                 switch (t.Kind)
                 {

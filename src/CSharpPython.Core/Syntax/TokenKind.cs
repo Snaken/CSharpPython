@@ -32,6 +32,6 @@ namespace CSharpPython.Syntax
         PlusAssign, MinusAssign, StarAssign, SlashAssign, DoubleSlashAssign, PercentAssign, DoubleStarAssign,
         PipeAssign, AmpersandAssign, CaretAssign, LShiftAssign, RShiftAssign,
         LParen, RParen, LBracket, RBracket, LBrace, RBrace,
-        Comma, Colon, Dot, Semicolon,
+        Comma, Colon, Walrus, Dot, Semicolon,
     }
 }

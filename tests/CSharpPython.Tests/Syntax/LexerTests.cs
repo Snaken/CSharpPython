@@ -513,7 +513,6 @@ namespace CSharpPython.Tests.Syntax
 
         [TestCase("@")]
         [TestCase("->")]
-        [TestCase(":=")]
         public void UnsupportedOperatorsGiveHelpfulErrors(string op)
         {
             Assert.That(Fails("a " + op + " b").Problem, Does.Contain("not supported yet"));

@@ -704,6 +704,11 @@ namespace CSharpPython.Compilation
                 case LambdaExpr l:
                     CompileFunction(l.Function);
                     break;
+                case NamedExpr ne:
+                    CompileExpr(ne.Value);
+                    Emit(Op.Dup);
+                    StoreName(ne.Name);
+                    break;
                 case UnaryExpr u:
                     CompileExpr(u.Operand);
                     SetLine(u);

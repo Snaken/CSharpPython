@@ -120,6 +120,13 @@ namespace CSharpPython.Syntax
         public Expr Test, Then, Else;
     }
 
+    /// <summary>The assignment expression <c>name := value</c>: binds the name and has the value.</summary>
+    public sealed class NamedExpr : Expr
+    {
+        public string Name;
+        public Expr Value;
+    }
+
     /// <summary>A <c>lambda</c>: an anonymous function whose body is one expression, held as a <c>return</c> in <see cref="Function"/>.</summary>
     public sealed class LambdaExpr : Expr
     {

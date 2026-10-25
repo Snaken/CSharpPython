@@ -313,7 +313,7 @@ namespace CSharpPython.Syntax
         {
             var tok = Advance(); // 'if' or 'elif'
             var node = At(new IfStmt(), tok);
-            node.Test = ParseTernary();
+            node.Test = ParseNamed();
             Expect(TokenKind.Colon, "':'");
             node.Body = ParseBlock("'" + tok.Text + "' statement");
             if (Cur.Kind == TokenKind.KwElif)
@@ -332,7 +332,7 @@ namespace CSharpPython.Syntax
         private WhileStmt ParseWhile()
         {
             var node = At(new WhileStmt(), Advance());
-            node.Test = ParseTernary();
+            node.Test = ParseNamed();
             Expect(TokenKind.Colon, "':'");
             node.Body = ParseBlock("'while' statement");
             node.Else = ParseLoopElse();
@@ -798,11 +798,20 @@ namespace CSharpPython.Syntax
 
         // An item of a display, tuple or assignment target: an expression, or '*expression' (unpacked or collected).
         // Where a star makes no sense the compiler says so.
-        private Expr ParseElement()
+        private Expr ParseElement(bool named = false)
         {
-            if (Cur.Kind != TokenKind.Star) return ParseTernary();
+            if (Cur.Kind != TokenKind.Star) return named ? ParseNamed() : ParseTernary();
             var star = Advance();
             return At(new StarExpr { Value = ParseTernary() }, star);
+        }
+
+        // An expression where an assignment expression is allowed: 'name := value' or any other expression.
+        private Expr ParseNamed()
+        {
+            if (Cur.Kind != TokenKind.Name || PeekAt(1).Kind != TokenKind.Walrus) return ParseTernary();
+            var nameTok = Advance();
+            Advance();
+            return At(new NamedExpr { Name = nameTok.Text, Value = ParseTernary() }, nameTok);
         }
 
         private Expr ParseTernary()
@@ -1006,7 +1015,7 @@ namespace CSharpPython.Syntax
                     var argTok = Cur;
                     if (call.KeywordNames.Count > 0)
                         throw Error("positional argument follows keyword argument", argTok);
-                    call.Args.Add(ParseTernary());
+                    call.Args.Add(ParseNamed());
                     if (Cur.Kind == TokenKind.KwFor)
                     {
                         if (call.Args.Count > 1) throw Error("generator expression must be parenthesized", argTok);
@@ -1050,7 +1059,7 @@ namespace CSharpPython.Syntax
             Expr lower = null;
             if (Cur.Kind != TokenKind.Colon)
             {
-                lower = ParseTernary();
+                lower = ParseNamed();
                 if (Cur.Kind != TokenKind.Colon) return lower;
             }
             var slice = At(new SliceExpr { Lower = lower }, startTok);
@@ -1184,7 +1193,7 @@ namespace CSharpPython.Syntax
                     Expect(TokenKind.RParen, "')'");
                     return y;
                 }
-                var first = ParseElement();
+                var first = ParseElement(true);
                 if (first is StarExpr && Cur.Kind != TokenKind.Comma) throw new PySyntaxError("cannot use starred expression here", first.Line, first.Column);
                 if (Cur.Kind == TokenKind.KwFor)
                 {
@@ -1202,7 +1211,7 @@ namespace CSharpPython.Syntax
                 while (Accept(TokenKind.Comma))
                 {
                     if (Cur.Kind == TokenKind.RParen) break;
-                    tuple.Items.Add(ParseElement());
+                    tuple.Items.Add(ParseElement(true));
                 }
                 Expect(TokenKind.RParen, "')'");
                 return tuple;
@@ -1221,7 +1230,7 @@ namespace CSharpPython.Syntax
             var list = At(new ListExpr(), open);
             while (Cur.Kind != TokenKind.RBracket)
             {
-                list.Items.Add(ParseElement());
+                list.Items.Add(ParseElement(true));
                 if (Cur.Kind == TokenKind.KwFor && list.Items.Count == 1 && !(list.Items[0] is StarExpr))
                 {
                     var comp = ParseComprehension(open, list.Items[0], null, "<listcomp>");
@@ -1253,7 +1262,8 @@ namespace CSharpPython.Syntax
                     if (!Accept(TokenKind.Comma)) break;
                     continue;
                 }
-                var key = ParseElement();
+                var key = ParseElement(true);
+                if (key is NamedExpr && Cur.Kind == TokenKind.Colon) throw Error("an assignment expression must be parenthesized to be a dictionary key", Cur);
                 if (Cur.Kind != TokenKind.Colon)
                 {
                     if (dict.Keys.Count == 0 && (Cur.Kind == TokenKind.Comma || Cur.Kind == TokenKind.RBrace || Cur.Kind == TokenKind.KwFor))
@@ -1298,7 +1308,7 @@ namespace CSharpPython.Syntax
             while (Accept(TokenKind.Comma))
             {
                 if (Cur.Kind == TokenKind.RBrace) break;
-                set.Items.Add(ParseElement());
+                set.Items.Add(ParseElement(true));
             }
             if (Cur.Kind == TokenKind.Colon) throw Error("':' makes no sense in a set; a dictionary needs a ':' after every key", Cur);
             Expect(TokenKind.RBrace, "'}'");

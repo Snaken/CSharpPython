@@ -39,6 +39,7 @@ namespace CSharpPython.Tests.Syntax
                 case TupleExpr t: return "(tuple" + string.Concat(t.Items.Select(i => " " + Expr(i))) + ")";
                 case DictExpr d:
                     return "{" + string.Join(" ", d.Keys.Select((k, i) => (k == null ? "**" : Expr(k) + ":") + Expr(d.Values[i]))) + "}";
+                case NamedExpr n: return "(named " + n.Name + " " + Expr(n.Value) + ")";
                 case IfExpr i: return "(ifexp " + Expr(i.Test) + " " + Expr(i.Then) + " " + Expr(i.Else) + ")";
                 case FStringExpr f: return "(f" + string.Concat(f.Parts.Select(FPart)) + ")";
                 default: return "?" + e.GetType().Name;
