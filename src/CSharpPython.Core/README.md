@@ -169,7 +169,7 @@ Supported:
 | Area | Details |
 | --- | --- |
 | Types | `int` (64-bit, overflow raises `OverflowError`), `float`, `str`, `bool`, `None`, `list`, `tuple`, `dict`, `set`, `range`, host handles |
-| Statements | assignment (chained, tuple unpacking, augmented), `if/elif/else`, `while` and `for` (with an `else` block that a `break` skips), `break`, `continue`, `pass`, `return`, `global`, `nonlocal`, `del` (names, attributes, items and list slices), slice assignment (`xs[1:3] = [...]`, `xs[::2] = [...]` on lists, with CPython's size rules), `assert`, `with` (context managers, with `as` targets and several items), `yield` and `yield from` (generators), `import`/`from ... import`, `def` (including nested functions), `class`, `lambda`, list, dict and set comprehensions, set displays (`{1, 2}`), generator expressions, `try/except/else/finally`, `raise` |
+| Statements | assignment (chained, tuple unpacking including `a, *rest = xs`, augmented), `if/elif/else`, `while` and `for` (with an `else` block that a `break` skips), `break`, `continue`, `pass`, `return`, `global`, `nonlocal`, `del` (names, attributes, items and list slices), slice assignment (`xs[1:3] = [...]`, `xs[::2] = [...]` on lists, with CPython's size rules), `assert`, `with` (context managers, with `as` targets and several items), `yield` and `yield from` (generators), `import`/`from ... import`, `def` (including nested functions), `class`, `lambda`, list, dict and set comprehensions, set displays (`{1, 2}`), `*iterable` and `**mapping` unpacking inside list, tuple, set and dict displays (`[*a, 1]`, `{**d, 'k': v}`), generator expressions, `try/except/else/finally`, `raise` |
 | Expressions | arithmetic, bit operators (`&`, `\|`, `^`, `~`, `<<`, `>>`, on `int` and `bool`; `\|`, `&` and `^` also on sets), comparison chains, `and/or/not`, `in`, `is`, conditional expressions, subscripts and slices, f-strings, keyword and default arguments |
 
 Builtins: `print len range int float str bool repr abs min max sum round sorted list tuple dict set enumerate zip reversed any all chr ord divmod pow format type isinstance issubclass callable getattr setattr hasattr object hash`, the constant `NotImplemented`, the standard exception classes, and a `math` module (`pi e tau inf nan sqrt log log2 log10 floor ceil trunc isnan isinf sin cos tan asin acos atan atan2 exp fabs hypot radians degrees pow`).
@@ -188,7 +188,7 @@ Generators: a function containing `yield` returns a generator when called, which
 
 `with` follows PEP 343: `__exit__` receives the exception type and instance (the traceback argument is always `None`) and a true return value suppresses the exception; `return`, `break` and `continue` inside the body run `__exit__` too. The parenthesized form `with (a as x, b as y):` is not supported.
 
-Not supported yet: type annotations, decorators, walrus, `async`/`await`, dict unpacking, dotted imports, bytes/complex literals, nested format specs in f-strings, `str % args`.
+Not supported yet: type annotations, decorators, walrus, `async`/`await`, dotted imports, bytes/complex literals, nested format specs in f-strings, `str % args`.
 
 ### Differences from CPython
 

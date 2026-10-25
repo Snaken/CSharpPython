@@ -542,7 +542,12 @@ namespace CSharpPython.Tests.Syntax
         }
 
         [Test]
-        public void DictUnpackingIsRejected() => Assert.That(Fails("x = {**a}\n").Problem, Does.Contain("dictionary unpacking"));
+        public void DictUnpackingParses()
+        {
+            Assert.That(M("x = {**a}\n"), Does.Contain("{**a}"));
+            Assert.That(M("x = {'k': 1, **a, 'j': 2}\n"), Does.Contain("**a"));
+            Assert.That(Fails("x = {**a: 1}\n").Problem, Does.Contain("':'").Or.Contain("expected"));
+        }
 
         [TestCase("f(a=1, *b)", "iterable argument unpacking follows keyword argument")]
         [TestCase("f(**a, b)", "positional argument follows keyword argument")]

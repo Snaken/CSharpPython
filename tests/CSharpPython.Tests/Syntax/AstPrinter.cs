@@ -34,10 +34,11 @@ namespace CSharpPython.Tests.Syntax
                 case AttributeExpr a: return "(. " + Expr(a.Target) + " " + a.Name + ")";
                 case SubscriptExpr s: return "(idx " + Expr(s.Target) + " " + Expr(s.Index) + ")";
                 case SliceExpr s: return "(slice " + Expr(s.Lower) + " " + Expr(s.Upper) + " " + Expr(s.Step) + ")";
+                case StarExpr st: return "(* " + Expr(st.Value) + ")";
                 case ListExpr l: return "[" + string.Join(" ", l.Items.Select(Expr)) + "]";
                 case TupleExpr t: return "(tuple" + string.Concat(t.Items.Select(i => " " + Expr(i))) + ")";
                 case DictExpr d:
-                    return "{" + string.Join(" ", d.Keys.Select((k, i) => Expr(k) + ":" + Expr(d.Values[i]))) + "}";
+                    return "{" + string.Join(" ", d.Keys.Select((k, i) => (k == null ? "**" : Expr(k) + ":") + Expr(d.Values[i]))) + "}";
                 case IfExpr i: return "(ifexp " + Expr(i.Test) + " " + Expr(i.Then) + " " + Expr(i.Else) + ")";
                 case FStringExpr f: return "(f" + string.Concat(f.Parts.Select(FPart)) + ")";
                 default: return "?" + e.GetType().Name;
