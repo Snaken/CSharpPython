@@ -520,7 +520,8 @@ namespace CSharpPython.Tests.Syntax
         [TestCase("[x for 1 in y]", "assign")]
         [TestCase("[x for x y]", "expected 'in'")]
         [TestCase("[x for x in y", "never closed")]
-        [TestCase("{1 for x in y}", "set literals")]
+        [TestCase("{1 for x in y if}", "unexpected")]
+        [TestCase("{1, 2 for x in y}", "expected '}'")]
         [TestCase("{1: 2, 3: 4 for x in y}", "expected '}'")]
         [TestCase("(x for x in y", "never closed")]
         public void BadComprehensionsAreRejected(string src, string message)
@@ -535,11 +536,12 @@ namespace CSharpPython.Tests.Syntax
         }
 
         [Test]
-        public void SetLiteralsAreRejected()
+        public void SetLiteralsParseAndMixedDisplaysAreRejected()
         {
-            Assert.That(Fails("x = {1, 2}\n").Problem, Does.Contain("set literals"));
-            Assert.That(Fails("x = {1}\n").Problem, Does.Contain("set literals"));
+            Assert.DoesNotThrow(() => Parser.ParseModule("x = {1, 2}\ny = {1}\nz = {1, 2,}\nw = {i for i in y if i}\n"));
             Assert.That(Fails("x = {1: 2, 3}\n").Problem, Does.Contain("expected ':'"));
+            Assert.That(Fails("x = {1, 2: 3}\n").Problem, Does.Contain("makes no sense in a set"));
+            Assert.That(Fails("{1, 2} = x\n").Problem, Does.Contain("cannot assign to set display"));
         }
 
         [Test]

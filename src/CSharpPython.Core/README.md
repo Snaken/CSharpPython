@@ -155,13 +155,13 @@ Supported:
 
 | Area | Details |
 | --- | --- |
-| Types | `int` (64-bit, overflow raises `OverflowError`), `float`, `str`, `bool`, `None`, `list`, `tuple`, `dict`, `range`, host handles |
-| Statements | assignment (chained, tuple unpacking, augmented), `if/elif/else`, `while`, `for`, `break`, `continue`, `pass`, `return`, `global`, `nonlocal`, `import`/`from ... import`, `def` (including nested functions), `class`, `lambda`, list and dict comprehensions, generator expressions, `try/except/else/finally`, `raise` |
+| Types | `int` (64-bit, overflow raises `OverflowError`), `float`, `str`, `bool`, `None`, `list`, `tuple`, `dict`, `set`, `range`, host handles |
+| Statements | assignment (chained, tuple unpacking, augmented), `if/elif/else`, `while`, `for`, `break`, `continue`, `pass`, `return`, `global`, `nonlocal`, `import`/`from ... import`, `def` (including nested functions), `class`, `lambda`, list, dict and set comprehensions, set displays (`{1, 2}`), generator expressions, `try/except/else/finally`, `raise` |
 | Expressions | arithmetic, comparison chains, `and/or/not`, `in`, `is`, conditional expressions, subscripts and slices, f-strings, keyword and default arguments |
 
-Builtins: `print len range int float str bool repr abs min max sum round sorted list tuple dict enumerate zip reversed any all chr ord divmod pow format type isinstance issubclass callable getattr setattr hasattr object hash`, the constant `NotImplemented`, the standard exception classes, and a `math` module (`pi e tau inf nan sqrt log log2 log10 floor ceil trunc isnan isinf sin cos tan asin acos atan atan2 exp fabs hypot radians degrees pow`).
+Builtins: `print len range int float str bool repr abs min max sum round sorted list tuple dict set enumerate zip reversed any all chr ord divmod pow format type isinstance issubclass callable getattr setattr hasattr object hash`, the constant `NotImplemented`, the standard exception classes, and a `math` module (`pi e tau inf nan sqrt log log2 log10 floor ceil trunc isnan isinf sin cos tan asin acos atan atan2 exp fabs hypot radians degrees pow`).
 
-Methods: `str` (upper, lower, strip, lstrip, rstrip, split, join, replace, startswith, endswith, find, rfind, index, count, isdigit, isalpha, isalnum, isspace, isupper, islower, capitalize, title, format, zfill, ljust, rjust, center, splitlines), `list` (append, extend, insert, pop, remove, index, count, sort, reverse, clear, copy), `dict` (get, keys, values, items, pop, setdefault, update, clear, copy), `tuple` (index, count).
+Methods: `str` (upper, lower, strip, lstrip, rstrip, split, join, replace, startswith, endswith, find, rfind, index, count, isdigit, isalpha, isalnum, isspace, isupper, islower, capitalize, title, format, zfill, ljust, rjust, center, splitlines), `list` (append, extend, insert, pop, remove, index, count, sort, reverse, clear, copy), `dict` (get, keys, values, items, pop, setdefault, update, clear, copy), `tuple` (index, count), `set` (add, remove, discard, pop, clear, copy, update, union, intersection, difference, symmetric_difference, intersection_update, difference_update, symmetric_difference_update, issubset, issuperset, isdisjoint).
 
 Functions take positional, default, keyword-only, `*args` and `**kwargs` parameters, and calls can spread with `f(*items, **options)`. A `*items` argument can't follow a keyword argument (`f(a=1, *items)`). `type(x)`, `isinstance` and `issubclass` work with the built-in types (`int`, `float`, `str`, `bool`, `list`, `tuple`, `dict`, `range`, `NoneType`, `function`, ...) and the exception classes, with tuples of them, and `bool` counts as an `int`. The type names are real type objects: calling them converts (`int('5')`), they print as `<class 'int'>`, compare with `==` and `is`, work as dict keys and have `__name__`; so does `x.__class__`. 
 
@@ -169,9 +169,9 @@ Classes have instances, instance and class attributes, methods, `__init__` and s
 
 Exceptions can be subclassed: `class HitError(ValueError):` (or `Exception`, or any built-in or host-registered exception type) makes a class you can `raise`, `raise HitError` (the instance is made for you) and catch with `except HitError as e`, alone or in a tuple. A built-in `except ValueError` catches the subclass too, `e` is the instance (so it has your fields and methods), and `e.args`, `str(e)` and `repr(e)` behave as in Python; `__init__` may call `super().__init__(msg)`, and `__str__` overrides the text. An uncaught one stops the task with the class name as `PyRuntimeError.TypeName`. Built-in errors raised by the VM (a `ZeroDivisionError`) are never instances of your subclasses. The traceback of an exception instance isn't kept across a snapshot.
 
-Nested functions and `lambda` are closures with Python's semantics: inner functions share the variables of the function around them (late binding), and `nonlocal` rebinds them. List and dict comprehensions have their own scope like in Python (loop variables don't leak, the first iterable is evaluated outside). A generator expression is evaluated eagerly into a list, so it works with `sum`, `any`, `all`, `min`, `max`, `sorted`, `list`, `tuple`, `dict` and `str.join`, but is not lazy and can't be advanced with `next`. Snapshots keep closures, including cycles from recursive inner functions.
+Nested functions and `lambda` are closures with Python's semantics: inner functions share the variables of the function around them (late binding), and `nonlocal` rebinds them. Sets keep their members in insertion order (CPython orders them by hash, so sort before printing if you compare output), take `-`, `-=` and the subset comparisons `<=`, `<`, `>=`, `>`, and are unhashable, so they can't be members of sets or dict keys; there is no `frozenset`, and `|`, `&` and `^` arrive with the bit operators. List, dict and set comprehensions have their own scope like in Python (loop variables don't leak, the first iterable is evaluated outside). A generator expression is evaluated eagerly into a list, so it works with `sum`, `any`, `all`, `min`, `max`, `sorted`, `list`, `tuple`, `dict` and `str.join`, but is not lazy and can't be advanced with `next`. Snapshots keep closures, including cycles from recursive inner functions.
 
-Not supported yet: set comprehensions, lazy generators, loop `else`, type annotations, decorators, walrus, `yield`, `with`, `del`, `assert`, `async`/`await`, set literals, dict unpacking, bit operators, dotted imports, bytes/complex literals, nested format specs in f-strings, `str % args`, slice assignment.
+Not supported yet: lazy generators, loop `else`, type annotations, decorators, walrus, `yield`, `with`, `del`, `assert`, `async`/`await`, dict unpacking, bit operators, dotted imports, bytes/complex literals, nested format specs in f-strings, `str % args`, slice assignment.
 
 ### Differences from CPython
 
@@ -220,7 +220,7 @@ The test suite is large and uses CPython 3 as an oracle for language semantics; 
 
 - Blocks: graph serialization helpers, a block palette generated from host modules, comments and more block kinds.
 - Editor tooling: references and rename, hover documentation.
-- Language: more special methods (`__getattr__`, `__enter__`/`__exit__`, `__format__`, ...), `del`, set literals and comprehensions, lazy generators (`yield`), dict views, slice assignment, big ints.
+- Language: more special methods (`__getattr__`, `__enter__`/`__exit__`, `__format__`, ...), `del`, bit operators (including `|`, `&`, `^` on sets), lazy generators (`yield`), dict views, slice assignment, big ints.
 
 ## License
 
