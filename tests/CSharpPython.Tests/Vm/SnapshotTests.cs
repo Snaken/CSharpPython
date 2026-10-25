@@ -147,6 +147,8 @@ namespace CSharpPython.Tests.Vm
             "import game\nclass K:\n    def __init__(self, n):\n        self.n = n\n    def __eq__(self, o):\n        return self.n == o.n\n    def __hash__(self):\n        return self.n % 2\nd = {K(1): 'a', K(2): 'b'}\ngame.wait(1)\nd[K(3)] = 'c'\ngame.wait(1)\nprint(len(d), d[K(1)], K(2) in d, d[K(3)])",
             "import game\nclass V:\n    def __init__(self, n):\n        self.n = n\n    def __lt__(self, o):\n        return self.n < o.n\n    def __bool__(self):\n        return self.n > 0\nxs = [V(3), V(0), V(2)]\ngame.wait(1)\nxs.sort()\ngame.wait(1)\nprint([x.n for x in xs], [bool(x) for x in xs])",
             "import game\nx = NotImplemented\ngame.wait(1)\nprint(x, x is NotImplemented)",
+            "import game\nclass V:\n    def __init__(self, x, y):\n        self.x = x\n        self.y = y\n    def __add__(self, o):\n        return V(self.x + o.x, self.y + o.y)\n    def __mul__(self, k):\n        return V(self.x * k, self.y * k)\n    def __rmul__(self, k):\n        return self * k\n    def __neg__(self):\n        return V(-self.x, -self.y)\n    def __repr__(self):\n        return 'V(' + str(self.x) + ', ' + str(self.y) + ')'\na = V(1, 2)\ngame.wait(1)\nb = a + V(3, 4)\ngame.wait(1)\nprint(b, 2 * b, -b, b * 3)",
+            "import game\nclass Acc:\n    def __init__(self):\n        self.n = 0\n    def __iadd__(self, o):\n        self.n += o\n        return self\na = Acc()\nb = a\nfor i in range(3):\n    a += i\n    game.wait(1)\nprint(a.n, a is b)",
         };
 
         [TestCaseSource(nameof(Scripts))]
