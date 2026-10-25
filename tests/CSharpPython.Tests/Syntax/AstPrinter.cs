@@ -99,6 +99,9 @@ namespace CSharpPython.Tests.Syntax
             }
         }
 
+        private static string Decorated(List<Expr> decorators) =>
+            string.Concat(decorators.Select(d => "@" + Expr(d) + " "));
+
         public static string Body(List<Stmt> body) => "[" + string.Join("; ", body.Select(Stmt)) + "]";
 
         public static string Stmt(Stmt s)
@@ -112,7 +115,9 @@ namespace CSharpPython.Tests.Syntax
                 case WhileStmt w: return "(while " + Expr(w.Test) + " " + Body(w.Body) + ")";
                 case ForStmt f: return "(for " + Expr(f.Target) + " " + Expr(f.Iterable) + " " + Body(f.Body) + ")";
                 case DefStmt d:
-                    return "(def " + d.Name + " (" + string.Join(" ", d.Params.Select(p => p.Name + (p.Default != null ? "=" + Expr(p.Default) : ""))) + ") " + Body(d.Body) + ")";
+                    return Decorated(d.Decorators) + "(def " + d.Name + " (" + string.Join(" ", d.Params.Select(p => p.Name + (p.Default != null ? "=" + Expr(p.Default) : ""))) + ") " + Body(d.Body) + ")";
+                case ClassStmt c:
+                    return Decorated(c.Decorators) + "(class " + c.Name + (c.Bases.Count > 0 ? " (" + string.Join(" ", c.Bases.Select(Expr)) + ")" : "") + " " + Body(c.Body.Body) + ")";
                 case ReturnStmt r: return r.Value == null ? "(return)" : "(return " + Expr(r.Value) + ")";
                 case BreakStmt _: return "break";
                 case ContinueStmt _: return "continue";

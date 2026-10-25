@@ -13,6 +13,7 @@ namespace CSharpPython
         private static readonly Dictionary<string, NativeFunction> DictMethods = new Dictionary<string, NativeFunction>();
         private static readonly Dictionary<string, NativeFunction> TupleMethods = new Dictionary<string, NativeFunction>();
         private static readonly Dictionary<string, NativeFunction> SetMethods = new Dictionary<string, NativeFunction>();
+        private static readonly Dictionary<string, NativeFunction> DescriptorMethods = new Dictionary<string, NativeFunction>();
         private static readonly Dictionary<string, NativeFunction> IteratorMethods = new Dictionary<string, NativeFunction>();
 
         // What super() reaches once the script classes run out: the methods every object has. They are looked up by
@@ -30,6 +31,7 @@ namespace CSharpPython
         public static NativeFunction FindFor(Value obj, string name)
         {
             if (obj.Kind == ValueKind.Set && ((PySet)obj.RawObject).Frozen && SetMutators.Contains(name)) return null;
+            if (obj.Kind == ValueKind.Descriptor && ((PyDescriptor)obj.RawObject).Kind != DescriptorKind.Property) return null;
             return Find(obj.Kind, name);
         }
 
@@ -44,6 +46,7 @@ namespace CSharpPython
                 case ValueKind.Tuple: table = TupleMethods; break;
                 case ValueKind.Set: table = SetMethods; break;
                 case ValueKind.Iterator: table = IteratorMethods; break;
+                case ValueKind.Descriptor: table = DescriptorMethods; break;
                 case ValueKind.Instance: table = InstanceMethods; break;
                 default: return null;
             }
@@ -61,6 +64,7 @@ namespace CSharpPython
                 case ValueKind.Tuple: return TupleMethods.Keys;
                 case ValueKind.Set: return SetMethods.Keys;
                 case ValueKind.Iterator: return IteratorMethods.Keys;
+                case ValueKind.Descriptor: return DescriptorMethods.Keys;
                 default: return Enumerable.Empty<string>();
             }
         }
@@ -79,7 +83,23 @@ namespace CSharpPython
             InstallTuple();
             InstallSet();
             InstallIterator();
+            InstallDescriptor();
             InstallInstance();
+        }
+
+        // property.getter / setter / deleter return a copy of the property with that function replaced.
+        private static void InstallDescriptor()
+        {
+            var t = DescriptorMethods;
+            Add(t, "property", "getter", 1, 1, (c, a) => Value.FromDescriptor(((PyDescriptor)a[0].RawObject).With(AccessorArg(a[1]), null, null)));
+            Add(t, "property", "setter", 1, 1, (c, a) => Value.FromDescriptor(((PyDescriptor)a[0].RawObject).With(null, AccessorArg(a[1]), null)));
+            Add(t, "property", "deleter", 1, 1, (c, a) => Value.FromDescriptor(((PyDescriptor)a[0].RawObject).With(null, null, AccessorArg(a[1]))));
+        }
+
+        private static Value AccessorArg(Value v)
+        {
+            if (v.Kind != ValueKind.None && !PyTypes.IsCallable(v)) throw new PyError("TypeError", "property accessor must be callable or None");
+            return v;
         }
 
         private static void InstallInstance()

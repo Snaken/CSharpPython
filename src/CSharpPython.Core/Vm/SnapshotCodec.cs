@@ -120,6 +120,16 @@ namespace CSharpPython
                         Collect(Value.FromFunction(m.Function));
                     }
                     break;
+                case ValueKind.Descriptor:
+                    if (AddLeaf(v))
+                    {
+                        var d = (PyDescriptor)v.RawObject;
+                        Collect(d.Function);
+                        Collect(d.Getter);
+                        Collect(d.Setter);
+                        Collect(d.Deleter);
+                    }
+                    break;
                 case ValueKind.Function:
                     if (AddLeaf(v))
                     {
@@ -336,6 +346,16 @@ namespace CSharpPython
                     var m = (ScriptMethod)v.RawObject;
                     WriteValue(w, m.Self);
                     WriteValue(w, Value.FromFunction(m.Function));
+                    break;
+                }
+                case ValueKind.Descriptor:
+                {
+                    var d = (PyDescriptor)v.RawObject;
+                    w.Write((byte)d.Kind);
+                    WriteValue(w, d.Function);
+                    WriteValue(w, d.Getter);
+                    WriteValue(w, d.Setter);
+                    WriteValue(w, d.Deleter);
                     break;
                 }
                 case ValueKind.Slice:
@@ -752,6 +772,14 @@ namespace CSharpPython
                     _objects[id] = new ScriptMethod(self, (PyFunction)fn.RawObject);
                     break;
                 }
+                case ValueKind.Descriptor:
+                {
+                    byte dkind = r.ReadByte();
+                    Value function = ReadValue(r), getter = ReadValue(r), setter = ReadValue(r), deleter = ReadValue(r);
+                    if (dkind > (byte)DescriptorKind.Property) throw new SnapshotException("the snapshot is damaged");
+                    _objects[id] = new PyDescriptor((DescriptorKind)dkind, function, getter, setter, deleter);
+                    break;
+                }
                 case ValueKind.Slice:
                 {
                     Value a = ReadValue(r), b = ReadValue(r), c = ReadValue(r);
@@ -953,6 +981,7 @@ namespace CSharpPython
                 case ValueKind.ScriptMethod: return Value.FromScriptMethod((ScriptMethod)LeafAs(r.ReadInt32(), typeof(ScriptMethod)));
                 case ValueKind.Function: return Value.FromFunction((PyFunction)LeafAs(r.ReadInt32(), typeof(PyFunction)));
                 case ValueKind.BoundMethod: return Value.FromBound((BoundMethod)LeafAs(r.ReadInt32(), typeof(BoundMethod)));
+                case ValueKind.Descriptor: return Value.FromDescriptor((PyDescriptor)LeafAs(r.ReadInt32(), typeof(PyDescriptor)));
                 case ValueKind.Slice: return Value.FromSlice((PySlice)LeafAs(r.ReadInt32(), typeof(PySlice)));
                 case ValueKind.Exception: return Value.FromException((PyExceptionValue)LeafAs(r.ReadInt32(), typeof(PyExceptionValue)));
                 case ValueKind.Iterator: return Value.FromIterator((PyIterator)LeafAs(r.ReadInt32(), typeof(PyIterator)));

@@ -511,6 +511,24 @@ namespace CSharpPython.Tests.Syntax
             Assert.That(Lex("//=")[0].Text, Is.EqualTo("//="));
         }
 
+        [Test]
+        public void AtStartingALineIsADecoratorToken()
+        {
+            Assert.That(Kinds("@d\ndef f(): pass").StartsWith("At Name Newline KwDef"), Is.True);
+            Assert.That(Kinds("if x:\n    @d\n    def f(): pass"), Does.Contain("Indent At Name Newline KwDef"));
+            Assert.That(Kinds("if x:\n    pass\n@d\ndef f(): pass"), Does.Contain("Dedent At Name"));
+            Assert.That(Lex("@d")[0].Text, Is.EqualTo("@"));
+        }
+
+        [TestCase("a @ b")]
+        [TestCase("a @= b")]
+        [TestCase("x = (1,\n@2)")]
+        [TestCase("x = 1; @d")]
+        public void AtAnywhereElseIsNotSupported(string src)
+        {
+            Assert.That(Fails(src).Problem, Does.Contain("not supported yet"));
+        }
+
         [TestCase("@")]
         public void UnsupportedOperatorsGiveHelpfulErrors(string op)
         {

@@ -150,5 +150,12 @@ namespace CSharpPython.Tests.Editor
         {
             Assert.That(Names("class A:\n    def f(self):\n        self.hp = (1 +\n        self.|"), Does.Contain("f"));
         }
+
+        [Test]
+        public void SelfOffersDecoratedMembers()
+        {
+            const string src = "class A:\n    @property\n    def size(self):\n        return 1\n    @staticmethod\n    def util():\n        pass\n    @classmethod\n    def make(cls):\n        pass\n    def go(self):\n        self.|\n";
+            Assert.That(Names(src), Is.EquivalentTo(new[] { "size", "util", "make", "go" }));
+        }
     }
 }

@@ -206,6 +206,9 @@ namespace CSharpPython.Syntax
     public sealed class DefStmt : Stmt
     {
         public string Name;
+
+        /// <summary>The expressions after <c>@</c> above the def, outermost first.</summary>
+        public List<Expr> Decorators = new List<Expr>();
         public List<Param> Params = new List<Param>();
 
         /// <summary>Parameters after <c>*args</c> or a bare <c>*</c>; they can only be given by keyword.</summary>
@@ -233,6 +236,9 @@ namespace CSharpPython.Syntax
     public sealed class ClassStmt : Stmt
     {
         public string Name;
+
+        /// <summary>The expressions after <c>@</c> above the class, outermost first.</summary>
+        public List<Expr> Decorators = new List<Expr>();
         public List<Expr> Bases = new List<Expr>();
         public DefStmt Body;
     }

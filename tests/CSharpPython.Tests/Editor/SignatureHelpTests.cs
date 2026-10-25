@@ -306,5 +306,13 @@ namespace CSharpPython.Tests.Editor
             Assert.That(inside.Items.Select(i => i.Text), Does.Contain("args"));
             Assert.That(Completer.Complete("def f(*args, **kwargs):\n    return kw", 38).Items.Select(i => i.Text), Does.Contain("kwargs"));
         }
+
+        [Test]
+        public void DescriptorConstructorsShowTheirParameters()
+        {
+            Assert.That(Signatures.Find("property"), Is.EqualTo("fget=None, fset=None, fdel=None"));
+            Assert.That(Signatures.Find("staticmethod"), Is.EqualTo("function"));
+            Assert.That(Signatures.Find("classmethod"), Is.EqualTo("function"));
+        }
     }
 }

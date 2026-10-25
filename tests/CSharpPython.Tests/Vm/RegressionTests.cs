@@ -230,5 +230,13 @@ namespace CSharpPython.Tests.Vm
             Assert.That(Fails("import math\nmath.pi = 3").TypeName, Is.EqualTo("AttributeError"));
             Assert.That(Fails("def f():\n    pass\nf.x = 1").TypeName, Is.EqualTo("AttributeError"));
         }
+
+        [Test]
+        public void LambdaAndInvertAreAllowedAfterACommaInATuple()
+        {
+            Assert.That(Out("def f():\n    return 1, lambda: 2, ~3\nt = f()\nprint(t[0], t[1](), t[2])"), Is.EqualTo("1 2 -4"));
+            Assert.That(Out("x = 1, ~2, lambda: 3\nprint(x[1], x[2]())"), Is.EqualTo("-3 3"));
+            Assert.That(Out("def g():\n    yield 1, lambda: 2\nprint(next(g())[1]())"), Is.EqualTo("2"));
+        }
     }
 }

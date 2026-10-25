@@ -147,5 +147,13 @@ namespace CSharpPython.Tests.Editor
                     if (!covered[i]) Assert.That(char.IsWhiteSpace(source[i]), Is.True, "uncovered '" + source[i] + "' at " + i + " in: " + source);
             }
         }
+
+        [Test]
+        public void DecoratorsAreColouredLikeOperatorsWithTheNameAsABuiltinOrIdentifier()
+        {
+            Assert.That(Show("@property\ndef p(self):\n    pass"),
+                Does.StartWith("@:Operator property:Builtin def:Keyword p:FunctionName"));
+            Assert.That(Show("@mine.deco(1)\ndef f(): pass"), Does.StartWith("@:Operator mine:Identifier .:Punctuation deco:Member"));
+        }
     }
 }

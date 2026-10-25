@@ -23,22 +23,66 @@ namespace CSharpPython
             return true;
         }
 
-        /// <summary>Looks <paramref name="name"/> up on <paramref name="self"/> starting at the parent of <paramref name="owner"/>.</summary>
+        /// <summary>
+        /// Looks <paramref name="name"/> up on <paramref name="self"/> (an instance, or the class itself inside a
+        /// classmethod) starting at the parent of <paramref name="owner"/>.
+        /// </summary>
         public static Value SuperAttr(PyClass owner, Value self, string name)
         {
-            if (self.Kind != ValueKind.Instance || !((PyInstance)self.RawObject).Class.IsSubclassOf(owner))
+            PyClass selfClass = self.Kind == ValueKind.Instance ? ((PyInstance)self.RawObject).Class
+                : self.Kind == ValueKind.Class ? (PyClass)self.RawObject : null;
+            if (selfClass == null || !selfClass.IsSubclassOf(owner))
                 throw new PyError("TypeError", "super(type, obj): obj must be an instance or subtype of type");
             var key = Value.FromString(name);
             for (var c = owner.Base; c != null; c = c.Base)
                 if (c.Namespace.TryGetValue(key, out Value member))
-                    return member.Kind == ValueKind.Function
-                        ? Value.FromScriptMethod(new ScriptMethod(self, (PyFunction)member.RawObject))
-                        : member;
+                    return BindMember(member, self, selfClass, name);
 
             // Past the last script class is object.
-            var builtin = Methods.Find(ValueKind.Instance, name);
+            var builtin = self.Kind == ValueKind.Instance ? Methods.Find(ValueKind.Instance, name) : null;
             if (builtin != null) return Value.FromBound(new BoundMethod(self, builtin));
             throw new PyError("AttributeError", "'super' object has no attribute '" + name + "'");
+        }
+
+        private static bool IsProperty(Value member) =>
+            member.Kind == ValueKind.Descriptor && ((PyDescriptor)member.RawObject).Kind == DescriptorKind.Property;
+
+        // What a class member becomes when it is looked up on an instance (or on the class itself, when self is the
+        // class): a function is bound to its instance, a classmethod to the class, a staticmethod is unwrapped, and a
+        // property runs its getter.
+        private static Value BindMember(Value member, Value self, PyClass cls, string name)
+        {
+            bool onInstance = self.Kind == ValueKind.Instance;
+            switch (member.Kind)
+            {
+                case ValueKind.Function:
+                    return onInstance ? Value.FromScriptMethod(new ScriptMethod(self, (PyFunction)member.RawObject)) : member;
+                case ValueKind.Descriptor:
+                {
+                    var d = (PyDescriptor)member.RawObject;
+                    switch (d.Kind)
+                    {
+                        case DescriptorKind.StaticMethod: return d.Function;
+                        case DescriptorKind.ClassMethod:
+                            return Value.FromScriptMethod(new ScriptMethod(Value.FromClass(cls), (PyFunction)d.Function.RawObject));
+                        default:
+                            if (!onInstance) return member;
+                            if (d.Getter.Kind == ValueKind.None) throw NoAccessor(cls, name, "getter");
+                            return CallAccessor(d.Getter, self, null);
+                    }
+                }
+                default: return member;
+            }
+        }
+
+        private static PyError NoAccessor(PyClass cls, string name, string which) =>
+            new PyError("AttributeError", "property '" + name + "' of '" + cls.Name + "' object has no " + which);
+
+        private static Value CallAccessor(Value function, Value self, Value? argument)
+        {
+            var task = PyTask.Current;
+            if (task == null) throw new PyError("RuntimeError", "a property can only run inside a script");
+            return task.CallSync(function, argument.HasValue ? new[] { self, argument.Value } : new[] { self });
         }
 
         public static Value GetAttr(Value obj, string name)
@@ -49,22 +93,27 @@ namespace CSharpPython
                 case ValueKind.Instance:
                 {
                     var inst = (PyInstance)obj.RawObject;
+                    if (PyDescriptor.PropertiesExist && inst.Class.TryFind(name, out Value prop) && IsProperty(prop))
+                        return BindMember(prop, obj, inst.Class, name);
                     if (inst.Fields.TryGetValue(Value.FromString(name), out Value field)) return field;
-                    if (inst.Class.TryFind(name, out Value member))
-                        return member.Kind == ValueKind.Function
-                            ? Value.FromScriptMethod(new ScriptMethod(obj, (PyFunction)member.RawObject))
-                            : member;
+                    if (inst.Class.TryFind(name, out Value member)) return BindMember(member, obj, inst.Class, name);
                     throw NoAttribute(obj, name);
                 }
                 case ValueKind.Class:
                 {
                     var cls = (PyClass)obj.RawObject;
                     if (name == "__name__") return Value.FromString(cls.Name);
-                    if (cls.TryFind(name, out Value member)) return member;
+                    if (cls.TryFind(name, out Value member)) return BindMember(member, obj, cls, name);
                     throw new PyError("AttributeError", "type object '" + cls.Name + "' has no attribute '" + name + "'");
                 }
                 case ValueKind.Type:
                     if (name == "__name__") return Value.FromString(((PyType)obj.RawObject).Name);
+                    break;
+                case ValueKind.Function:
+                    if (name == "__name__") return Value.FromString(((PyFunction)obj.RawObject).Name);
+                    break;
+                case ValueKind.ScriptMethod:
+                    if (name == "__name__") return Value.FromString(((ScriptMethod)obj.RawObject).Function.Name);
                     break;
                 case ValueKind.ExceptionType:
                     if (name == "__name__") return Value.FromString(((PyExceptionType)obj.RawObject).Name);
@@ -101,7 +150,15 @@ namespace CSharpPython
             var key = Value.FromString(name);
             if (obj.Kind == ValueKind.Instance)
             {
-                if (!((PyInstance)obj.RawObject).Fields.Remove(key)) throw NoAttribute(obj, name);
+                var inst = (PyInstance)obj.RawObject;
+                if (PyDescriptor.PropertiesExist && inst.Class.TryFind(name, out Value prop) && IsProperty(prop))
+                {
+                    var deleter = ((PyDescriptor)prop.RawObject).Deleter;
+                    if (deleter.Kind == ValueKind.None) throw NoAccessor(inst.Class, name, "deleter");
+                    CallAccessor(deleter, obj, null);
+                    return;
+                }
+                if (!inst.Fields.Remove(key)) throw NoAttribute(obj, name);
                 return;
             }
             if (obj.Kind == ValueKind.Class)
@@ -119,7 +176,15 @@ namespace CSharpPython
         {
             if (obj.Kind == ValueKind.Instance)
             {
-                ((PyInstance)obj.RawObject).Fields.Set(Value.FromString(name), value);
+                var inst = (PyInstance)obj.RawObject;
+                if (PyDescriptor.PropertiesExist && inst.Class.TryFind(name, out Value prop) && IsProperty(prop))
+                {
+                    var setter = ((PyDescriptor)prop.RawObject).Setter;
+                    if (setter.Kind == ValueKind.None) throw NoAccessor(inst.Class, name, "setter");
+                    CallAccessor(setter, obj, value);
+                    return;
+                }
+                inst.Fields.Set(Value.FromString(name), value);
                 return;
             }
             if (obj.Kind == ValueKind.Class)

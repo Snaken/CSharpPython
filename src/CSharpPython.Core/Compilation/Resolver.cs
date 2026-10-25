@@ -166,12 +166,14 @@ namespace CSharpPython.Compilation
 
         private void VisitDef(DefStmt d)
         {
+            foreach (var dec in d.Decorators) VisitExpr(dec);
             VisitFunction(d);
             Bind(d.Name);
         }
 
         private void VisitClass(ClassStmt c)
         {
+            foreach (var dec in c.Decorators) VisitExpr(dec);
             foreach (var b in c.Bases) VisitExpr(b);
             var scope = new Scope(c.Body, _scope) { IsClass = true };
             _result.Functions[c.Body] = scope;

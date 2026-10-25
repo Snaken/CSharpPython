@@ -49,6 +49,9 @@ namespace CSharpPython
         public static readonly PyType Module = Define("module", ValueKind.Module);
         public static readonly PyType Iterator = Define("iterator", ValueKind.Iterator);
         public static readonly PyType Generator = Define("generator", ValueKind.Iterator);
+        public static readonly PyType StaticMethod = Define("staticmethod", ValueKind.Descriptor);
+        public static readonly PyType ClassMethod = Define("classmethod", ValueKind.Descriptor);
+        public static readonly PyType Property = Define("property", ValueKind.Descriptor);
         public static readonly PyType Handle = Define("handle", ValueKind.Handle);
         public static readonly PyType Type = Define("type", null);
 
@@ -73,6 +76,13 @@ namespace CSharpPython
                 case ValueKind.Instance: return Value.FromClass(((PyInstance)v.RawObject).Class);
                 case ValueKind.Iterator when v.RawObject is PyGenerator: return Value.FromType(Generator);
                 case ValueKind.Set: return Value.FromType(((PySet)v.RawObject).Frozen ? FrozenSet : Set);
+                case ValueKind.Descriptor:
+                    switch (((PyDescriptor)v.RawObject).Kind)
+                    {
+                        case DescriptorKind.StaticMethod: return Value.FromType(StaticMethod);
+                        case DescriptorKind.ClassMethod: return Value.FromType(ClassMethod);
+                        default: return Value.FromType(Property);
+                    }
                 case ValueKind.ExceptionType:
                 case ValueKind.Class:
                 case ValueKind.Type:
@@ -102,6 +112,7 @@ namespace CSharpPython
                     if (t == Type) return IsClass(value);
                     if (t == Int && value.Kind == ValueKind.Bool) return true; // bool is a kind of int
                     if (t.Kind == ValueKind.Set && value.Kind == ValueKind.Set) return ((PySet)value.RawObject).Frozen == (t == FrozenSet);
+                    if (t.Kind == ValueKind.Descriptor && value.Kind == ValueKind.Descriptor) return TypeOf(value).RawObject == (object)t;
                     return t.Kind == KindOf(value);
                 }
                 case ValueKind.Class:

@@ -124,5 +124,12 @@ namespace CSharpPython.Tests.Editor
             var h = At("def f(a:\n    pass\nf|(\n");
             Assert.That(h, Is.Not.Null);
         }
+
+        [Test]
+        public void DecoratedDefinitionsStillResolve()
+        {
+            Assert.That(At("def deco(f):\n    return f\n@deco\ndef move(a):\n    pass\nmo|ve(1)\n").Label, Is.EqualTo("def move(a)"));
+            Assert.That(At("@prop|erty\ndef f(self): pass\n").Label, Does.StartWith("property"));
+        }
     }
 }

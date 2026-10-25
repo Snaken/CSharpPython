@@ -38,5 +38,7 @@ namespace CSharpPython
         NotImplemented,
         /// <summary>A <c>set</c>, see <see cref="PySet"/>.</summary>
         Set,
+        /// <summary>A <c>staticmethod</c>, <c>classmethod</c> or <c>property</c>, see <see cref="PyDescriptor"/>.</summary>
+        Descriptor,
     }
 }

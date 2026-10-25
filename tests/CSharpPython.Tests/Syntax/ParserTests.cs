@@ -733,5 +733,30 @@ namespace CSharpPython.Tests.Syntax
 
         [Test]
         public void ErrorTokenIsDescribed() => Assert.That(Fails("x = 1 \\ 2\n").Problem, Does.Contain("line continuation"));
+
+        [Test]
+        public void DecoratorsAttachToTheDefOrClassBelowThem()
+        {
+            Assert.That(M("@a\ndef f(): pass"), Is.EqualTo("@a (def f () [pass])"));
+            Assert.That(M("@a\n@b.c(1)\ndef f(): pass"), Is.EqualTo("@a @(call (. b c) 1) (def f () [pass])"));
+            Assert.That(M("@a\nclass C(B): pass"), Is.EqualTo("@a (class C (B) [pass])"));
+            Assert.That(M("class C:\n    @a\n    def m(self): pass"), Does.Contain("[@a (def m (self) [pass])]"));
+        }
+
+        [Test]
+        public void DecoratorLinesMayBeInterleavedWithBlankLines()
+        {
+            Assert.That(M("@a\n\n# c\n@b\n\ndef f(): pass"), Is.EqualTo("@a @b (def f () [pass])"));
+        }
+
+        [TestCase("@a\nx = 1")]
+        [TestCase("@a")]
+        [TestCase("@a\n@b\nif x: pass")]
+        [TestCase("@a b\ndef f(): pass")]
+        [TestCase("@\ndef f(): pass")]
+        public void MalformedDecoratorsAreRejected(string src)
+        {
+            Fails(src);
+        }
     }
 }

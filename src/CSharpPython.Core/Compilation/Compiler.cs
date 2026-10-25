@@ -483,22 +483,36 @@ namespace CSharpPython.Compilation
             Emit(Op.Jump, loop.ContinueTarget);
         }
 
+        // The decorators are evaluated first, top to bottom, then the function is made and handed to them bottom to top.
         private void CompileDef(DefStmt d)
         {
+            foreach (var dec in d.Decorators) CompileExpr(dec);
             CompileFunction(d);
+            ApplyDecorators(d.Decorators, d);
             StoreName(d.Name);
+        }
+
+        private void ApplyDecorators(List<Expr> decorators, Node at)
+        {
+            for (int i = 0; i < decorators.Count; i++)
+            {
+                SetLine(at);
+                Emit(Op.Call, 1);
+            }
         }
 
         // name, [base], then the class body run as a function that returns its namespace, then BuildClass.
         private void CompileClass(ClassStmt c)
         {
             if (c.Bases.Count > 1) throw Error("multiple inheritance is not supported", c.Bases[1]);
+            foreach (var dec in c.Decorators) CompileExpr(dec);
             Emit(Op.LoadConst, Constant(Value.FromString(c.Name)));
             foreach (var b in c.Bases) CompileExpr(b);
             CompileFunction(c.Body, true);
             Emit(Op.Call, 0);
             SetLine(c);
             Emit(Op.BuildClass, c.Bases.Count);
+            ApplyDecorators(c.Decorators, c);
             StoreName(c.Name);
         }
 

@@ -60,6 +60,14 @@ namespace CSharpPython
             }
         }
 
+        /// <summary>
+        /// True for an AttributeError, whether a native function raised it or script code run by <see cref="CallSync"/>
+        /// (a property getter) did, so that <c>hasattr</c> and <c>getattr(x, name, default)</c> can swallow it.
+        /// </summary>
+        internal static bool IsAttributeError(Exception e) =>
+            e is PyError p ? p.TypeName == "AttributeError"
+            : e is ScriptRaise r && r.Exception.Type.IsSubclassOf(ExceptionTypes.AttributeError);
+
         private struct PendingEvent
         {
             public string Name;

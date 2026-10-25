@@ -155,6 +155,10 @@ namespace CSharpPython
                     sb.Append('>');
                     return;
                 }
+                case ValueKind.Descriptor:
+                    sb.Append('<').Append(((PyDescriptor)v.RawObject).TypeName).Append(" object at 0x")
+                      .Append(System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(v.RawObject).ToString("x8")).Append('>');
+                    return;
                 case ValueKind.Type: sb.Append("<class '").Append(((PyType)v.RawObject).Name).Append("'>"); return;
                 case ValueKind.ExceptionType: sb.Append("<class '").Append(((PyExceptionType)v.RawObject).Name).Append("'>"); return;
                 case ValueKind.Handle:

@@ -622,8 +622,13 @@ namespace CSharpPython.Syntax
                 case '^': if (n == '=') { kind = TokenKind.CaretAssign; len = 2; } else kind = TokenKind.Caret; break;
                 case '~': kind = TokenKind.Tilde; break;
                 case '@':
-                    Unsupported("'" + c + "'", 1);
-                    return;
+                    if (!StartsLine())
+                    {
+                        Unsupported("'" + c + "'", 1);
+                        return;
+                    }
+                    kind = TokenKind.At;
+                    break;
                 default:
                     ErrorToken("unexpected character '" + c + "'", start, 1);
                     _pos++;
@@ -632,6 +637,15 @@ namespace CSharpPython.Syntax
 
             _pos += len;
             Add(kind, _src.Substring(start, len), start, len);
+        }
+
+        // True when nothing but indentation came before on this logical line, which is where a decorator's '@' goes.
+        private bool StartsLine()
+        {
+            if (_brackets.Count > 0) return false;
+            if (_tokens.Count == 0) return true;
+            TokenKind last = _tokens[_tokens.Count - 1].Kind;
+            return last == TokenKind.Newline || last == TokenKind.Indent || last == TokenKind.Dedent;
         }
 
         private void Unsupported(string what, int length)

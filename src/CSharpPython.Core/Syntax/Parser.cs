@@ -163,6 +163,7 @@ namespace CSharpPython.Syntax
         {
             switch (Cur.Kind)
             {
+                case TokenKind.At: into.Add(ParseDecorated()); return;
                 case TokenKind.KwDef: into.Add(ParseDef()); return;
                 case TokenKind.KwClass: into.Add(ParseClass()); return;
                 case TokenKind.KwIf: into.Add(ParseIf()); return;
@@ -198,6 +199,32 @@ namespace CSharpPython.Syntax
                 ParseSimpleLine(body);
             }
             return body;
+        }
+
+        // One or more '@expression' lines followed by the def or class they decorate.
+        private Stmt ParseDecorated()
+        {
+            var decorators = new List<Expr>();
+            while (Cur.Kind == TokenKind.At)
+            {
+                Advance();
+                decorators.Add(ParseTernary());
+                if (Cur.Kind != TokenKind.Newline) throw Error("expected a newline after the decorator, found " + Describe(Cur), Cur);
+                SkipNewlines();
+            }
+            if (Cur.Kind == TokenKind.KwDef)
+            {
+                var def = ParseDef();
+                def.Decorators = decorators;
+                return def;
+            }
+            if (Cur.Kind == TokenKind.KwClass)
+            {
+                var cls = ParseClass();
+                cls.Decorators = decorators;
+                return cls;
+            }
+            throw Error("expected 'def' or 'class' after a decorator, found " + Describe(Cur), Cur);
         }
 
         private DefStmt ParseDef()
@@ -765,6 +792,8 @@ namespace CSharpPython.Syntax
                 case TokenKind.KwNot:
                 case TokenKind.Minus:
                 case TokenKind.Plus:
+                case TokenKind.Tilde:
+                case TokenKind.KwLambda:
                 case TokenKind.LParen:
                 case TokenKind.LBracket:
                 case TokenKind.LBrace:

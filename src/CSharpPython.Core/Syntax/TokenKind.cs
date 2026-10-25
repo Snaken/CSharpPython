@@ -33,5 +33,8 @@ namespace CSharpPython.Syntax
         PipeAssign, AmpersandAssign, CaretAssign, LShiftAssign, RShiftAssign,
         LParen, RParen, LBracket, RBracket, LBrace, RBrace,
         Comma, Colon, Walrus, Dot, Semicolon,
+
+        /// <summary>A <c>@</c> that starts a decorator line. Anywhere else <c>@</c> is not supported yet.</summary>
+        At,
     }
 }

@@ -65,5 +65,15 @@ namespace CSharpPython.Tests.Editor
                 }
             }
         }
+
+        [Test]
+        public void DecoratedCodeAnalysesCleanlyAndReportsTheMissingDef()
+        {
+            Assert.That(Analyzer.Analyze("def d(f):\n    return f\n@d\ndef g():\n    pass\ng()\n"), Is.Empty);
+            Assert.That(Analyzer.Analyze("class A:\n    @property\n    def p(self):\n        return 1\nA().p\n"), Is.Empty);
+            var bad = Analyzer.Analyze("@d\nx = 1\n");
+            Assert.That(bad, Is.Not.Empty);
+            Assert.That(bad[0].Message, Does.Contain("after a decorator"));
+        }
     }
 }

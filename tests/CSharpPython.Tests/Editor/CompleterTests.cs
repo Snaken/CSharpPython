@@ -312,5 +312,14 @@ namespace CSharpPython.Tests.Editor
                 for (int k = 0; k < 6; k++) Completer.Complete(text, random.Next(text.Length + 1), vm);
             }
         }
+
+        [Test]
+        public void DecoratorNamesAreCompleted()
+        {
+            Assert.That(Names("class A:\n    @prop|\n"), Does.Contain("property"));
+            Assert.That(Names("class A:\n    @static|\n"), Does.Contain("staticmethod"));
+            Assert.That(Names("class A:\n    @class|\n"), Does.Contain("classmethod"));
+            Assert.That(Names("def deco(f):\n    return f\n@de|\ndef g(): pass\n"), Does.Contain("deco"));
+        }
     }
 }

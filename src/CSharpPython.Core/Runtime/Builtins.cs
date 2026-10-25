@@ -51,7 +51,7 @@ namespace CSharpPython
             {
                 return Ops.GetAttr(a[0], name);
             }
-            catch (PyError e) when (e.TypeName == "AttributeError")
+            catch (Exception e) when (PyTask.IsAttributeError(e))
             {
                 return a[2];
             }
@@ -93,6 +93,24 @@ namespace CSharpPython
             yield return F("list", 0, 1, (c, a) => Value.FromList(new PyList(a.Length == 0 ? new List<Value>() : Ops.ToList(a[0]))));
             yield return F("tuple", 0, 1, (c, a) => Value.FromTuple(new PyTuple(a.Length == 0 ? new Value[0] : Ops.ToList(a[0]).ToArray())));
             yield return F("set", 0, 1, (c, a) => a.Length == 0 ? Value.FromSet(new PySet()) : Value.FromSet(Methods.ToSet(a[0]).Copy()));
+            yield return F("staticmethod", 1, 1, (c, a) =>
+            {
+                if (!PyTypes.IsCallable(a[0])) throw new PyError("TypeError", "staticmethod() argument must be callable");
+                return Value.FromDescriptor(new PyDescriptor(DescriptorKind.StaticMethod, a[0]));
+            });
+            yield return F("classmethod", 1, 1, (c, a) =>
+            {
+                if (a[0].Kind != ValueKind.Function) throw new PyError("TypeError", "classmethod() argument must be a script function");
+                return Value.FromDescriptor(new PyDescriptor(DescriptorKind.ClassMethod, a[0]));
+            });
+            yield return F("property", 0, 3, (c, a) =>
+            {
+                for (int i = 0; i < a.Length; i++)
+                    if (a[i].Kind != ValueKind.None && !PyTypes.IsCallable(a[i]))
+                        throw new PyError("TypeError", "property() arguments must be callable or None");
+                return Value.FromDescriptor(new PyDescriptor(DescriptorKind.Property, default,
+                    a.Length > 0 ? a[0] : default, a.Length > 1 ? a[1] : default, a.Length > 2 ? a[2] : default));
+            });
             yield return F("frozenset", 0, 1, (c, a) =>
             {
                 var set = a.Length == 0 ? new PySet() : Methods.ToSet(a[0]).Copy();
@@ -163,7 +181,7 @@ namespace CSharpPython
                     Ops.GetAttr(a[0], NameArg(a[1], "hasattr"));
                     return Value.True;
                 }
-                catch (PyError e) when (e.TypeName == "AttributeError")
+                catch (Exception e) when (PyTask.IsAttributeError(e))
                 {
                     return Value.False;
                 }

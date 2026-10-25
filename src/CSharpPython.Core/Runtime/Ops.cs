@@ -50,6 +50,7 @@ namespace CSharpPython
                 case ValueKind.Exception: return ((PyExceptionValue)v.RawObject).Type.Name;
                 case ValueKind.Instance: return ((PyInstance)v.RawObject).Class.Name;
                 case ValueKind.ScriptMethod: return "method";
+                case ValueKind.Descriptor: return ((PyDescriptor)v.RawObject).TypeName;
                 case ValueKind.ExceptionType:
                 case ValueKind.Class:
                 case ValueKind.Type: return "type";

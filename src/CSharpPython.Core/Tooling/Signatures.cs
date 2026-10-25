@@ -29,6 +29,7 @@ namespace CSharpPython.Editor
             { "zip", "*iterables" },
             { "frozenset", "iterable=()" },
             { "slice", "start, stop=None, step=None" },
+            { "staticmethod", "function" }, { "classmethod", "function" }, { "property", "fget=None, fset=None, fdel=None" },
             { "dir", "obj" },
             { "vars", "obj" },
             { "map", "function, *iterables" },
@@ -91,6 +92,7 @@ namespace CSharpPython.Editor
             { "dict.update", "other=None, **kwargs" }, { "dict.clear", "" }, { "dict.copy", "" },
 
             // set methods.
+            { "property.getter", "function" }, { "property.setter", "function" }, { "property.deleter", "function" },
             { "set.add", "x" }, { "set.remove", "x" }, { "set.discard", "x" }, { "set.pop", "" }, { "set.clear", "" },
             { "set.copy", "" }, { "set.update", "*iterables" }, { "set.union", "*iterables" },
             { "set.intersection", "*iterables" }, { "set.difference", "*iterables" },

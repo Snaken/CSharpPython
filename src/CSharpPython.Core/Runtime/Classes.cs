@@ -48,11 +48,24 @@ namespace CSharpPython
         public void AdoptMethods()
         {
             foreach (var kv in Namespace.Pairs())
-                if (kv.Value.Kind == ValueKind.Function)
+            {
+                if (kv.Value.Kind == ValueKind.Function) Adopt(kv.Value);
+                else if (kv.Value.Kind == ValueKind.Descriptor)
                 {
-                    var f = (PyFunction)kv.Value.RawObject;
-                    if (f.Owner == null) f.Owner = this;
+                    var d = (PyDescriptor)kv.Value.RawObject;
+                    Adopt(d.Function);
+                    Adopt(d.Getter);
+                    Adopt(d.Setter);
+                    Adopt(d.Deleter);
                 }
+            }
+        }
+
+        private void Adopt(Value function)
+        {
+            if (function.Kind != ValueKind.Function) return;
+            var f = (PyFunction)function.RawObject;
+            if (f.Owner == null) f.Owner = this;
         }
 
         public bool IsSubclassOf(PyClass other)
