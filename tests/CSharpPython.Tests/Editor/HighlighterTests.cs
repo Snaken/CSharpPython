@@ -68,7 +68,7 @@ namespace CSharpPython.Tests.Editor
         [Test]
         public void UnsupportedKeywordsAndBadTextAreFlagged()
         {
-            Assert.That(Show("yield a"), Does.StartWith("yield:UnsupportedKeyword"));
+            Assert.That(Show("await a"), Does.StartWith("await:UnsupportedKeyword"));
             Assert.That(Show("x = 'abc"), Does.Contain(":Error"));
             Assert.That(Show("x = 5 $ 3"), Does.Contain("$:Error"));
         }

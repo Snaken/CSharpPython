@@ -211,7 +211,7 @@ namespace CSharpPython.Tests.Vm
         public void UnsupportedSyntaxIsReportedClearly()
         {
             var vm = new PyVm();
-            foreach (var source in new[] { "x = 1 @ 2", "import a.b", "yield 1" })
+            foreach (var source in new[] { "x = 1 @ 2", "import a.b", "await x" })
             {
                 var e = Assert.Throws<CSharpPython.Syntax.PySyntaxError>(() => vm.Compile(source), source);
                 Assert.That(e.Problem, Does.Contain("not supported"), source);

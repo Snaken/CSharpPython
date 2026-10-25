@@ -502,7 +502,7 @@ namespace CSharpPython.Tests.Syntax
 
         // ---- Errors -------------------------------------------------------------------------------------------
 
-        [TestCase("yield 1", "'yield' is not supported yet")]
+        [TestCase("await x", "'await' is not supported yet")]
         public void UnsupportedKeywordsAreRejected(string src, string message)
         {
             Assert.That(Fails(src + "\n").Problem, Is.EqualTo(message));

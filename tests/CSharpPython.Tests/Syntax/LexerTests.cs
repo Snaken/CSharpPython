@@ -38,19 +38,18 @@ namespace CSharpPython.Tests.Syntax
         [Test]
         public void KeywordsAreRecognised()
         {
-            var tokens = Lex("def if elif else while for in return break continue pass and or not is True False None global try except raise import from class as del assert with");
+            var tokens = Lex("def if elif else while for in return break continue pass and or not is True False None global try except raise import from class as del assert with yield");
             var expected = new[]
             {
                 TokenKind.KwDef, TokenKind.KwIf, TokenKind.KwElif, TokenKind.KwElse, TokenKind.KwWhile, TokenKind.KwFor,
                 TokenKind.KwIn, TokenKind.KwReturn, TokenKind.KwBreak, TokenKind.KwContinue, TokenKind.KwPass,
                 TokenKind.KwAnd, TokenKind.KwOr, TokenKind.KwNot, TokenKind.KwIs, TokenKind.KwTrue, TokenKind.KwFalse,
                 TokenKind.KwNone, TokenKind.KwGlobal, TokenKind.KwTry, TokenKind.KwExcept, TokenKind.KwRaise,
-                TokenKind.KwImport, TokenKind.KwFrom, TokenKind.KwClass, TokenKind.KwAs, TokenKind.KwDel, TokenKind.KwAssert, TokenKind.KwWith,
+                TokenKind.KwImport, TokenKind.KwFrom, TokenKind.KwClass, TokenKind.KwAs, TokenKind.KwDel, TokenKind.KwAssert, TokenKind.KwWith, TokenKind.KwYield,
             };
             Assert.That(tokens.Take(expected.Length).Select(t => t.Kind), Is.EqualTo(expected));
         }
 
-        [TestCase("yield")]
         [TestCase("async")]
         [TestCase("await")]
         public void UnsupportedKeywordsAreFlagged(string word)
