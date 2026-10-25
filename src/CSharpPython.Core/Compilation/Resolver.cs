@@ -288,6 +288,9 @@ namespace CSharpPython.Compilation
                 case ListExpr l:
                     foreach (var item in l.Items) VisitTarget(item);
                     break;
+                case StarExpr star:
+                    VisitTarget(star.Value);
+                    break;
             }
         }
 
@@ -358,7 +361,7 @@ namespace CSharpPython.Compilation
                     foreach (var item in se.Items) VisitExpr(item);
                     break;
                 case DictExpr d:
-                    foreach (var k in d.Keys) VisitExpr(k);
+                    foreach (var k in d.Keys) if (k != null) VisitExpr(k);
                     foreach (var v in d.Values) VisitExpr(v);
                     break;
                 case IfExpr i:

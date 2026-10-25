@@ -680,7 +680,7 @@ namespace CSharpPython.Syntax
             throw new PySyntaxError("cannot delete " + Describe(e), e.Line, e.Column);
         }
 
-        private void CheckTarget(Expr e)
+        private void CheckTarget(Expr e, bool inSequence = false)
         {
             switch (e)
             {
@@ -688,14 +688,30 @@ namespace CSharpPython.Syntax
                 case AttributeExpr _:
                 case SubscriptExpr _:
                     return;
+                case StarExpr star:
+                    if (!inSequence) throw new PySyntaxError("starred assignment target must be in a list or tuple", e.Line, e.Column);
+                    if (star.Value is StarExpr) break;
+                    CheckTarget(star.Value);
+                    return;
                 case TupleExpr t:
-                    foreach (var item in t.Items) CheckTarget(item);
+                    CheckSequenceTarget(t.Items, t);
                     return;
                 case ListExpr l:
-                    foreach (var item in l.Items) CheckTarget(item);
+                    CheckSequenceTarget(l.Items, l);
                     return;
             }
             throw new PySyntaxError("cannot assign to " + Describe(e), e.Line, e.Column);
+        }
+
+        private void CheckSequenceTarget(List<Expr> items, Expr at)
+        {
+            int stars = 0;
+            foreach (var item in items)
+            {
+                if (item is StarExpr) stars++;
+                CheckTarget(item, true);
+            }
+            if (stars > 1) throw new PySyntaxError("multiple starred expressions in assignment", at.Line, at.Column);
         }
 
         private static string Describe(Expr e)
@@ -767,17 +783,26 @@ namespace CSharpPython.Syntax
         private Expr ParseExprList()
         {
             var startTok = Cur;
-            var first = ParseTernary();
+            var first = ParseElement();
             if (Cur.Kind != TokenKind.Comma) return first;
 
             var tuple = At(new TupleExpr(), startTok);
             tuple.Items.Add(first);
             while (Accept(TokenKind.Comma))
             {
-                if (!IsExprStart(Cur.Kind)) break;
-                tuple.Items.Add(ParseTernary());
+                if (!IsExprStart(Cur.Kind) && Cur.Kind != TokenKind.Star) break;
+                tuple.Items.Add(ParseElement());
             }
             return tuple;
+        }
+
+        // An item of a display, tuple or assignment target: an expression, or '*expression' (unpacked or collected).
+        // Where a star makes no sense the compiler says so.
+        private Expr ParseElement()
+        {
+            if (Cur.Kind != TokenKind.Star) return ParseTernary();
+            var star = Advance();
+            return At(new StarExpr { Value = ParseTernary() }, star);
         }
 
         private Expr ParseTernary()
@@ -1159,7 +1184,8 @@ namespace CSharpPython.Syntax
                     Expect(TokenKind.RParen, "')'");
                     return y;
                 }
-                var first = ParseTernary();
+                var first = ParseElement();
+                if (first is StarExpr && Cur.Kind != TokenKind.Comma) throw new PySyntaxError("cannot use starred expression here", first.Line, first.Column);
                 if (Cur.Kind == TokenKind.KwFor)
                 {
                     var gen = ParseComprehension(open, first, null, "<genexpr>");
@@ -1176,7 +1202,7 @@ namespace CSharpPython.Syntax
                 while (Accept(TokenKind.Comma))
                 {
                     if (Cur.Kind == TokenKind.RParen) break;
-                    tuple.Items.Add(ParseTernary());
+                    tuple.Items.Add(ParseElement());
                 }
                 Expect(TokenKind.RParen, "')'");
                 return tuple;
@@ -1195,8 +1221,8 @@ namespace CSharpPython.Syntax
             var list = At(new ListExpr(), open);
             while (Cur.Kind != TokenKind.RBracket)
             {
-                list.Items.Add(ParseTernary());
-                if (Cur.Kind == TokenKind.KwFor && list.Items.Count == 1)
+                list.Items.Add(ParseElement());
+                if (Cur.Kind == TokenKind.KwFor && list.Items.Count == 1 && !(list.Items[0] is StarExpr))
                 {
                     var comp = ParseComprehension(open, list.Items[0], null, "<listcomp>");
                     Expect(TokenKind.RBracket, "']'");
@@ -1219,8 +1245,15 @@ namespace CSharpPython.Syntax
             while (Cur.Kind != TokenKind.RBrace)
             {
                 if (Cur.Kind == TokenKind.DoubleStar)
-                    throw Error("dictionary unpacking is not supported yet", Cur);
-                var key = ParseTernary();
+                {
+                    // '**mapping': a null key marks an entry whose value is merged in.
+                    Advance();
+                    dict.Keys.Add(null);
+                    dict.Values.Add(ParseTernary());
+                    if (!Accept(TokenKind.Comma)) break;
+                    continue;
+                }
+                var key = ParseElement();
                 if (Cur.Kind != TokenKind.Colon)
                 {
                     if (dict.Keys.Count == 0 && (Cur.Kind == TokenKind.Comma || Cur.Kind == TokenKind.RBrace || Cur.Kind == TokenKind.KwFor))
@@ -1230,6 +1263,7 @@ namespace CSharpPython.Syntax
                     }
                     throw Error("expected ':' in dictionary literal, found " + Describe(Cur), Cur);
                 }
+                if (key is StarExpr) throw Error("cannot use a starred expression as a dictionary key", Cur);
                 Advance();
                 dict.Keys.Add(key);
                 dict.Values.Add(ParseTernary());
@@ -1252,7 +1286,7 @@ namespace CSharpPython.Syntax
         {
             bool saved = _noIn;
             _noIn = false;
-            if (Cur.Kind == TokenKind.KwFor)
+            if (Cur.Kind == TokenKind.KwFor && !(first is StarExpr))
             {
                 var comp = ParseComprehension(open, first, null, "<setcomp>");
                 Expect(TokenKind.RBrace, "'}'");
@@ -1264,7 +1298,7 @@ namespace CSharpPython.Syntax
             while (Accept(TokenKind.Comma))
             {
                 if (Cur.Kind == TokenKind.RBrace) break;
-                set.Items.Add(ParseTernary());
+                set.Items.Add(ParseElement());
             }
             if (Cur.Kind == TokenKind.Colon) throw Error("':' makes no sense in a set; a dictionary needs a ':' after every key", Cur);
             Expect(TokenKind.RBrace, "'}'");

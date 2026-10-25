@@ -87,6 +87,7 @@ namespace CSharpPython.Compilation
         MakeFunction, // defaults... cells... -> function; arg = index into Code.Functions
 
         UnpackSequence, // seq -> items (first item on top); arg = expected count
+        UnpackEx,     // seq -> items with the middle collected in a list (first on top); arg = items before | items after << 16
 
         SetupTry,     // arg = handler address
         PopTry,
@@ -104,6 +105,12 @@ namespace CSharpPython.Compilation
         ListExtend,   // list iterable -> list
         DictSetUnique, // dict key value -> dict; refuses a repeated key
         DictMerge,    // dict mapping -> dict; refuses repeated keys
+        // Displays with '*iterable' and '**mapping' items are built the same way, one item at a time.
+        ListToTuple,  // list -> tuple
+        SetAdd,       // set value -> set
+        SetUpdate,    // set iterable -> set
+        DictSet,      // dict key value -> dict; a repeated key replaces the earlier value
+        DictUpdate,   // dict mapping -> dict; later keys replace earlier ones
         CallEx,       // callable [self] args-list [kwargs-dict] -> result; arg bit 0 = has kwargs dict, bit 1 = method call
 
         ClassNamespace, // -> dict of the class body's assigned names; ends a class body
@@ -257,6 +264,11 @@ namespace CSharpPython.Compilation
                     case Op.GetIter:
                     case Op.ListAppend:
                     case Op.ListExtend:
+                    case Op.ListToTuple:
+                    case Op.SetAdd:
+                    case Op.SetUpdate:
+                    case Op.DictSet:
+                    case Op.DictUpdate:
                     case Op.DictSetUnique:
                     case Op.DictMerge:
                     case Op.Return:

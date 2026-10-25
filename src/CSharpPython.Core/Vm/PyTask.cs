@@ -559,13 +559,44 @@ namespace CSharpPython
                     case Op.ListExtend:
                     {
                         Value source = _stack[--_sp];
-                        if (source.Kind != ValueKind.List && source.Kind != ValueKind.Tuple && source.Kind != ValueKind.Str
-                            && source.Kind != ValueKind.Range && source.Kind != ValueKind.Dict && source.Kind != ValueKind.Set && source.Kind != ValueKind.Iterator
-                            && !(source.Kind == ValueKind.Instance && Ops.IsIterable(source)))
-                            throw new PyError("TypeError", "argument after * must be an iterable, not " + source.TypeName);
                         var list = (PyList)_stack[_sp - 1].RawObject;
-                        list.Items.AddRange(Ops.ToList(source));
+                        list.Items.AddRange(SpreadItems(source, ins.Arg == 1));
                         if (list.Count > Ops.MaxSequenceLength) throw new PyError("MemoryError", "sequence too long");
+                        break;
+                    }
+                    case Op.ListToTuple:
+                    {
+                        var list = (PyList)_stack[_sp - 1].RawObject;
+                        _stack[_sp - 1] = Value.FromTuple(new PyTuple(list.Items.ToArray()));
+                        break;
+                    }
+                    case Op.SetAdd:
+                    {
+                        Value item = _stack[--_sp];
+                        ((PySet)_stack[_sp - 1].RawObject).Add(item);
+                        break;
+                    }
+                    case Op.SetUpdate:
+                    {
+                        Value source = _stack[--_sp];
+                        var set = (PySet)_stack[_sp - 1].RawObject;
+                        foreach (var item in SpreadItems(source, true)) set.Add(item);
+                        break;
+                    }
+                    case Op.DictSet:
+                    {
+                        Value val = _stack[--_sp];
+                        Value key = _stack[--_sp];
+                        ((PyDict)_stack[_sp - 1].RawObject).Set(key, val);
+                        break;
+                    }
+                    case Op.DictUpdate:
+                    {
+                        Value source = _stack[--_sp];
+                        if (source.Kind != ValueKind.Dict)
+                            throw new PyError("TypeError", "'" + source.TypeName + "' object is not a mapping");
+                        var dict = (PyDict)_stack[_sp - 1].RawObject;
+                        foreach (var pair in new List<KeyValuePair<Value, Value>>(((PyDict)source.RawObject).Pairs())) dict.Set(pair.Key, pair.Value);
                         break;
                     }
                     case Op.DictSetUnique:
@@ -1023,14 +1054,20 @@ namespace CSharpPython
                         break;
                     }
 
+                    case Op.UnpackEx:
+                    {
+                        var all = UnpackSource(_stack[--_sp]);
+                        int before = ins.Arg & 0xFFFF, after = ins.Arg >> 16;
+                        if (all.Count < before + after)
+                            throw new PyError("ValueError", "not enough values to unpack (expected at least " + (before + after) + ", got " + all.Count + ")");
+                        for (int k = 0; k < after; k++) Push(all[all.Count - 1 - k]);
+                        Push(Value.FromList(new PyList(all.GetRange(before, all.Count - before - after))));
+                        for (int k = before - 1; k >= 0; k--) Push(all[k]);
+                        break;
+                    }
                     case Op.UnpackSequence:
                     {
-                        Value seq = _stack[--_sp];
-                        if (seq.Kind != ValueKind.List && seq.Kind != ValueKind.Tuple && seq.Kind != ValueKind.Str
-                            && seq.Kind != ValueKind.Range && seq.Kind != ValueKind.Dict && seq.Kind != ValueKind.Set && seq.Kind != ValueKind.Iterator
-                            && !(seq.Kind == ValueKind.Instance && Ops.IsIterable(seq)))
-                            throw new PyError("TypeError", "cannot unpack non-iterable " + seq.TypeName + " object");
-                        var items = Ops.ToList(seq);
+                        var items = UnpackSource(_stack[--_sp]);
                         if (items.Count < ins.Arg)
                             throw new PyError("ValueError", "not enough values to unpack (expected " + ins.Arg + ", got " + items.Count + ")");
                         if (items.Count > ins.Arg)
@@ -1719,6 +1756,26 @@ namespace CSharpPython
         // ---- Stack and frames -----------------------------------------------------------------------------------
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        // The items of the iterable after a '*' in a call (display = false) or in a list, tuple or set display.
+        private static List<Value> SpreadItems(Value source, bool display)
+        {
+            if (source.Kind != ValueKind.List && source.Kind != ValueKind.Tuple && source.Kind != ValueKind.Str
+                && source.Kind != ValueKind.Range && source.Kind != ValueKind.Dict && source.Kind != ValueKind.Set && source.Kind != ValueKind.Iterator
+                && !(source.Kind == ValueKind.Instance && Ops.IsIterable(source)))
+                throw new PyError("TypeError", (display ? "Value after * must be an iterable, not " : "argument after * must be an iterable, not ") + source.TypeName);
+            return Ops.ToList(source);
+        }
+
+        // The items of what is being unpacked, or the TypeError for something that is not iterable.
+        private static List<Value> UnpackSource(Value seq)
+        {
+            if (seq.Kind != ValueKind.List && seq.Kind != ValueKind.Tuple && seq.Kind != ValueKind.Str
+                && seq.Kind != ValueKind.Range && seq.Kind != ValueKind.Dict && seq.Kind != ValueKind.Set && seq.Kind != ValueKind.Iterator
+                && !(seq.Kind == ValueKind.Instance && Ops.IsIterable(seq)))
+                throw new PyError("TypeError", "cannot unpack non-iterable " + seq.TypeName + " object");
+            return Ops.ToList(seq);
+        }
+
         private void Push(Value v)
         {
             if (_sp == _stack.Length) Array.Resize(ref _stack, _stack.Length * 2);

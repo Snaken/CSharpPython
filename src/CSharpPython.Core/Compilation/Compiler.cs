@@ -307,13 +307,49 @@ namespace CSharpPython.Compilation
                     Emit(Op.StoreIndex);
                     break;
                 case TupleExpr t:
-                    Emit(Op.UnpackSequence, t.Items.Count);
-                    foreach (var item in t.Items) CompileStore(item);
+                    CompileUnpack(t.Items);
                     break;
                 case ListExpr l:
-                    Emit(Op.UnpackSequence, l.Items.Count);
-                    foreach (var item in l.Items) CompileStore(item);
+                    CompileUnpack(l.Items);
                     break;
+                case StarExpr star:
+                    throw Error("starred assignment target must be in a list or tuple", star);
+            }
+        }
+
+        // 'a, b = seq' and 'a, *rest, b = seq'.
+        private void CompileUnpack(List<Expr> items)
+        {
+            int star = items.FindIndex(x => x is StarExpr);
+            if (star < 0)
+            {
+                Emit(Op.UnpackSequence, items.Count);
+                foreach (var item in items) CompileStore(item);
+                return;
+            }
+            int before = star, after = items.Count - star - 1;
+            if (before > 0xFFFF || after > 0xFFFF) throw Error("too many expressions in star-unpacking assignment", items[star]);
+            Emit(Op.UnpackEx, before | (after << 16));
+            for (int i = 0; i < items.Count; i++) CompileStore(i == star ? ((StarExpr)items[i]).Value : items[i]);
+        }
+
+        // A display with '*iterable' items is built up one item at a time.
+        private void CompileSpreadDisplay(List<Expr> items, Op build, Op add, Op update)
+        {
+            Emit(build, 0);
+            foreach (var item in items)
+            {
+                if (item is StarExpr star)
+                {
+                    CompileExpr(star.Value);
+                    SetLine(star);
+                    Emit(update, 1);
+                }
+                else
+                {
+                    CompileExpr(item);
+                    Emit(add);
+                }
             }
         }
 
@@ -704,21 +740,51 @@ namespace CSharpPython.Compilation
                     Emit(Op.LoadIndex);
                     break;
                 case ListExpr l:
+                    if (l.Items.Exists(x => x is StarExpr))
+                    {
+                        CompileSpreadDisplay(l.Items, Op.BuildList, Op.ListAppend, Op.ListExtend);
+                        break;
+                    }
                     foreach (var item in l.Items) CompileExpr(item);
                     Emit(Op.BuildList, l.Items.Count);
                     break;
                 case TupleExpr t:
+                    if (t.Items.Exists(x => x is StarExpr))
+                    {
+                        CompileSpreadDisplay(t.Items, Op.BuildList, Op.ListAppend, Op.ListExtend);
+                        Emit(Op.ListToTuple);
+                        break;
+                    }
                     foreach (var item in t.Items) CompileExpr(item);
                     Emit(Op.BuildTuple, t.Items.Count);
                     break;
+                case StarExpr star:
+                    throw Error("cannot use starred expression here", star);
                 case YieldExpr y:
                     CompileYield(y);
                     break;
                 case SetExpr se:
+                    if (se.Items.Exists(x => x is StarExpr))
+                    {
+                        CompileSpreadDisplay(se.Items, Op.BuildSet, Op.SetAdd, Op.SetUpdate);
+                        break;
+                    }
                     foreach (var item in se.Items) CompileExpr(item);
                     Emit(Op.BuildSet, se.Items.Count);
                     break;
                 case DictExpr d:
+                    if (d.Keys.Contains(null))
+                    {
+                        Emit(Op.BuildDict, 0);
+                        for (int i = 0; i < d.Keys.Count; i++)
+                        {
+                            if (d.Keys[i] != null) CompileExpr(d.Keys[i]);
+                            CompileExpr(d.Values[i]);
+                            SetLine(d.Values[i]);
+                            Emit(d.Keys[i] != null ? Op.DictSet : Op.DictUpdate);
+                        }
+                        break;
+                    }
                     for (int i = 0; i < d.Keys.Count; i++)
                     {
                         CompileExpr(d.Keys[i]);
