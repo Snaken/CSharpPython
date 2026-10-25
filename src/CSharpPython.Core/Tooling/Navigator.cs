@@ -64,26 +64,33 @@ namespace CSharpPython.Editor
         }
 
         // 'f(name=1)': the name before '=' directly inside a call's parentheses labels an argument.
-        private static bool IsKeywordArgument(List<Token> tokens, int index)
+        private static bool IsKeywordArgument(List<Token> tokens, int index) => KeywordCalleeOf(tokens, index) >= 0;
+
+        // The index of the token naming the callee when tokens[index] labels a keyword argument, else -1.
+        internal static int KeywordCalleeOf(List<Token> tokens, int index)
         {
-            if (index + 1 >= tokens.Count || tokens[index + 1].Kind != TokenKind.Assign || index == 0) return false;
+            if (index + 1 >= tokens.Count || tokens[index + 1].Kind != TokenKind.Assign || index == 0) return -1;
             var prev = tokens[index - 1].Kind;
-            if (prev != TokenKind.LParen && prev != TokenKind.Comma) return false;
+            if (prev != TokenKind.LParen && prev != TokenKind.Comma) return -1;
             int depth = 0;
             for (int i = index - 1; i >= 0; i--)
             {
                 var k = tokens[i].Kind;
                 if (k == TokenKind.RParen || k == TokenKind.RBracket || k == TokenKind.RBrace) depth++;
-                else if (k == TokenKind.LBracket || k == TokenKind.LBrace) { if (depth > 0) depth--; else return false; }
+                else if (k == TokenKind.LBracket || k == TokenKind.LBrace) { if (depth > 0) depth--; else return -1; }
                 else if (k == TokenKind.LParen)
                 {
                     if (depth > 0) depth--;
-                    else return i > 0 && (tokens[i - 1].Kind == TokenKind.Name || tokens[i - 1].Kind == TokenKind.RParen) &&
-                                !(i > 1 && (tokens[i - 2].Kind == TokenKind.KwDef || tokens[i - 2].Kind == TokenKind.KwClass));
+                    else
+                    {
+                        bool call = i > 0 && (tokens[i - 1].Kind == TokenKind.Name || tokens[i - 1].Kind == TokenKind.RParen) &&
+                                    !(i > 1 && (tokens[i - 2].Kind == TokenKind.KwDef || tokens[i - 2].Kind == TokenKind.KwClass));
+                        return call ? i - 1 : -1;
+                    }
                 }
-                else if (k == TokenKind.Newline && depth == 0) return false;
+                else if (k == TokenKind.Newline && depth == 0) return -1;
             }
-            return false;
+            return -1;
         }
 
         private static int LineOf(List<Token> tokens, int offset)

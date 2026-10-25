@@ -14,7 +14,7 @@ A Python-style language parser, compiler and bytecode VM written in plain C#, de
 - Host-defined events: the host queues an event by name and the script's `def` of that name handles it.
 - Host API: register modules of native functions and constants; host objects are passed as plain-data handles (type id + id).
 - Python-style tracebacks with line numbers, and an error-tolerant lexer for editor tooling.
-- Editor tooling for in-game script editors: syntax highlighting, auto-complete, signature help, go-to-definition and diagnostics that work on half-typed code.
+- Editor tooling for in-game script editors: syntax highlighting, auto-complete, signature help, go-to-definition, find references, rename and diagnostics that work on half-typed code.
 - Blocks: a Blueprint-style node graph (execution and value pins, user-made blocks) that compiles to ordinary Python source, with a source map back to the blocks.
 - Optional save and resume of a running task (globals, call stack, waits, queued events), for offline progress and save games.
 
@@ -98,12 +98,19 @@ if (help != null) Show(help.Label, help.Parameters, help.ActiveParameter);   // 
 DefinitionLocation def = Navigator.FindDefinition(source, cursorOffset);
 if (def != null) MoveCursorTo(def.Offset);                                    // also def.Line, def.Column, def.Kind
 
+// Every place that name is defined or used (find all references), and a safe rename.
+IReadOnlyList<ReferenceLocation> uses = Refactoring.FindReferences(source, cursorOffset);   // also .IsDefinition
+RenameResult renamed = Refactoring.Rename(source, cursorOffset, "newName");
+if (renamed.Success) SetText(renamed.NewSource); else ShowError(renamed.Error);
+
 // Problems to underline: every lexical error, otherwise the first syntax or scoping error.
 foreach (var problem in Analyzer.Analyze(source))
     Underline(problem.Line, problem.Column, problem.Length, problem.Message);
 ```
 
 Passing the `PyVm` makes built-ins and host modules known: `game.` completes to the functions and constants of your `game` module, and `print` is coloured as a built-in. Completion offers the script's own names (respecting function scope), built-ins, keywords that make sense at that position, module names after `import`, members after `from m import`, and methods after a dot when the value's type is obvious from a literal, a constructor call or an assignment (otherwise every method name is offered).
+
+Rename changes a function, class, variable or parameter everywhere the script uses it (including `name=` keyword arguments at calls of a renamed parameter) and leaves `obj.name` attributes alone. It refuses, changing nothing and saying why, for imported names, methods and class attributes, names used in `global`/`nonlocal`, an invalid new name, or a new name already in use.
 
 Signature help covers the script's own functions (including `*args`, `**kwargs` and keyword-only parameters), built-ins, standard modules, methods of values whose type is obvious, and host module functions. Native functions don't carry parameter names, so give yours a description with `module.Describe("spawn", "kind, count=1")` (or `NativeFunction.Signature`); without one the editor shows a made-up list such as `arg1, arg2=...` from the argument counts.
 
@@ -226,7 +233,7 @@ The test suite is large and uses CPython 3 as an oracle for language semantics; 
 ## Roadmap
 
 - Blocks: more block kinds as they are needed.
-- Editor tooling: references and rename, hover documentation.
+- Editor tooling: hover documentation.
 - Language: more special methods (`__getattr__`, `__format__`, ...), dict views, slice assignment, big ints.
 
 ## License

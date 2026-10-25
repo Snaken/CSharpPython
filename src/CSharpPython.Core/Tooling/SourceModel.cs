@@ -56,6 +56,9 @@ namespace CSharpPython.Editor
 
         // ---- Queries --------------------------------------------------------------------------------------------
 
+        /// <summary>True when <paramref name="scope"/> is the body of a class rather than of a function.</summary>
+        public bool IsClassScope(FunctionScope scope) => scope != null && ClassScopes.ContainsValue(scope);
+
         public IEnumerable<Definition> VisibleAt(int offset)
         {
             foreach (var d in Definitions)
