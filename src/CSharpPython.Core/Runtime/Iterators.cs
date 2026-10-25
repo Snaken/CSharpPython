@@ -213,4 +213,64 @@ namespace CSharpPython
             return true;
         }
     }
+    internal sealed class MapIterator : PyIterator
+    {
+        private readonly Value _function;
+        private readonly PyIterator[] _sources;
+
+        public MapIterator(Value function, PyIterator[] sources)
+        {
+            _function = function;
+            _sources = sources;
+        }
+
+        public Value Function => _function;
+
+        public PyIterator[] Sources => _sources;
+
+        public override bool Next(out Value value)
+        {
+            var args = new Value[_sources.Length];
+            for (int i = 0; i < _sources.Length; i++)
+            {
+                if (!_sources[i].Next(out args[i])) { value = default; return false; }
+            }
+            var task = PyTask.Current;
+            if (task == null) throw new PyError("RuntimeError", "map() can only be consumed while a script is running");
+            value = task.CallSync(_function, args);
+            return true;
+        }
+    }
+
+    internal sealed class FilterIterator : PyIterator
+    {
+        private readonly Value _function;
+        private readonly PyIterator _source;
+
+        public FilterIterator(Value function, PyIterator source)
+        {
+            _function = function;
+            _source = source;
+        }
+
+        public Value Function => _function;
+
+        public PyIterator Source => _source;
+
+        public override bool Next(out Value value)
+        {
+            while (_source.Next(out value))
+            {
+                if (_function.IsNone)
+                {
+                    if (value.IsTruthy) return true;
+                    continue;
+                }
+                var task = PyTask.Current;
+                if (task == null) throw new PyError("RuntimeError", "filter() can only be consumed while a script is running");
+                if (task.CallSync(_function, new[] { value }).IsTruthy) return true;
+            }
+            return false;
+        }
+    }
 }

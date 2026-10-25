@@ -69,6 +69,7 @@ namespace CSharpPython.Tests.Vm
 
         private static readonly string[] Scripts =
         {
+            "def f(x):\n    return x * 2\nm = map(f, [1, 2, 3])\nn = map(lambda a, b: a + b, [1, 2, 3], (4, 5, 6))\nk = filter(lambda x: x > 1, [1, 2, 3])\nprint(next(m), next(n), next(k))\nprint(list(m), list(n), list(k))\nprint(list(filter(None, [0, 1, 2])))",
             "a = [1, 2]\nd = {'k': 1}\nprint([*a, 3], (*a, 4), {*a, 5} == {1, 2, 5}, {**d, 'j': 2})\nh, *t = [*a, *a]\nprint(h, t)\nfor x, *y in [(1, 2, 3), (4,)]:\n    print(x, y)",
             "xs = list(range(8))\nxs[1:3] = ['a', 'b', 'c']\nxs[::2] = [0] * 5\nxs[2:2] = [9]\nprint(xs)",
             "for i in range(3):\n    if i == 5:\n        break\nelse:\n    print('else', i)\nwhile True:\n    break\nelse:\n    print('no')\nprint('end')",

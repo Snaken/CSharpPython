@@ -191,6 +191,14 @@ namespace CSharpPython
                 case ZipIterator z:
                     foreach (var s in z.Sources) Collect(Value.FromIterator(s));
                     break;
+                case MapIterator m:
+                    Collect(m.Function);
+                    foreach (var s in m.Sources) Collect(Value.FromIterator(s));
+                    break;
+                case FilterIterator f:
+                    Collect(f.Function);
+                    Collect(Value.FromIterator(f.Source));
+                    break;
             }
         }
 
@@ -398,6 +406,17 @@ namespace CSharpPython
                     w.Write((byte)6);
                     w.Write(z.Sources.Length);
                     foreach (var src in z.Sources) WriteValue(w, Value.FromIterator(src));
+                    break;
+                case MapIterator m:
+                    w.Write((byte)9);
+                    WriteValue(w, m.Function);
+                    w.Write(m.Sources.Length);
+                    foreach (var src in m.Sources) WriteValue(w, Value.FromIterator(src));
+                    break;
+                case FilterIterator f:
+                    w.Write((byte)10);
+                    WriteValue(w, f.Function);
+                    WriteValue(w, Value.FromIterator(f.Source));
                     break;
                 case InstanceIterator i:
                     w.Write((byte)7);
@@ -815,6 +834,19 @@ namespace CSharpPython
                     return new InstanceIterator(target);
                 }
                 case 8: return ReadGenerator(r);
+                case 9:
+                {
+                    Value function = ReadValue(r);
+                    int n = SnapshotIo.ReadCount(r, 5);
+                    var sources = new PyIterator[n];
+                    for (int i = 0; i < n; i++) sources[i] = AsIterator(ReadValue(r));
+                    return new MapIterator(function, sources);
+                }
+                case 10:
+                {
+                    Value function = ReadValue(r);
+                    return new FilterIterator(function, AsIterator(ReadValue(r)));
+                }
                 default:
                     throw new SnapshotException("the snapshot is damaged");
             }

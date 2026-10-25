@@ -101,6 +101,23 @@ namespace CSharpPython
                 for (int i = 0; i < a.Length; i++) sources[i] = Ops.GetIterator(a[i]);
                 return Value.FromIterator(new ZipIterator(sources));
             });
+            yield return F("map", 2, -1, (c, a) =>
+            {
+                var sources = new PyIterator[a.Length - 1];
+                for (int i = 1; i < a.Length; i++) sources[i - 1] = Ops.GetIterator(a[i]);
+                return Value.FromIterator(new MapIterator(a[0], sources));
+            });
+            yield return F("filter", 2, 2, (c, a) => Value.FromIterator(new FilterIterator(a[0], Ops.GetIterator(a[1]))));
+            yield return F("bin", 1, 1, (c, a) => Value.FromString(Radix(a[0], 2, "0b", "bin")));
+            yield return F("oct", 1, 1, (c, a) => Value.FromString(Radix(a[0], 8, "0o", "oct")));
+            yield return F("hex", 1, 1, (c, a) => Value.FromString(Radix(a[0], 16, "0x", "hex")));
+            yield return F("id", 1, 1, (c, a) => Value.FromInt(a[0].RawObject == null ? Ops.Hash(a[0]) : System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(a[0].RawObject)));
+            yield return F("delattr", 2, 2, (c, a) =>
+            {
+                Ops.DelAttr(a[0], NameArg(a[1], "delattr"));
+                return Value.None;
+            });
+            yield return F("ascii", 1, 1, (c, a) => Value.FromString(Ascii(Ops.Repr(a[0]))));
             yield return F("reversed", 1, 1, Reversed);
             yield return F("any", 1, 1, (c, a) => Value.FromBool(Ops.ToList(a[0]).Any(v => v.IsTruthy)));
             yield return F("all", 1, 1, (c, a) => Value.FromBool(Ops.ToList(a[0]).All(v => v.IsTruthy)));
@@ -422,6 +439,33 @@ namespace CSharpPython
             for (int i = 0; i < ctx.KeywordNames.Length; i++)
                 dict.Set(Value.FromString(ctx.KeywordNames[i]), a[ctx.PositionalCount + i]);
             return Value.FromDict(dict);
+        }
+
+        private static string Radix(Value v, int radix, string prefix, string function)
+        {
+            if (v.Kind != ValueKind.Int && v.Kind != ValueKind.Bool)
+                throw Ops.TypeError("'" + v.TypeName + "' object cannot be interpreted as an integer");
+            long n = v.AsInt();
+            if (n == long.MinValue) throw Ops.ValueError(function + "() argument is out of range");
+            string digits = "";
+            ulong m = (ulong)Math.Abs(n);
+            do { digits = "0123456789abcdef"[(int)(m % (ulong)radix)] + digits; m /= (ulong)radix; } while (m > 0);
+            return (n < 0 ? "-" : "") + prefix + digits;
+        }
+
+        private static string Ascii(string text)
+        {
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < text.Length; i++)
+            {
+                int cp = char.IsHighSurrogate(text[i]) && i + 1 < text.Length ? char.ConvertToUtf32(text[i], text[i + 1]) : text[i];
+                if (cp > 0xFFFF) i++;
+                if (cp < 128) sb.Append((char)cp);
+                else if (cp < 0x100) sb.Append("\\x").Append(cp.ToString("x2"));
+                else if (cp < 0x10000) sb.Append("\\u").Append(cp.ToString("x4"));
+                else sb.Append("\\U").Append(cp.ToString("x8"));
+            }
+            return sb.ToString();
         }
 
         private static Value Enumerate(CallContext ctx, ReadOnlySpan<Value> a)
