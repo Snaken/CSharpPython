@@ -13,6 +13,10 @@ namespace CSharpPython
         private static readonly Dictionary<string, NativeFunction> DictMethods = new Dictionary<string, NativeFunction>();
         private static readonly Dictionary<string, NativeFunction> TupleMethods = new Dictionary<string, NativeFunction>();
 
+        // What super() reaches once the script classes run out: the methods every object has. They are looked up by
+        // name when a snapshot is restored, which is why they live in a table instead of being made on the spot.
+        private static readonly Dictionary<string, NativeFunction> InstanceMethods = new Dictionary<string, NativeFunction>();
+
         public static NativeFunction Find(ValueKind kind, string name)
         {
             Dictionary<string, NativeFunction> table;
@@ -22,6 +26,7 @@ namespace CSharpPython
                 case ValueKind.List: table = ListMethods; break;
                 case ValueKind.Dict: table = DictMethods; break;
                 case ValueKind.Tuple: table = TupleMethods; break;
+                case ValueKind.Instance: table = InstanceMethods; break;
                 default: return null;
             }
             return table.TryGetValue(name, out var fn) ? fn : null;
@@ -52,6 +57,34 @@ namespace CSharpPython
             InstallList();
             InstallDict();
             InstallTuple();
+            InstallInstance();
+        }
+
+        private static void InstallInstance()
+        {
+            var t = InstanceMethods;
+            Add(t, "object", "__init__", 0, -1, (c, a) =>
+            {
+                var instance = (PyInstance)a[0].RawObject;
+                if (instance.Class.ExceptionRoot == null)
+                {
+                    if (a.Length > 1)
+                        throw new PyError("TypeError", "object.__init__() takes exactly one argument (the instance to initialize)");
+                    return Value.None;
+                }
+                var items = new Value[a.Length - 1];
+                for (int i = 0; i < items.Length; i++) items[i] = a[i + 1];
+                instance.Fields.Set(Value.FromString("args"), Value.FromTuple(new PyTuple(items)));
+                return Value.None;
+            });
+            Add(t, "object", "__str__", 0, 0, (c, a) =>
+            {
+                var instance = (PyInstance)a[0].RawObject;
+                return Value.FromString(instance.Class.ExceptionRoot != null
+                    ? Ops.ExceptionArgsText(instance) : Ops.DefaultInstanceRepr(instance));
+            });
+            Add(t, "object", "__repr__", 0, 0, (c, a) =>
+                Value.FromString(Ops.DefaultInstanceRepr((PyInstance)a[0].RawObject)));
         }
 
         // ---- Argument helpers -----------------------------------------------------------------------------------

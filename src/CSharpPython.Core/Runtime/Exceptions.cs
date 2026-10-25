@@ -105,7 +105,26 @@ namespace CSharpPython
     public sealed class PyExceptionValue
     {
         public readonly PyExceptionType Type;
-        public readonly string Message;
+
+        // For an exception made from an instance of a script class, the message is worked out on first use.
+        private string _message;
+        private readonly PyInstance _instance;
+
+        /// <summary>The instance, when this exception was raised from an instance of a script exception class.</summary>
+        internal PyInstance Instance => _instance;
+
+        public string Message
+        {
+            get
+            {
+                if (_message == null)
+                {
+                    try { _message = Ops.Str(Value.FromInstance(_instance)); }
+                    catch (System.Exception) { _message = Ops.ExceptionArgsText(_instance); }
+                }
+                return _message;
+            }
+        }
 
         /// <summary>The innermost frame first. Filled in when the exception is raised.</summary>
         public List<TraceFrame> Trace = new List<TraceFrame>();
@@ -113,9 +132,19 @@ namespace CSharpPython
         public PyExceptionValue(PyExceptionType type, string message)
         {
             Type = type;
-            Message = message ?? "";
+            _message = message ?? "";
         }
 
-        public override string ToString() => Message.Length == 0 ? Type.Name : Type.Name + ": " + Message;
+        internal PyExceptionValue(PyInstance instance)
+        {
+            _instance = instance;
+            Type = instance.Class.ExceptionRoot;
+            if (instance.Trace != null) Trace = instance.Trace;
+        }
+
+        /// <summary>The name of the exception's class: the script class for one raised from an instance.</summary>
+        internal string TypeName => _instance != null ? _instance.Class.Name : Type.Name;
+
+        public override string ToString() => Message.Length == 0 ? TypeName : TypeName + ": " + Message;
     }
 }

@@ -15,8 +15,41 @@ namespace CSharpPython
         {
             if (v.Kind == ValueKind.Str) return (string)v.RawObject;
             if (v.Kind == ValueKind.Exception) return ((PyExceptionValue)v.RawObject).Message;
-            if (v.Kind == ValueKind.Instance && CallDunder(v, "__str__", out string text)) return text;
+            if (v.Kind == ValueKind.Instance)
+            {
+                if (CallDunder(v, "__str__", out string text)) return text;
+                var instance = (PyInstance)v.RawObject;
+                // An exception class without __str__ shows its arguments, but __repr__ is not used for it.
+                if (instance.Class.ExceptionRoot != null && !instance.Class.TryFind("__repr__", out _)) return ExceptionArgsText(instance);
+            }
             return Repr(v);
+        }
+
+        private static PyTuple ArgsOf(PyInstance instance) =>
+            instance.Fields.TryGetValue(Value.FromString("args"), out Value args) && args.Kind == ValueKind.Tuple
+                ? (PyTuple)args.RawObject
+                : new PyTuple(new Value[0]);
+
+        /// <summary>What <c>str(e)</c> gives for an exception instance: nothing, the one argument, or the tuple of them.</summary>
+        internal static string ExceptionArgsText(PyInstance instance)
+        {
+            var items = ArgsOf(instance).Items;
+            if (items.Length == 0) return "";
+            return items.Length == 1 ? Str(items[0]) : Repr(Value.FromTuple(new PyTuple(items)));
+        }
+
+        /// <summary>The text <c>repr</c> gives for an instance that does not define <c>__repr__</c>.</summary>
+        internal static string DefaultInstanceRepr(PyInstance instance)
+        {
+            if (instance.Class.ExceptionRoot == null) return instance.DefaultRepr();
+            var items = ArgsOf(instance).Items;
+            var sb = new StringBuilder(instance.Class.Name).Append('(');
+            for (int i = 0; i < items.Length; i++)
+            {
+                if (i > 0) sb.Append(", ");
+                sb.Append(Repr(items[i]));
+            }
+            return sb.Append(')').ToString();
         }
 
         // Runs the instance's __str__ or __repr__ if its class defines one. Outside a running script (the host
@@ -96,7 +129,7 @@ namespace CSharpPython
                 }
                 case ValueKind.Class: sb.Append("<class '__main__.").Append(((PyClass)v.RawObject).Name).Append("'>"); return;
                 case ValueKind.Instance:
-                    sb.Append(CallDunder(v, "__repr__", out string text) ? text : ((PyInstance)v.RawObject).DefaultRepr());
+                    sb.Append(CallDunder(v, "__repr__", out string text) ? text : DefaultInstanceRepr((PyInstance)v.RawObject));
                     return;
                 case ValueKind.ScriptMethod:
                 {

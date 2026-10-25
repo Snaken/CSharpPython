@@ -871,21 +871,26 @@ namespace CSharpPython
                     case Op.Raise:
                     {
                         Value v = _stack[--_sp];
-                        if (v.Kind == ValueKind.Exception) throw new ScriptRaise((PyExceptionValue)v.RawObject);
                         if (v.Kind == ValueKind.ExceptionType)
                             throw new ScriptRaise(new PyExceptionValue((PyExceptionType)v.RawObject, ""));
-                        throw new PyError("TypeError", "exceptions must derive from BaseException");
+                        if (v.Kind == ValueKind.Class && ((PyClass)v.RawObject).ExceptionRoot != null)
+                            v = CallSync(v, Array.Empty<Value>()); // 'raise MyError' makes the instance
+                        var raised = AsException(v);
+                        if (raised == null) throw new PyError("TypeError", "exceptions must derive from BaseException");
+                        throw new ScriptRaise(raised);
                     }
                     case Op.Reraise:
-                        throw new ScriptRaise((PyExceptionValue)_stack[--_sp].RawObject);
+                        throw new ScriptRaise(AsException(_stack[--_sp]));
                     case Op.RaiseCurrent:
-                        if (frame.ExcInfo.Kind != ValueKind.Exception)
-                            throw new PyError("RuntimeError", "No active exception to reraise");
-                        throw new ScriptRaise((PyExceptionValue)frame.ExcInfo.RawObject);
+                    {
+                        var current = AsException(frame.ExcInfo);
+                        if (current == null) throw new PyError("RuntimeError", "No active exception to reraise");
+                        throw new ScriptRaise(current);
+                    }
                     case Op.MatchException:
                     {
                         Value type = _stack[--_sp];
-                        var exc = (PyExceptionValue)_stack[_sp - 1].RawObject;
+                        var exc = AsException(_stack[_sp - 1]);
                         Push(Value.FromBool(MatchesType(exc, type)));
                         break;
                     }
@@ -911,20 +916,35 @@ namespace CSharpPython
             }
         }
 
+        // The exception for a value on the stack: the built-in kind, or an instance of a script exception class.
+        // Null if the value is not an exception.
+        private static PyExceptionValue AsException(Value v)
+        {
+            if (v.Kind == ValueKind.Exception) return (PyExceptionValue)v.RawObject;
+            if (v.Kind == ValueKind.Instance && ((PyInstance)v.RawObject).Class.ExceptionRoot != null)
+                return new PyExceptionValue((PyInstance)v.RawObject);
+            return null;
+        }
+
+        private static Value ValueOf(PyExceptionValue exc) =>
+            exc.Instance != null ? Value.FromInstance(exc.Instance) : Value.FromException(exc);
+
         private static bool MatchesType(PyExceptionValue exc, Value type)
         {
-            if (type.Kind == ValueKind.ExceptionType) return exc.Type.IsSubclassOf((PyExceptionType)type.RawObject);
             if (type.Kind == ValueKind.Tuple)
             {
                 bool matched = false;
                 foreach (var item in ((PyTuple)type.RawObject).Items)
                 {
-                    if (item.Kind != ValueKind.ExceptionType)
+                    if (item.Kind == ValueKind.Tuple)
                         throw new PyError("TypeError", "catching classes that do not inherit from BaseException is not allowed");
-                    if (exc.Type.IsSubclassOf((PyExceptionType)item.RawObject)) matched = true;
+                    if (MatchesType(exc, item)) matched = true;
                 }
                 return matched;
             }
+            if (type.Kind == ValueKind.ExceptionType) return exc.Type.IsSubclassOf((PyExceptionType)type.RawObject);
+            if (type.Kind == ValueKind.Class && ((PyClass)type.RawObject).ExceptionRoot != null)
+                return exc.Instance != null && exc.Instance.Class.IsSubclassOf((PyClass)type.RawObject);
             throw new PyError("TypeError", "catching classes that do not inherit from BaseException is not allowed");
         }
 
@@ -1028,6 +1048,14 @@ namespace CSharpPython
         {
             var cls = (PyClass)callee.RawObject;
             var self = Value.FromInstance(new PyInstance(cls));
+            bool isException = cls.ExceptionRoot != null;
+            if (isException)
+            {
+                // Like BaseException, the positional arguments become .args whatever __init__ does with them.
+                var given = new Value[positional];
+                Array.Copy(_stack, argStart, given, 0, positional);
+                ((PyInstance)self.RawObject).Fields.Set(Value.FromString("args"), Value.FromTuple(new PyTuple(given)));
+            }
             if (cls.TryFind("__init__", out Value init))
             {
                 if (init.Kind != ValueKind.Function) throw new PyError("TypeError", "__init__ must be a function");
@@ -1038,7 +1066,8 @@ namespace CSharpPython
                 frame.Constructed = self;
                 return CallFrame;
             }
-            if (argc > 0) throw new PyError("TypeError", cls.Name + "() takes no arguments");
+            if (isException && argc > 0 && kwNames != null) throw new PyError("TypeError", cls.Name + "() takes no keyword arguments");
+            if (argc > 0 && !isException) throw new PyError("TypeError", cls.Name + "() takes no arguments");
             _sp = calleeIndex;
             Push(self);
             return CallDone;
@@ -1048,18 +1077,19 @@ namespace CSharpPython
         {
             var ns = (PyDict)_stack[--_sp].RawObject;
             PyClass parent = null;
+            PyExceptionType rootType = null;
             if (bases == 1)
             {
                 Value b = _stack[--_sp];
                 if (b.Kind == ValueKind.Class) parent = (PyClass)b.RawObject;
                 else if (b.Kind == ValueKind.Type && (PyType)b.RawObject == PyTypes.Object) parent = null;
-                else if (b.Kind == ValueKind.Type || b.Kind == ValueKind.ExceptionType)
-                    throw new PyError("TypeError", "cannot inherit from the built-in type '" +
-                        (b.Kind == ValueKind.Type ? ((PyType)b.RawObject).Name : ((PyExceptionType)b.RawObject).Name) + "' yet");
+                else if (b.Kind == ValueKind.ExceptionType) rootType = (PyExceptionType)b.RawObject;
+                else if (b.Kind == ValueKind.Type)
+                    throw new PyError("TypeError", "cannot inherit from the built-in type '" + ((PyType)b.RawObject).Name + "' yet");
                 else throw new PyError("TypeError", "bases must be classes, not '" + b.TypeName + "'");
             }
             string name = (string)_stack[--_sp].RawObject;
-            var cls = new PyClass(name, parent, ns);
+            var cls = new PyClass(name, parent, ns) { RootType = rootType };
             cls.AdoptMethods();
             Push(Value.FromClass(cls));
         }
@@ -1259,6 +1289,7 @@ namespace CSharpPython
         private bool Unwind(PyExceptionValue exc, int floor = 0)
         {
             if (exc.Trace.Count == 0) exc.Trace = CurrentTrace();
+            if (exc.Instance != null) exc.Instance.Trace = exc.Trace;
             while (_frameCount > floor)
             {
                 Frame f = _frames[_frameCount - 1];
@@ -1266,7 +1297,7 @@ namespace CSharpPython
                 {
                     Handler h = f.Handlers[--f.HandlerCount];
                     _sp = h.Sp;
-                    Value value = Value.FromException(exc);
+                    Value value = ValueOf(exc);
                     Push(value);
                     f.ExcInfo = value;
                     f.Pc = h.Address;
@@ -1282,7 +1313,7 @@ namespace CSharpPython
         }
 
         private PyRuntimeError FromError(PyExceptionValue exc) =>
-            new PyRuntimeError(exc.Type.Name, exc.Message, _script.Name, exc.Trace);
+            new PyRuntimeError(exc.TypeName, exc.Message, _script.Name, exc.Trace);
 
         private List<TraceFrame> CurrentTrace()
         {

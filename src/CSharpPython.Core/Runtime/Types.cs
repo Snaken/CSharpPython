@@ -101,6 +101,8 @@ namespace CSharpPython
                     return value.Kind == ValueKind.Instance &&
                            ((PyInstance)value.RawObject).Class.IsSubclassOf((PyClass)cls.RawObject);
                 case ValueKind.ExceptionType:
+                    if (value.Kind == ValueKind.Instance)
+                        return ((PyInstance)value.RawObject).Class.ExceptionRoot?.IsSubclassOf((PyExceptionType)cls.RawObject) == true;
                     return value.Kind == ValueKind.Exception &&
                            ((PyExceptionValue)value.RawObject).Type.IsSubclassOf((PyExceptionType)cls.RawObject);
                 case ValueKind.Tuple:
@@ -130,6 +132,8 @@ namespace CSharpPython
                     return sub.Kind == ValueKind.Class &&
                            ((PyClass)sub.RawObject).IsSubclassOf((PyClass)cls.RawObject);
                 case ValueKind.ExceptionType:
+                    if (sub.Kind == ValueKind.Class)
+                        return ((PyClass)sub.RawObject).ExceptionRoot?.IsSubclassOf((PyExceptionType)cls.RawObject) == true;
                     return sub.Kind == ValueKind.ExceptionType &&
                            ((PyExceptionType)sub.RawObject).IsSubclassOf((PyExceptionType)cls.RawObject);
                 case ValueKind.Tuple:

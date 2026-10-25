@@ -13,6 +13,20 @@ namespace CSharpPython
         /// <summary>The attributes defined in the class body: methods and class variables.</summary>
         public readonly PyDict Namespace;
 
+        /// <summary>The built-in exception type a class derives from directly (<c>class E(ValueError)</c>), else null.</summary>
+        public PyExceptionType RootType;
+
+        /// <summary>The built-in exception type at the end of the base chain, or null if this is not an exception class.</summary>
+        public PyExceptionType ExceptionRoot
+        {
+            get
+            {
+                for (var c = this; c != null; c = c.Base)
+                    if (c.RootType != null) return c.RootType;
+                return null;
+            }
+        }
+
         public PyClass(string name, PyClass baseClass, PyDict ns)
         {
             Name = name;
@@ -67,6 +81,9 @@ namespace CSharpPython
 
         /// <summary>The instance attributes, assigned with <c>self.name = value</c>.</summary>
         public readonly PyDict Fields = new PyDict();
+
+        /// <summary>The traceback of an exception instance that has been raised, kept so a re-raise continues it.</summary>
+        public System.Collections.Generic.List<TraceFrame> Trace;
 
         public PyInstance(PyClass cls)
         {

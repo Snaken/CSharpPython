@@ -238,6 +238,7 @@ namespace CSharpPython
                         var cls = (PyClass)c.RawObject;
                         SnapshotIo.WriteString(pw, cls.Name);
                         WriteValue(pw, cls.Base == null ? Value.None : Value.FromClass(cls.Base));
+                        SnapshotIo.WriteString(pw, cls.RootType?.Name ?? "");
                         WritePairs(pw, cls.Namespace);
                         break;
                     }
@@ -591,6 +592,8 @@ namespace CSharpPython
                     Value b = ReadValue(r);
                     if (b.Kind == ValueKind.Class) cls.Base = (PyClass)b.RawObject;
                     else if (b.Kind != ValueKind.None) throw new SnapshotException("the snapshot is damaged");
+                    string root = SnapshotIo.ReadString(r);
+                    if (root.Length > 0) cls.RootType = ExceptionTypes.GetOrCreate(root);
                     ReadPairs(r, cls.Namespace);
                     break;
                 }

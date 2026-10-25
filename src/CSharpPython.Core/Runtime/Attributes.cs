@@ -36,25 +36,10 @@ namespace CSharpPython
                         : member;
 
             // Past the last script class is object.
-            var instance = (PyInstance)self.RawObject;
-            switch (name)
-            {
-                case "__init__":
-                    return Value.FromNative(ObjectInit);
-                case "__repr__":
-                case "__str__":
-                    return Value.FromNative(new NativeFunction("object." + name,
-                        (ctx, args) => Value.FromString(instance.DefaultRepr()), 0, 0));
-            }
+            var builtin = Methods.Find(ValueKind.Instance, name);
+            if (builtin != null) return Value.FromBound(new BoundMethod(self, builtin));
             throw new PyError("AttributeError", "'super' object has no attribute '" + name + "'");
         }
-
-        private static readonly NativeFunction ObjectInit = new NativeFunction("object.__init__", (ctx, args) =>
-        {
-            if (args.Length > 0)
-                throw new PyError("TypeError", "object.__init__() takes exactly one argument (the instance to initialize)");
-            return Value.None;
-        });
 
         public static Value GetAttr(Value obj, string name)
         {
