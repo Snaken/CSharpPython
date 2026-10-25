@@ -219,9 +219,9 @@ namespace CSharpPython.Tests.Vm
         }
 
         [Test]
-        public void SliceAssignmentIsNotSupportedYet()
+        public void SliceAssignmentOnTuplesAndStringsStillFails()
         {
-            Assert.That(Fails("x = [1]\nx[0:1] = [2]").Problem, Is.EqualTo("slice assignment is not supported yet"));
+            Assert.That(Fails("x = (1,)\nx[0:1] = [2]").Problem, Is.EqualTo("'tuple' object does not support item assignment"));
         }
 
         [Test]

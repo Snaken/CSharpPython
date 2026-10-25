@@ -327,7 +327,7 @@ except RecursionError:
         {
             Assert.That(Out("xs = [3, 1, 2]\nxs.append(0)\nxs.sort()\nprint(xs)"), Is.EqualTo("[0, 1, 2, 3]"));
             Assert.That(Out("xs = [1, 2]\nxs[0] = 9\nxs[-1] += 5\nprint(xs)"), Is.EqualTo("[9, 7]"));
-            Assert.That(Fails("xs = [1, 2, 3]\nxs[1:2] = [9]").Problem, Is.EqualTo("slice assignment is not supported yet"));
+            Assert.That(Out("xs = [1, 2, 3]\nxs[1:2] = [9, 9]\nprint(xs)"), Is.EqualTo("[1, 9, 9, 3]"));
         }
 
         [Test]

@@ -69,6 +69,7 @@ namespace CSharpPython.Tests.Vm
 
         private static readonly string[] Scripts =
         {
+            "xs = list(range(8))\nxs[1:3] = ['a', 'b', 'c']\nxs[::2] = [0] * 5\nxs[2:2] = [9]\nprint(xs)",
             "for i in range(3):\n    if i == 5:\n        break\nelse:\n    print('else', i)\nwhile True:\n    break\nelse:\n    print('no')\nprint('end')",
             "def g():\n    for i in range(3):\n        yield i\n    else:\n        yield 'e'\nprint(list(g()))",
             "x = 1\nprint(x + 2)",
