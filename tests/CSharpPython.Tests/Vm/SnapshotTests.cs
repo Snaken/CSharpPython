@@ -159,6 +159,7 @@ namespace CSharpPython.Tests.Vm
             "import game\nkeep = [1, 2, 3, 4, 5, 6]\ntable = {'a': 1, 'b': 2, 'c': 3}\ndel keep[1:3]\ngame.wait(1)\ndel table['b'], keep[0]\ngame.wait(1)\ndel keep[::2]\nprint(keep, table)",
             "import game\ndef f():\n    a = 1\n    b = 2\n    def g():\n        return b\n    del a\n    game.wait(1)\n    del b\n    game.wait(1)\n    try:\n        g()\n    except NameError as e:\n        print('free')\n    b = 5\n    a = 4\n    game.wait(1)\n    return a + g()\nglobal_name = 3\nprint(f())\ndel global_name\ngame.wait(1)\ntry:\n    global_name\nexcept NameError:\n    print('gone')",
             "import game\nclass Box:\n    def __init__(self):\n        self.a = 1\n        self.b = 2\n    def __delitem__(self, k):\n        game.wait(0) if False else None\n        delattr_target = k\nbox = Box()\ngame.wait(1)\ndel box.a\ngame.wait(1)\ndel box[0]\nprint(hasattr(box, 'a'), box.b)",
+            "import game\nhp = 3\ndef hit():\n    global hp\n    hp -= 1\n    assert hp > 0, 'hp ' + str(hp)\nfor i in range(5):\n    game.wait(1)\n    try:\n        hit()\n    except AssertionError as e:\n        print('caught', e)\n        hp = 2\nprint(hp)",
             "import game\nclass Job:\n    def __init__(self):\n        self.done = []\n    def __call__(self, n):\n        game.wait(1)\n        self.done.append(n)\n        game.wait(1)\n        return len(self.done)\nj = Job()\nprint(j(1), j(2))\nprint(j.done)",
         };
 

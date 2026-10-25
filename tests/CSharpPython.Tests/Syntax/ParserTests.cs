@@ -503,7 +503,6 @@ namespace CSharpPython.Tests.Syntax
         // ---- Errors -------------------------------------------------------------------------------------------
 
         [TestCase("with a: pass", "'with' is not supported yet")]
-        [TestCase("assert x", "'assert' is not supported yet")]
         [TestCase("yield 1", "'yield' is not supported yet")]
         public void UnsupportedKeywordsAreRejected(string src, string message)
         {

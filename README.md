@@ -156,7 +156,7 @@ Supported:
 | Area | Details |
 | --- | --- |
 | Types | `int` (64-bit, overflow raises `OverflowError`), `float`, `str`, `bool`, `None`, `list`, `tuple`, `dict`, `set`, `range`, host handles |
-| Statements | assignment (chained, tuple unpacking, augmented), `if/elif/else`, `while`, `for`, `break`, `continue`, `pass`, `return`, `global`, `nonlocal`, `del` (names, attributes, items and list slices), `import`/`from ... import`, `def` (including nested functions), `class`, `lambda`, list, dict and set comprehensions, set displays (`{1, 2}`), generator expressions, `try/except/else/finally`, `raise` |
+| Statements | assignment (chained, tuple unpacking, augmented), `if/elif/else`, `while`, `for`, `break`, `continue`, `pass`, `return`, `global`, `nonlocal`, `del` (names, attributes, items and list slices), `assert`, `import`/`from ... import`, `def` (including nested functions), `class`, `lambda`, list, dict and set comprehensions, set displays (`{1, 2}`), generator expressions, `try/except/else/finally`, `raise` |
 | Expressions | arithmetic, bit operators (`&`, `\|`, `^`, `~`, `<<`, `>>`, on `int` and `bool`; `\|`, `&` and `^` also on sets), comparison chains, `and/or/not`, `in`, `is`, conditional expressions, subscripts and slices, f-strings, keyword and default arguments |
 
 Builtins: `print len range int float str bool repr abs min max sum round sorted list tuple dict set enumerate zip reversed any all chr ord divmod pow format type isinstance issubclass callable getattr setattr hasattr object hash`, the constant `NotImplemented`, the standard exception classes, and a `math` module (`pi e tau inf nan sqrt log log2 log10 floor ceil trunc isnan isinf sin cos tan asin acos atan atan2 exp fabs hypot radians degrees pow`).
@@ -171,11 +171,12 @@ Exceptions can be subclassed: `class HitError(ValueError):` (or `Exception`, or 
 
 Nested functions and `lambda` are closures with Python's semantics: inner functions share the variables of the function around them (late binding), and `nonlocal` rebinds them. Sets keep their members in insertion order (CPython orders them by hash, so sort before printing if you compare output), take `-`, `-=` `|`, `&`, `^` (and their `=` forms), and the subset comparisons `<=`, `<`, `>=`, `>`, and are unhashable, so they can't be members of sets or dict keys; there is no `frozenset`. List, dict and set comprehensions have their own scope like in Python (loop variables don't leak, the first iterable is evaluated outside). A generator expression is evaluated eagerly into a list, so it works with `sum`, `any`, `all`, `min`, `max`, `sorted`, `list`, `tuple`, `dict` and `str.join`, but is not lazy and can't be advanced with `next`. Snapshots keep closures, including cycles from recursive inner functions.
 
-Not supported yet: lazy generators, loop `else`, type annotations, decorators, walrus, `yield`, `with`, `assert`, `async`/`await`, dict unpacking, dotted imports, bytes/complex literals, nested format specs in f-strings, `str % args`, slice assignment.
+Not supported yet: lazy generators, loop `else`, type annotations, decorators, walrus, `yield`, `with`, `async`/`await`, dict unpacking, dotted imports, bytes/complex literals, nested format specs in f-strings, `str % args`, slice assignment.
 
 ### Differences from CPython
 
 - Integers are 64-bit and checked; there are no big ints.
+- Built-in exceptions keep only a message string, so `ValueError(42).args` is `('42',)`. Exception classes you write keep their real `args`.
 - `dict.keys()/values()/items()` return lists, not views.
 - `sorted`, `list.sort`, `min` and `max` accept `key=` (and `min`/`max` accept `default=`), but a key function runs to completion and cannot wait.
 - `return`, `break` and `continue` are not allowed inside a `finally` block (they are in `try`, `except` and `else`, and run the enclosing `finally` blocks).
