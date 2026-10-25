@@ -34,5 +34,7 @@ namespace CSharpPython
         Instance,
         /// <summary>A script method bound to its instance.</summary>
         ScriptMethod,
+        /// <summary>The <c>NotImplemented</c> value a special method returns to decline an operation.</summary>
+        NotImplemented,
     }
 }

@@ -619,37 +619,37 @@ namespace CSharpPython
                     case Op.Eq:
                     {
                         Value b = _stack[--_sp];
-                        _stack[_sp - 1] = Value.FromBool(Ops.Equal(_stack[_sp - 1], b));
+                        _stack[_sp - 1] = Ops.EqualOp(_stack[_sp - 1], b);
                         break;
                     }
                     case Op.Ne:
                     {
                         Value b = _stack[--_sp];
-                        _stack[_sp - 1] = Value.FromBool(!Ops.Equal(_stack[_sp - 1], b));
+                        _stack[_sp - 1] = Ops.NotEqualOp(_stack[_sp - 1], b);
                         break;
                     }
                     case Op.Lt:
                     {
                         Value b = _stack[--_sp];
-                        _stack[_sp - 1] = Value.FromBool(Ops.Compare(_stack[_sp - 1], b, Ops.Order.Lt));
+                        _stack[_sp - 1] = Ops.CompareOp(_stack[_sp - 1], b, Ops.Order.Lt);
                         break;
                     }
                     case Op.Le:
                     {
                         Value b = _stack[--_sp];
-                        _stack[_sp - 1] = Value.FromBool(Ops.Compare(_stack[_sp - 1], b, Ops.Order.Le));
+                        _stack[_sp - 1] = Ops.CompareOp(_stack[_sp - 1], b, Ops.Order.Le);
                         break;
                     }
                     case Op.Gt:
                     {
                         Value b = _stack[--_sp];
-                        _stack[_sp - 1] = Value.FromBool(Ops.Compare(_stack[_sp - 1], b, Ops.Order.Gt));
+                        _stack[_sp - 1] = Ops.CompareOp(_stack[_sp - 1], b, Ops.Order.Gt);
                         break;
                     }
                     case Op.Ge:
                     {
                         Value b = _stack[--_sp];
-                        _stack[_sp - 1] = Value.FromBool(Ops.Compare(_stack[_sp - 1], b, Ops.Order.Ge));
+                        _stack[_sp - 1] = Ops.CompareOp(_stack[_sp - 1], b, Ops.Order.Ge);
                         break;
                     }
                     case Op.Is:

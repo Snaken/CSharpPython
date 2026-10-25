@@ -1,0 +1,132 @@
+using System;
+
+namespace CSharpPython
+{
+    // Operators on instances of script classes: the special methods (__eq__, __lt__, __len__, ...) the class defines.
+    // They are run with CallSync on the task that is executing, so they cannot wait. Without a running task (the host
+    // using a value outside a script) an instance behaves as an object without special methods.
+    internal static partial class Ops
+    {
+        /// <summary>Calls the special method <paramref name="name"/> of the instance's class. False if it has none.</summary>
+        public static bool TryCallDunder(Value instance, string name, Value[] args, out Value result)
+        {
+            result = default;
+            var task = PyTask.Current;
+            if (task == null) return false;
+            if (!((PyInstance)instance.RawObject).Class.TryFind(name, out Value member) || member.Kind != ValueKind.Function)
+                return false;
+            result = task.CallSync(Value.FromScriptMethod(new ScriptMethod(instance, (PyFunction)member.RawObject)), args);
+            return true;
+        }
+
+        private static bool HasDunder(Value instance, string name) =>
+            PyTask.Current != null &&
+            ((PyInstance)instance.RawObject).Class.TryFind(name, out Value member) && member.Kind == ValueKind.Function;
+
+        // Tries a.method(b) and then b.reflected(a), the way Python's binary operators do, except that a subclass's
+        // method comes first when b's class derives from a's. A method that returns NotImplemented declines.
+        private static bool TryBinary(Value a, Value b, string method, string reflected, bool sameClassReflects, out Value result)
+        {
+            bool bFirst = false, bReflects = b.Kind == ValueKind.Instance;
+            if (a.Kind == ValueKind.Instance && bReflects)
+            {
+                var ca = ((PyInstance)a.RawObject).Class;
+                var cb = ((PyInstance)b.RawObject).Class;
+                bFirst = ca != cb && cb.IsSubclassOf(ca);
+                bReflects = ca != cb || sameClassReflects;
+            }
+            if (bFirst && TryOne(b, reflected, a, out result)) return true;
+            if (a.Kind == ValueKind.Instance && TryOne(a, method, b, out result)) return true;
+            if (!bFirst && bReflects && TryOne(b, reflected, a, out result)) return true;
+            result = default;
+            return false;
+        }
+
+        private static bool TryOne(Value self, string name, Value other, out Value result)
+        {
+            result = default;
+            return self.Kind == ValueKind.Instance && TryCallDunder(self, name, new[] { other }, out result) && result.Kind != ValueKind.NotImplemented;
+        }
+
+        // ---- Equality and hashing -------------------------------------------------------------------------------
+
+        /// <summary>The <c>==</c> operator when an operand is an instance. Its result is whatever the special method returned.</summary>
+        public static Value EqualOp(Value a, Value b)
+        {
+            if (a.Kind != ValueKind.Instance && b.Kind != ValueKind.Instance) return Value.FromBool(Equal(a, b));
+            if (TryBinary(a, b, "__eq__", "__eq__", true, out Value r)) return r;
+            return Value.FromBool(a.Kind == b.Kind && ReferenceEquals(a.RawObject, b.RawObject));
+        }
+
+        private static bool InstanceEqual(Value a, Value b) => EqualOp(a, b).IsTruthy;
+
+        /// <summary>The <c>!=</c> operator: a class's <c>__ne__</c> if it has one, else the opposite of <c>==</c>.</summary>
+        public static Value NotEqualOp(Value a, Value b)
+        {
+            if (a.Kind != ValueKind.Instance && b.Kind != ValueKind.Instance) return Value.FromBool(!Equal(a, b));
+            if (TryBinary(a, b, "__ne__", "__ne__", true, out Value r)) return r;
+            return Value.FromBool(!EqualOp(a, b).IsTruthy);
+        }
+
+        /// <summary>An ordering operator (<c>&lt;</c>, <c>&gt;</c>, ...) when an operand is an instance.</summary>
+        public static Value CompareOp(Value a, Value b, Order o)
+        {
+            if (a.Kind != ValueKind.Instance && b.Kind != ValueKind.Instance) return Value.FromBool(Compare(a, b, o));
+            if (TryBinary(a, b, OrderMethod(o, false), OrderMethod(o, true), true, out Value r)) return r;
+            throw TypeError("'" + OrderSymbol(o) + "' not supported between instances of '" + TypeName(a) + "' and '" + TypeName(b) + "'");
+        }
+
+        private static int InstanceHash(Value v)
+        {
+            var instance = (PyInstance)v.RawObject;
+            // The nearest class that says anything about equality decides: a class that defines __eq__ and not
+            // __hash__ is unhashable, as is one that sets __hash__ = None.
+            for (var c = instance.Class; c != null; c = c.Base)
+            {
+                if (c.Namespace.TryGetValue(Value.FromString("__hash__"), out Value hash))
+                {
+                    if (hash.Kind != ValueKind.Function) throw TypeError("unhashable type: '" + instance.Class.Name + "'");
+                    if (!TryCallDunder(v, "__hash__", Array.Empty<Value>(), out Value result)) break;
+                    if (!result.IsIntLike()) throw TypeError("__hash__ method should return an integer");
+                    return HashInt(result.RawInt);
+                }
+                if (c.Namespace.ContainsKey(Value.FromString("__eq__"))) throw TypeError("unhashable type: '" + instance.Class.Name + "'");
+            }
+            return System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(instance);
+        }
+
+        // ---- Truth value and length -----------------------------------------------------------------------------
+
+        private static bool InstanceTruthy(Value v)
+        {
+            if (TryCallDunder(v, "__bool__", Array.Empty<Value>(), out Value b))
+            {
+                if (b.Kind != ValueKind.Bool) throw TypeError("__bool__ should return bool, returned " + TypeName(b));
+                return b.RawInt != 0;
+            }
+            return !HasDunder(v, "__len__") || InstanceLength(v) != 0;
+        }
+
+        private static long InstanceLength(Value v)
+        {
+            if (!TryCallDunder(v, "__len__", Array.Empty<Value>(), out Value n))
+                throw TypeError("object of type '" + TypeName(v) + "' has no len()");
+            if (!n.IsIntLike()) throw TypeError("'" + TypeName(n) + "' object cannot be interpreted as an integer");
+            if (n.RawInt < 0) throw ValueError("__len__() should return >= 0");
+            return n.RawInt;
+        }
+
+        // ---- Ordering -------------------------------------------------------------------------------------------
+
+        private static string OrderMethod(Order o, bool reflected)
+        {
+            switch (o)
+            {
+                case Order.Lt: return reflected ? "__gt__" : "__lt__";
+                case Order.Le: return reflected ? "__ge__" : "__le__";
+                case Order.Gt: return reflected ? "__lt__" : "__gt__";
+                default: return reflected ? "__le__" : "__ge__";
+            }
+        }
+    }
+}

@@ -395,6 +395,7 @@ namespace CSharpPython
             switch (v.Kind)
             {
                 case ValueKind.None:
+                case ValueKind.NotImplemented:
                 case ValueKind.Unbound:
                     break;
                 case ValueKind.Bool:
@@ -611,7 +612,7 @@ namespace CSharpPython
                     for (int i = 0; i < n; i++)
                     {
                         Value key = ReadValue(r);
-                        dict.Set(key, ReadValue(r));
+                        dict.RestoreEntry(key, ReadValue(r));
                     }
                     break;
                 }
@@ -769,6 +770,7 @@ namespace CSharpPython
             switch (kind)
             {
                 case ValueKind.None: return Value.None;
+                case ValueKind.NotImplemented: return Value.NotImplemented;
                 case ValueKind.Unbound: return Value.Unbound;
                 case ValueKind.Bool: return Value.FromBool(r.ReadBoolean());
                 case ValueKind.Int: return Value.FromInt(r.ReadInt64());

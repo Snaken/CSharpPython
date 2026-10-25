@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace CSharpPython
@@ -79,11 +80,55 @@ namespace CSharpPython
         /// <summary>Incremented whenever entries move, so iterators can detect concurrent modification.</summary>
         internal int Version { get; private set; }
 
-        public int Count => _index.Count;
+        // After a snapshot restore the entries are known but the lookup index is not built yet: hashing a key may
+        // run a script's __hash__, which needs the restored task to be running. EnsureIndex builds it on first use.
+        private bool _pending;
+
+        public int Count
+        {
+            get
+            {
+                if (!_pending) return _index.Count;
+                int n = 0;
+                foreach (var e in _entries) if (e.Alive) n++;
+                return n;
+            }
+        }
+
+        /// <summary>Adds an entry while restoring a snapshot, without hashing the key.</summary>
+        internal void RestoreEntry(Value key, Value value)
+        {
+            _entries.Add(new Entry { Key = key, Val = value, Alive = true });
+            _pending = true;
+        }
+
+        private void EnsureIndex()
+        {
+            if (!_pending) return;
+            if (PyTask.Current == null)
+            {
+                foreach (var e in _entries)
+                    if (e.Alive && NeedsScript(e.Key))
+                        throw new InvalidOperationException("A dictionary keyed by script objects can only be looked up while its script is running.");
+            }
+            _index.Clear();
+            for (int i = 0; i < _entries.Count; i++)
+                if (_entries[i].Alive) _index[_entries[i].Key] = i;
+            _pending = false;
+        }
+
+        private static bool NeedsScript(Value key)
+        {
+            if (key.Kind == ValueKind.Instance) return true;
+            if (key.Kind == ValueKind.Tuple)
+                foreach (var item in ((PyTuple)key.RawObject).Items) if (NeedsScript(item)) return true;
+            return false;
+        }
 
         // An empty Dictionary never hashes its key, so unhashable keys would slip through; check explicitly.
         private void CheckHashable(Value key)
         {
+            EnsureIndex();
             if (_index.Count == 0) Ops.Hash(key);
         }
 
@@ -107,6 +152,7 @@ namespace CSharpPython
 
         public void Set(Value key, Value value)
         {
+            EnsureIndex();
             if (_index.TryGetValue(key, out int i))
             {
                 var e = _entries[i];
@@ -130,6 +176,7 @@ namespace CSharpPython
 
         public void Clear()
         {
+            _pending = false;
             _index.Clear();
             _entries = new List<Entry>();
             Version++;
@@ -158,6 +205,7 @@ namespace CSharpPython
 
         private void Compact()
         {
+            EnsureIndex();
             var fresh = new List<Entry>(_index.Count);
             foreach (var e in _entries)
             {

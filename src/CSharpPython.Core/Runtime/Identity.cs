@@ -9,6 +9,7 @@ namespace CSharpPython
             switch (a.Kind)
             {
                 case ValueKind.None:
+                case ValueKind.NotImplemented:
                 case ValueKind.Unbound:
                     return true;
                 case ValueKind.Bool:

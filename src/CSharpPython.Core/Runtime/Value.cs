@@ -28,6 +28,7 @@ namespace CSharpPython
         public static readonly Value None = default;
         public static readonly Value True = new Value(ValueKind.Bool, 1, null);
         public static readonly Value False = new Value(ValueKind.Bool, 0, null);
+        internal static readonly Value NotImplemented = new Value(ValueKind.NotImplemented, 0, null);
         internal static readonly Value Unbound = new Value(ValueKind.Unbound, 0, null);
 
         public static Value FromBool(bool b) => b ? True : False;

@@ -31,6 +31,7 @@ namespace CSharpPython
             switch (v.Kind)
             {
                 case ValueKind.None: return "NoneType";
+                case ValueKind.NotImplemented: return "NotImplementedType";
                 case ValueKind.Bool: return "bool";
                 case ValueKind.Int: return "int";
                 case ValueKind.Float: return "float";
@@ -69,6 +70,7 @@ namespace CSharpPython
                 case ValueKind.Tuple: return ((PyTuple)v.RawObject).Count != 0;
                 case ValueKind.Dict: return ((PyDict)v.RawObject).Count != 0;
                 case ValueKind.Range: return ((PyRange)v.RawObject).Length != 0;
+                case ValueKind.Instance: return InstanceTruthy(v);
                 default: return true;
             }
         }
@@ -84,11 +86,13 @@ namespace CSharpPython
                 if (a.Kind != ValueKind.Float && b.Kind != ValueKind.Float) return a.RawInt == b.RawInt;
                 return a.AsFloat() == b.AsFloat();
             }
+            if (a.Kind == ValueKind.Instance || b.Kind == ValueKind.Instance) return InstanceEqual(a, b);
             if (a.Kind != b.Kind) return false;
 
             switch (a.Kind)
             {
                 case ValueKind.None: return true;
+                case ValueKind.NotImplemented: return true;
                 case ValueKind.Str: return string.Equals((string)a.RawObject, (string)b.RawObject, StringComparison.Ordinal);
                 case ValueKind.List:
                     return SequenceEqual(((PyList)a.RawObject).Items, ((PyList)b.RawObject).Items, depth);
@@ -152,6 +156,7 @@ namespace CSharpPython
                     return h;
                 }
                 case ValueKind.Handle: return unchecked(v.RawAux * 31 + HashInt(v.RawInt));
+                case ValueKind.Instance: return InstanceHash(v);
                 case ValueKind.List:
                 case ValueKind.Dict:
                 case ValueKind.Slice:
@@ -417,6 +422,7 @@ namespace CSharpPython
                 return CompareSequences(((PyList)a.RawObject).Items, ((PyList)b.RawObject).Items, o, depth);
             if (a.Kind == ValueKind.Tuple && b.Kind == ValueKind.Tuple)
                 return CompareSequences(((PyTuple)a.RawObject).Items, ((PyTuple)b.RawObject).Items, o, depth);
+            if (a.Kind == ValueKind.Instance || b.Kind == ValueKind.Instance) return CompareOp(a, b, o).IsTruthy;
             throw TypeError("'" + OrderSymbol(o) + "' not supported between instances of '" + TypeName(a) + "' and '" + TypeName(b) + "'");
         }
 
@@ -480,6 +486,7 @@ namespace CSharpPython
                 case ValueKind.Tuple: return ((PyTuple)v.RawObject).Count;
                 case ValueKind.Dict: return ((PyDict)v.RawObject).Count;
                 case ValueKind.Range: return ((PyRange)v.RawObject).Length;
+                case ValueKind.Instance: return InstanceLength(v);
                 default: throw TypeError("object of type '" + TypeName(v) + "' has no len()");
             }
         }

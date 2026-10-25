@@ -43,6 +43,7 @@ namespace CSharpPython.Editor
             { "getattr", "obj, name, default=None" },
             { "setattr", "obj, name, value" },
             { "hasattr", "obj, name" },
+            { "hash", "obj" },
 
             // math module.
             { "math.sqrt", "x" }, { "math.log", "x, base=e" }, { "math.log2", "x" }, { "math.log10", "x" },

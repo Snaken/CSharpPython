@@ -80,6 +80,7 @@ namespace CSharpPython
             switch (v.Kind)
             {
                 case ValueKind.None: sb.Append("None"); return;
+                case ValueKind.NotImplemented: sb.Append("NotImplemented"); return;
                 case ValueKind.Bool: sb.Append(v.RawInt != 0 ? "True" : "False"); return;
                 case ValueKind.Int: sb.Append(v.RawInt.ToString(CultureInfo.InvariantCulture)); return;
                 case ValueKind.Float: sb.Append(FloatRepr(v.RawFloat)); return;

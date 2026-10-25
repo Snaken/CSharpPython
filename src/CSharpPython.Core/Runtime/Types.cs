@@ -31,6 +31,7 @@ namespace CSharpPython
         private static readonly Dictionary<string, PyType> ByName = new Dictionary<string, PyType>();
 
         public static readonly PyType None = Define("NoneType", ValueKind.None);
+        public static readonly PyType NotImplementedType = Define("NotImplementedType", ValueKind.NotImplemented);
         public static readonly PyType Bool = Define("bool", ValueKind.Bool);
         public static readonly PyType Int = Define("int", ValueKind.Int);
         public static readonly PyType Float = Define("float", ValueKind.Float);

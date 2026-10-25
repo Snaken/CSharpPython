@@ -28,6 +28,7 @@ namespace CSharpPython
             }
             foreach (var type in ExceptionTypes.All) into[type.Name] = Value.FromExceptionType(type);
             into["object"] = Value.FromType(PyTypes.Object);
+            into["NotImplemented"] = Value.NotImplemented;
             modules["math"] = MathModule();
         }
 
@@ -57,6 +58,7 @@ namespace CSharpPython
         private static IEnumerable<NativeFunction> Functions()
         {
             yield return F("print", 0, -1, Print, true);
+            yield return F("hash", 1, 1, (c, a) => Value.FromInt(Ops.Hash(a[0])));
             yield return F("len", 1, 1, (c, a) => Value.FromInt(Ops.Length(a[0])));
             yield return F("range", 1, 3, Range);
             yield return F("int", 0, 2, ToInt);
