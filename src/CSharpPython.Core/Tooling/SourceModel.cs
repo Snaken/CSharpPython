@@ -23,6 +23,10 @@ namespace CSharpPython.Editor
         public ValueKind? Type;         // guessed from the assigned value, when it is obvious
         public string Module;           // for imports: the module imported (or imported from)
         public string Member;           // for 'from m import a': the member name
+        public string InstanceOf;       // for variables assigned 'Name(...)': the called name, which may be a script class
+        public bool IsExceptionVariable; // the 'e' of 'except X as e'
+        public List<string> Bases;      // for classes: the names in the parentheses after the class name
+        public string Doc;              // for functions and classes: the docstring, when the body starts with one
         public string Signature;        // for functions: the text inside the parentheses; for classes: the one of __init__ without self
     }
 
@@ -156,7 +160,11 @@ namespace CSharpPython.Editor
                     case TokenKind.KwExcept:
                         for (int j = i + 1; j + 1 < Tokens.Count && Tokens[j].Kind != TokenKind.Newline && Tokens[j].Kind != TokenKind.Colon; j++)
                             if (Tokens[j].Kind == TokenKind.KwAs && Tokens[j + 1].Kind == TokenKind.Name)
-                                AddVariable(Tokens[j + 1], scope, null);
+                            {
+                                var caught = AddVariable(Tokens[j + 1], scope, null);
+                                caught.IsExceptionVariable = true;
+                                if (Tokens[j - 1].Kind == TokenKind.Name) caught.InstanceOf = Tokens[j - 1].Text;
+                            }
                         break;
                     case TokenKind.Name:
                         if (statementStart) ReadAssignment(i, scope);
@@ -175,15 +183,19 @@ namespace CSharpPython.Editor
             open.Add(scope);
             Definitions.Add(new Definition { Name = name.Text, Kind = DefinitionKind.Class, TokenStart = name.Start, Scope = outer });
             ClassScopes[name.Start] = scope;
+            Definitions[Definitions.Count - 1].Doc = ReadDoc(i + 2);
 
-            // Skip the base class list.
+            // Skip the base class list, remembering the names in it.
             int j = i + 2;
+            var bases = new List<string>();
+            Definitions[Definitions.Count - 1].Bases = bases;
             if (j < Tokens.Count && Tokens[j].Kind == TokenKind.LParen)
             {
                 int paren = 0;
                 for (; j < Tokens.Count; j++)
                 {
                     var k = Tokens[j].Kind;
+                    if (k == TokenKind.Name && paren == 1 && (Tokens[j - 1].Kind == TokenKind.LParen || Tokens[j - 1].Kind == TokenKind.Comma)) bases.Add(Tokens[j].Text);
                     if (k == TokenKind.LParen) paren++;
                     else if (k == TokenKind.RParen && --paren == 0) break;
                     else if (k == TokenKind.Newline) { j--; break; }
@@ -220,6 +232,7 @@ namespace CSharpPython.Editor
 
             var def = new Definition { Name = name.Text, Kind = DefinitionKind.Function, TokenStart = name.Start, Scope = outer };
             Definitions.Add(def);
+            def.Doc = ReadDoc(i + 2);
 
             int j = i + 2;
             if (j < Tokens.Count && Tokens[j].Kind == TokenKind.LParen)
@@ -247,6 +260,47 @@ namespace CSharpPython.Editor
                 j--;
             }
             return Math.Max(i + 1, j - 1);
+        }
+
+        // The docstring of the def or class whose header continues at token 'from': a string alone on the first line of the body.
+        private string ReadDoc(int from)
+        {
+            int depth = 0;
+            for (int j = from; j < Tokens.Count; j++)
+            {
+                var k = Tokens[j].Kind;
+                if (k == TokenKind.LParen || k == TokenKind.LBracket || k == TokenKind.LBrace) depth++;
+                else if (k == TokenKind.RParen || k == TokenKind.RBracket || k == TokenKind.RBrace) depth--;
+                else if (k == TokenKind.Newline && depth <= 0) return null;
+                else if (k == TokenKind.Colon && depth <= 0)
+                {
+                    if (j + 4 < Tokens.Count && Tokens[j + 1].Kind == TokenKind.Newline && Tokens[j + 2].Kind == TokenKind.Indent &&
+                        Tokens[j + 3].Kind == TokenKind.String && Tokens[j + 4].Kind == TokenKind.Newline)
+                        return CleanDoc(Tokens[j + 3].Text);
+                    return null;
+                }
+            }
+            return null;
+        }
+
+        // Trims the blank edges and the common indentation, as help() does.
+        private static string CleanDoc(string text)
+        {
+            var lines = text.Replace("\r\n", "\n").Split('\n');
+            int indent = int.MaxValue;
+            for (int i = 1; i < lines.Length; i++)
+            {
+                string line = lines[i];
+                if (line.Trim().Length == 0) continue;
+                indent = Math.Min(indent, line.Length - line.TrimStart().Length);
+            }
+            var sb = new System.Text.StringBuilder(lines[0].Trim());
+            for (int i = 1; i < lines.Length; i++)
+            {
+                string line = lines[i];
+                sb.Append('\n').Append(line.Length >= indent && indent != int.MaxValue ? line.Substring(indent).TrimEnd() : line.Trim());
+            }
+            return sb.ToString().Trim('\n', ' ');
         }
 
         private static string Normalize(string s)
@@ -318,14 +372,70 @@ namespace CSharpPython.Editor
                 }
                 if (targets.Count == 0 || k >= Tokens.Count || Tokens[k].Kind != TokenKind.Assign) return;
                 ValueKind? type = targets.Count == 1 ? InferType(k + 1) : null;
-                foreach (var target in targets) AddVariable(target, scope, type);
+                string called = targets.Count == 1 ? CalledName(k + 1) : null;
+                foreach (var target in targets) AddVariable(target, scope, type).InstanceOf = called;
                 j = k + 1; // chained assignment: the next target follows
             }
         }
 
-        private void AddVariable(Token name, FunctionScope scope, ValueKind? type)
+        private Definition AddVariable(Token name, FunctionScope scope, ValueKind? type)
         {
-            Definitions.Add(new Definition { Name = name.Text, Kind = DefinitionKind.Variable, TokenStart = name.Start, Scope = scope, Type = type });
+            var d = new Definition { Name = name.Text, Kind = DefinitionKind.Variable, TokenStart = name.Start, Scope = scope, Type = type };
+            Definitions.Add(d);
+            return d;
+        }
+
+        // 'Name(...)' making up a whole right-hand side that starts at token 'start': the name, else null.
+        private string CalledName(int start)
+        {
+            if (start + 1 >= Tokens.Count || Tokens[start].Kind != TokenKind.Name || Tokens[start + 1].Kind != TokenKind.LParen) return null;
+            int close = Match(Tokens, start + 1);
+            if (close < 0 || close + 1 >= Tokens.Count) return null;
+            var after = Tokens[close + 1].Kind;
+            return after == TokenKind.Newline || after == TokenKind.EndOfFile ? Tokens[start].Text : null;
+        }
+
+        /// <summary>The class whose body contains <paramref name="offset"/> (the innermost one), or null.</summary>
+        public Definition EnclosingClass(int offset)
+        {
+            Definition best = null;
+            int bestStart = -1;
+            foreach (var d in Definitions)
+            {
+                if (d.Kind != DefinitionKind.Class || !ClassScopes.TryGetValue(d.TokenStart, out var scope)) continue;
+                if (scope.Start <= offset && offset <= scope.End && scope.Start > bestStart) { best = d; bestStart = scope.Start; }
+            }
+            return best;
+        }
+
+        /// <summary>
+        /// Adds the members of a script class to <paramref name="into"/>: its methods, class-level variables and the
+        /// attributes its methods assign through <c>self</c>, then those of its script base classes. Base names that
+        /// are not script classes are added to <paramref name="outside"/>.
+        /// </summary>
+        public void ClassMembers(Definition cls, Dictionary<string, Definition> into, Dictionary<string, string> attributes, List<string> outside, HashSet<Definition> visited, bool includeOwn = true)
+        {
+            if (!visited.Add(cls) || !ClassScopes.TryGetValue(cls.TokenStart, out var scope)) return;
+            if (includeOwn)
+            {
+                foreach (var d in Definitions)
+                    if (d.Scope == scope && (d.Kind == DefinitionKind.Function || d.Kind == DefinitionKind.Variable || d.Kind == DefinitionKind.Class) && !into.ContainsKey(d.Name))
+                        into[d.Name] = d;
+                for (int i = 1; i + 3 < Tokens.Count; i++)
+                {
+                    var t = Tokens[i];
+                    if (t.Start < scope.Start || t.Start > scope.End) continue;
+                    if (t.Kind == TokenKind.Name && t.Text == "self" && Tokens[i - 1].Kind != TokenKind.Dot && Tokens[i + 1].Kind == TokenKind.Dot &&
+                        Tokens[i + 2].Kind == TokenKind.Name && Tokens[i + 3].Kind == TokenKind.Assign && !into.ContainsKey(Tokens[i + 2].Text))
+                        attributes[Tokens[i + 2].Text] = "attribute";
+                }
+            }
+            foreach (var name in cls.Bases ?? new List<string>())
+            {
+                var baseDef = Resolve(name, cls.TokenStart);
+                if (baseDef != null && baseDef.Kind == DefinitionKind.Class) ClassMembers(baseDef, into, attributes, outside, visited);
+                else outside.Add(name);
+            }
         }
 
         // ---- Obvious types --------------------------------------------------------------------------------------

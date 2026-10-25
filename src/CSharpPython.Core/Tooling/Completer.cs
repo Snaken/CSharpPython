@@ -168,6 +168,7 @@ namespace CSharpPython.Editor
 
         private static void AddMembers(SourceModel model, List<Token> before, int dot, int offset, PyVm vm, List<CompletionItem> items)
         {
+            if (AddScriptMembers(model, before, dot, offset, vm, items)) return;
             if (!ResolveReceiver(model, before, dot, offset, out var module, out var type)) return;
             if (module != null)
             {
@@ -185,6 +186,63 @@ namespace CSharpPython.Editor
             foreach (var kind in MethodKinds)
                 foreach (var name in Methods.NamesOf(kind).OrderBy(n => n, StringComparer.Ordinal))
                     if (seen.Add(name)) items.Add(MethodItem(kind, name));
+        }
+
+        // Members of script classes: 'self.', 'super().', a variable assigned 'Name(...)' and the 'e' of 'except X as e'.
+        // Returns false when the receiver is none of those, so the general rules apply.
+        private static bool AddScriptMembers(SourceModel model, List<Token> before, int dot, int offset, PyVm vm, List<CompletionItem> items)
+        {
+            if (dot == 0) return false;
+            var p = before[dot - 1];
+            var members = new Dictionary<string, Definition>();
+            var attributes = new Dictionary<string, string>();
+            var outside = new List<string>();
+            bool exception = false;
+
+            if (p.Kind == TokenKind.RParen)
+            {
+                int open = SourceModel.MatchBackward(before, dot - 1);
+                if (open < 1 || before[open - 1].Kind != TokenKind.Name || before[open - 1].Text != "super" || (open > 1 && before[open - 2].Kind == TokenKind.Dot)) return false;
+                var cls = model.EnclosingClass(offset);
+                if (cls == null) return false;
+                model.ClassMembers(cls, members, attributes, outside, new HashSet<Definition>(), includeOwn: false);
+            }
+            else if (p.Kind == TokenKind.Name && !(dot >= 2 && before[dot - 2].Kind == TokenKind.Dot))
+            {
+                var def = model.Resolve(p.Text, offset);
+                if (def == null) return false;
+                if (def.Kind == DefinitionKind.Parameter && def.Name == "self")
+                {
+                    var cls = model.EnclosingClass(offset);
+                    if (cls == null) return false;
+                    model.ClassMembers(cls, members, attributes, outside, new HashSet<Definition>());
+                }
+                else if (def.Kind == DefinitionKind.Variable && (def.InstanceOf != null || def.IsExceptionVariable))
+                {
+                    var cls = def.InstanceOf == null ? null : model.Resolve(def.InstanceOf, def.TokenStart);
+                    if (cls != null && cls.Kind == DefinitionKind.Class) model.ClassMembers(cls, members, attributes, outside, new HashSet<Definition>());
+                    else if (def.IsExceptionVariable) exception = true;
+                    else if (def.InstanceOf != null && vm.Builtins.TryGetValue(def.InstanceOf, out var builtin) && builtin.Kind == ValueKind.ExceptionType) exception = true;
+                    else return false;
+                }
+                else return false;
+            }
+            else return false;
+
+            foreach (var name in outside)
+                if (vm.Builtins.TryGetValue(name, out var b) && b.Kind == ValueKind.ExceptionType) exception = true;
+            if (exception) attributes["args"] = "attribute";
+
+            foreach (var kv in members.OrderBy(m => m.Key, StringComparer.Ordinal))
+            {
+                var d = kv.Value;
+                if (d.Kind == DefinitionKind.Function) items.Add(new CompletionItem(kv.Key, CompletionKind.Method, "def " + kv.Key + "(" + d.Signature + ")"));
+                else if (d.Kind == DefinitionKind.Class) items.Add(new CompletionItem(kv.Key, CompletionKind.Class, "class " + kv.Key));
+                else items.Add(new CompletionItem(kv.Key, CompletionKind.Variable, d.Type.HasValue ? d.Type.Value.ToString().ToLowerInvariant() : "attribute"));
+            }
+            foreach (var kv in attributes.OrderBy(m => m.Key, StringComparer.Ordinal))
+                if (!members.ContainsKey(kv.Key)) items.Add(new CompletionItem(kv.Key, CompletionKind.Variable, kv.Value));
+            return true;
         }
 
         // What is to the left of the dot at token index 'dot': an imported module, a value of an obvious type, or

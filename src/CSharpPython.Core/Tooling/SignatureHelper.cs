@@ -112,7 +112,7 @@ namespace CSharpPython.Editor
             return false;
         }
 
-        private static bool Describe(SourceModel model, List<Token> before, int nameIndex, int offset, PyVm vm,
+        internal static bool Describe(SourceModel model, List<Token> before, int nameIndex, int offset, PyVm vm,
                                      out string name, out string origin, out string parameters)
         {
             name = origin = parameters = null;
