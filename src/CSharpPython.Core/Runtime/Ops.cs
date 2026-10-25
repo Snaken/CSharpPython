@@ -493,6 +493,7 @@ namespace CSharpPython
                     if (r.Step > 0 ? (n < r.Start || n > last) : (n > r.Start || n < last)) return false;
                     return (n - r.Start) % r.Step == 0;
                 }
+                case ValueKind.Instance: return InstanceContains(container, item);
                 default:
                     throw TypeError("argument of type '" + TypeName(container) + "' is not iterable");
             }
@@ -527,6 +528,7 @@ namespace CSharpPython
 
         public static Value GetItem(Value target, Value index)
         {
+            if (target.Kind == ValueKind.Instance) return InstanceGetItem(target, index);
             if (index.Kind == ValueKind.Slice) return GetSlice(target, (PySlice)index.RawObject);
 
             switch (target.Kind)
@@ -563,6 +565,11 @@ namespace CSharpPython
 
         public static void SetItem(Value target, Value index, Value value)
         {
+            if (target.Kind == ValueKind.Instance)
+            {
+                InstanceSetItem(target, index, value);
+                return;
+            }
             if (index.Kind == ValueKind.Slice) throw TypeError("slice assignment is not supported yet");
             switch (target.Kind)
             {
@@ -671,6 +678,7 @@ namespace CSharpPython
                 case ValueKind.Dict: return new DictKeyIterator((PyDict)v.RawObject);
                 case ValueKind.Range: return new RangeIterator((PyRange)v.RawObject);
                 case ValueKind.Iterator: return (PyIterator)v.RawObject;
+                case ValueKind.Instance: return InstanceIterate(v);
                 default: throw TypeError("'" + TypeName(v) + "' object is not iterable");
             }
         }

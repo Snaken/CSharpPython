@@ -119,6 +119,45 @@ namespace CSharpPython
         public static Value ModInPlace(Value a, Value b) => TryInPlace(a, "__imod__", b, out Value r) ? r : Mod(a, b);
         public static Value PowInPlace(Value a, Value b) => TryInPlace(a, "__ipow__", b, out Value r) ? r : Pow(a, b);
 
+        // ---- Containers and iteration ---------------------------------------------------------------------------
+
+        /// <summary>True if the instance's class defines <c>__iter__</c>.</summary>
+        public static bool IsIterable(Value v) => HasDunder(v, "__iter__");
+
+        public static bool HasNext(Value v) =>
+            ((PyInstance)v.RawObject).Class.TryFind("__next__", out Value next) && next.Kind == ValueKind.Function;
+
+        private static Value InstanceGetItem(Value target, Value index)
+        {
+            if (TryCallDunder(target, "__getitem__", new[] { index }, out Value r)) return r;
+            throw TypeError("'" + TypeName(target) + "' object is not subscriptable");
+        }
+
+        private static void InstanceSetItem(Value target, Value index, Value value)
+        {
+            if (!TryCallDunder(target, "__setitem__", new[] { index, value }, out _))
+                throw TypeError("'" + TypeName(target) + "' object does not support item assignment");
+        }
+
+        private static bool InstanceContains(Value container, Value item)
+        {
+            if (TryCallDunder(container, "__contains__", new[] { item }, out Value r)) return r.IsTruthy;
+            var it = InstanceIterate(container, "argument of type '" + TypeName(container) + "' is not a container or iterable");
+            while (it.Next(out Value v))
+                if (Equal(v, item)) return true;
+            return false;
+        }
+
+        private static PyIterator InstanceIterate(Value v, string notIterable = null)
+        {
+            if (!TryCallDunder(v, "__iter__", Array.Empty<Value>(), out Value iterator))
+                throw TypeError(notIterable ?? "'" + TypeName(v) + "' object is not iterable");
+            if (iterator.Kind == ValueKind.Iterator) return (PyIterator)iterator.RawObject;
+            if (iterator.Kind == ValueKind.Instance && ((PyInstance)iterator.RawObject).Class.TryFind("__next__", out Value next) && next.Kind == ValueKind.Function)
+                return new InstanceIterator(iterator);
+            throw TypeError("iter() returned non-iterator of type '" + TypeName(iterator) + "'");
+        }
+
         // ---- Truth value and length -----------------------------------------------------------------------------
 
         private static bool InstanceTruthy(Value v)

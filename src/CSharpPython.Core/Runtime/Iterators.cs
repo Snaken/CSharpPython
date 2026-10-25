@@ -153,6 +153,23 @@ namespace CSharpPython
         }
     }
 
+    /// <summary>Iterates an object of a script class by calling its <c>__next__</c> method.</summary>
+    internal sealed class InstanceIterator : PyIterator
+    {
+        private readonly Value _target;
+
+        public InstanceIterator(Value target) { _target = target; }
+
+        public Value Target => _target;
+
+        public override bool Next(out Value value)
+        {
+            var task = PyTask.Current;
+            if (task == null) throw new PyError("RuntimeError", "a script object can only be iterated while its script is running");
+            return task.CallNext(_target, out value);
+        }
+    }
+
     internal sealed class EnumerateIterator : PyIterator
     {
         private readonly PyIterator _source;

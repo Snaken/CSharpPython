@@ -850,7 +850,8 @@ namespace CSharpPython
                     {
                         Value seq = _stack[--_sp];
                         if (seq.Kind != ValueKind.List && seq.Kind != ValueKind.Tuple && seq.Kind != ValueKind.Str
-                            && seq.Kind != ValueKind.Range && seq.Kind != ValueKind.Dict && seq.Kind != ValueKind.Iterator)
+                            && seq.Kind != ValueKind.Range && seq.Kind != ValueKind.Dict && seq.Kind != ValueKind.Iterator
+                            && !(seq.Kind == ValueKind.Instance && Ops.IsIterable(seq)))
                             throw new PyError("TypeError", "cannot unpack non-iterable " + seq.TypeName + " object");
                         var items = Ops.ToList(seq);
                         if (items.Count < ins.Arg)
@@ -1023,6 +1024,14 @@ namespace CSharpPython
                 }
                 case ValueKind.Class:
                     return Construct(callee, calleeIndex, argStart, argc, positional, kwNames);
+                case ValueKind.Instance:
+                {
+                    // An object whose class defines __call__ runs it as an ordinary frame, so it can wait.
+                    var call = CallMethodOf(callee);
+                    _stack[argStart - 1] = callee;
+                    CallFunction(call, calleeIndex, argStart - 1, argc + 1, positional + 1, kwNames);
+                    return CallFrame;
+                }
                 case ValueKind.ExceptionType:
                 {
                     if (kwNames != null) throw new PyError("TypeError", "exception classes take no keyword arguments");
@@ -1092,6 +1101,39 @@ namespace CSharpPython
             var cls = new PyClass(name, parent, ns) { RootType = rootType };
             cls.AdoptMethods();
             Push(Value.FromClass(cls));
+        }
+
+        // The __call__ function of an instance's class.
+        private static PyFunction CallMethodOf(Value instance)
+        {
+            var cls = ((PyInstance)instance.RawObject).Class;
+            if (cls.TryFind("__call__", out Value member) && member.Kind == ValueKind.Function) return (PyFunction)member.RawObject;
+            throw new PyError("TypeError", "'" + cls.Name + "' object is not callable");
+        }
+
+        /// <summary>
+        /// Runs <c>__next__</c> of an iterator object for a <c>for</c> loop or <c>next()</c>. Returns false when it
+        /// raises StopIteration.
+        /// </summary>
+        internal bool CallNext(Value iterator, out Value value)
+        {
+            var cls = ((PyInstance)iterator.RawObject).Class;
+            if (!cls.TryFind("__next__", out Value next) || next.Kind != ValueKind.Function)
+                throw new PyError("TypeError", "iter() returned non-iterator of type '" + cls.Name + "'");
+            value = default;
+            try
+            {
+                value = CallSync(Value.FromScriptMethod(new ScriptMethod(iterator, (PyFunction)next.RawObject)), Array.Empty<Value>());
+                return true;
+            }
+            catch (ScriptRaise r) when (r.Exception.Type.IsSubclassOf(ExceptionTypes.StopIteration))
+            {
+                return false;
+            }
+            catch (PyError e) when (e.TypeName == "StopIteration")
+            {
+                return false;
+            }
         }
 
         private static NativeFunction ConstructorOf(Value type)
@@ -1391,6 +1433,14 @@ namespace CSharpPython
                     case ValueKind.Class:
                         status = Construct(callee, calleeIndex, argStart, argc, argc, null);
                         break;
+                    case ValueKind.Instance:
+                    {
+                        var call = CallMethodOf(callee);
+                        _stack[argStart - 1] = callee;
+                        CallFunction(call, calleeIndex, argStart - 1, argc + 1, argc + 1, null);
+                        status = CallFrame;
+                        break;
+                    }
                     default:
                         _sp = calleeIndex;
                         throw new PyError("TypeError", "'" + callee.TypeName + "' object is not callable");

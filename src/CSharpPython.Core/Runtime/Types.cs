@@ -159,6 +159,8 @@ namespace CSharpPython
                 case ValueKind.Type:
                 case ValueKind.ExceptionType:
                     return true;
+                case ValueKind.Instance:
+                    return ((PyInstance)v.RawObject).Class.TryFind("__call__", out Value call) && call.Kind == ValueKind.Function;
                 default:
                     return false;
             }

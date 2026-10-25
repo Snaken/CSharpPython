@@ -176,6 +176,7 @@ namespace CSharpPython
                 case ListIterator l: Collect(Value.FromList(l.List)); break;
                 case TupleIterator t: Collect(Value.FromTuple(t.Tuple)); break;
                 case DictKeyIterator d: Collect(Value.FromDict(d.Dict)); break;
+                case InstanceIterator i: Collect(i.Target); break;
                 case EnumerateIterator e: Collect(Value.FromIterator(e.Source)); break;
                 case ZipIterator z:
                     foreach (var s in z.Sources) Collect(Value.FromIterator(s));
@@ -381,6 +382,10 @@ namespace CSharpPython
                     w.Write((byte)6);
                     w.Write(z.Sources.Length);
                     foreach (var src in z.Sources) WriteValue(w, Value.FromIterator(src));
+                    break;
+                case InstanceIterator i:
+                    w.Write((byte)7);
+                    WriteValue(w, i.Target);
                     break;
                 default:
                     throw new SnapshotException("cannot save an iterator of type " + it.GetType().Name);
@@ -752,6 +757,12 @@ namespace CSharpPython
                     var sources = new PyIterator[n];
                     for (int i = 0; i < n; i++) sources[i] = AsIterator(ReadValue(r));
                     return new ZipIterator(sources);
+                }
+                case 7:
+                {
+                    Value target = ReadValue(r);
+                    if (target.Kind != ValueKind.Instance) throw new SnapshotException("the snapshot is damaged");
+                    return new InstanceIterator(target);
                 }
                 default:
                     throw new SnapshotException("the snapshot is damaged");

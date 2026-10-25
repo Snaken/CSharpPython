@@ -58,6 +58,16 @@ namespace CSharpPython
         private static IEnumerable<NativeFunction> Functions()
         {
             yield return F("print", 0, -1, Print, true);
+            yield return F("iter", 1, 1, (c, a) => Value.FromIterator(Ops.GetIterator(a[0])));
+            yield return F("next", 1, 2, (c, a) =>
+            {
+                var it = a[0].Kind == ValueKind.Iterator ? (PyIterator)a[0].RawObject
+                    : a[0].Kind == ValueKind.Instance && c.Task != null && Ops.HasNext(a[0]) ? new InstanceIterator(a[0])
+                    : throw Ops.TypeError("'" + a[0].TypeName + "' object is not an iterator");
+                if (it.Next(out Value item)) return item;
+                if (a.Length > 1) return a[1];
+                throw new PyError("StopIteration", "");
+            });
             yield return F("hash", 1, 1, (c, a) => Value.FromInt(Ops.Hash(a[0])));
             yield return F("len", 1, 1, (c, a) => Value.FromInt(Ops.Length(a[0])));
             yield return F("range", 1, 3, Range);
