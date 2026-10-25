@@ -12,11 +12,39 @@ namespace CSharpPython
             return method != null;
         }
 
+        /// <summary>The method an instance's class defines under this name, ready to be called with the instance in front.</summary>
+        public static bool TryGetScriptMethod(Value obj, string name, out PyFunction function)
+        {
+            function = null;
+            var inst = (PyInstance)obj.RawObject;
+            if (inst.Fields.ContainsKey(Value.FromString(name))) return false;
+            if (!inst.Class.TryFind(name, out Value member) || member.Kind != ValueKind.Function) return false;
+            function = (PyFunction)member.RawObject;
+            return true;
+        }
+
         public static Value GetAttr(Value obj, string name)
         {
             if (name == "__class__") return PyTypes.TypeOf(obj);
             switch (obj.Kind)
             {
+                case ValueKind.Instance:
+                {
+                    var inst = (PyInstance)obj.RawObject;
+                    if (inst.Fields.TryGetValue(Value.FromString(name), out Value field)) return field;
+                    if (inst.Class.TryFind(name, out Value member))
+                        return member.Kind == ValueKind.Function
+                            ? Value.FromScriptMethod(new ScriptMethod(obj, (PyFunction)member.RawObject))
+                            : member;
+                    throw NoAttribute(obj, name);
+                }
+                case ValueKind.Class:
+                {
+                    var cls = (PyClass)obj.RawObject;
+                    if (name == "__name__") return Value.FromString(cls.Name);
+                    if (cls.TryFind(name, out Value member)) return member;
+                    throw new PyError("AttributeError", "type object '" + cls.Name + "' has no attribute '" + name + "'");
+                }
                 case ValueKind.Type:
                     if (name == "__name__") return Value.FromString(((PyType)obj.RawObject).Name);
                     break;
@@ -44,6 +72,16 @@ namespace CSharpPython
 
         public static void SetAttr(Value obj, string name, Value value)
         {
+            if (obj.Kind == ValueKind.Instance)
+            {
+                ((PyInstance)obj.RawObject).Fields.Set(Value.FromString(name), value);
+                return;
+            }
+            if (obj.Kind == ValueKind.Class)
+            {
+                ((PyClass)obj.RawObject).Namespace.Set(Value.FromString(name), value);
+                return;
+            }
             if (obj.Kind == ValueKind.Module)
                 throw new PyError("AttributeError", "module attributes are read-only");
             throw new PyError("AttributeError", "'" + TypeName(obj) + "' object has no attribute '" + name + "' and does not support assignment");

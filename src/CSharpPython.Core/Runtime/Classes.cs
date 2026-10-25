@@ -1,0 +1,82 @@
+using System.Runtime.CompilerServices;
+
+namespace CSharpPython
+{
+    /// <summary>A class defined by the script with <c>class</c>. Calling it creates a <see cref="PyInstance"/>.</summary>
+    internal sealed class PyClass
+    {
+        public string Name;
+
+        /// <summary>The parent class, or null for a class that derives from <c>object</c>.</summary>
+        public PyClass Base;
+
+        /// <summary>The attributes defined in the class body: methods and class variables.</summary>
+        public readonly PyDict Namespace;
+
+        public PyClass(string name, PyClass baseClass, PyDict ns)
+        {
+            Name = name;
+            Base = baseClass;
+            Namespace = ns;
+        }
+
+        /// <summary>Looks a name up in this class and then its parents.</summary>
+        public bool TryFind(string name, out Value value)
+        {
+            var key = Value.FromString(name);
+            for (var c = this; c != null; c = c.Base)
+                if (c.Namespace.TryGetValue(key, out value)) return true;
+            value = default;
+            return false;
+        }
+
+        public bool IsSubclassOf(PyClass other)
+        {
+            for (var c = this; c != null; c = c.Base)
+                if (c == other) return true;
+            return false;
+        }
+
+        /// <summary>The number of classes from this one up to the root, used to stop a cyclic base chain.</summary>
+        public int Depth
+        {
+            get
+            {
+                int n = 0;
+                for (var c = this; c != null; c = c.Base) n++;
+                return n;
+            }
+        }
+    }
+
+    /// <summary>An object created by calling a script class.</summary>
+    internal sealed class PyInstance
+    {
+        public PyClass Class;
+
+        /// <summary>The instance attributes, assigned with <c>self.name = value</c>.</summary>
+        public readonly PyDict Fields = new PyDict();
+
+        public PyInstance(PyClass cls)
+        {
+            Class = cls;
+        }
+
+        /// <summary>The text <c>repr</c> gives for an object that does not define <c>__repr__</c>.</summary>
+        public string DefaultRepr() =>
+            "<__main__." + Class.Name + " object at 0x" + RuntimeHelpers.GetHashCode(this).ToString("x8") + ">";
+    }
+
+    /// <summary>A script method bound to the instance it was looked up on, e.g. <c>obj.update</c>.</summary>
+    internal sealed class ScriptMethod
+    {
+        public readonly Value Self;
+        public readonly PyFunction Function;
+
+        public ScriptMethod(Value self, PyFunction function)
+        {
+            Self = self;
+            Function = function;
+        }
+    }
+}

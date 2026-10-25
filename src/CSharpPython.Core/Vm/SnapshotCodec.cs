@@ -55,7 +55,7 @@ namespace CSharpPython
 
     internal sealed class SnapshotWriter
     {
-        private const byte ContainerList = 0, ContainerTuple = 1, ContainerDict = 2, ContainerCell = 3;
+        private const byte ContainerList = 0, ContainerTuple = 1, ContainerDict = 2, ContainerCell = 3, ContainerClass = 4, ContainerInstance = 5;
 
         private readonly PyVm _vm;
         private readonly Script _script;
@@ -93,6 +93,30 @@ namespace CSharpPython
                             Collect(pair.Value);
                         }
                     break;
+                case ValueKind.Class:
+                    if (AddContainer(v))
+                    {
+                        var cls = (PyClass)v.RawObject;
+                        if (cls.Base != null) Collect(Value.FromClass(cls.Base));
+                        CollectPairs(cls.Namespace);
+                    }
+                    break;
+                case ValueKind.Instance:
+                    if (AddContainer(v))
+                    {
+                        var inst = (PyInstance)v.RawObject;
+                        Collect(Value.FromClass(inst.Class));
+                        CollectPairs(inst.Fields);
+                    }
+                    break;
+                case ValueKind.ScriptMethod:
+                    if (AddLeaf(v))
+                    {
+                        var m = (ScriptMethod)v.RawObject;
+                        Collect(m.Self);
+                        Collect(Value.FromFunction(m.Function));
+                    }
+                    break;
                 case ValueKind.Function:
                     if (AddLeaf(v))
                     {
@@ -122,6 +146,25 @@ namespace CSharpPython
                 case ValueKind.Iterator:
                     if (AddLeaf(v)) CollectIterator((PyIterator)v.RawObject);
                     break;
+            }
+        }
+
+        private void CollectPairs(PyDict dict)
+        {
+            foreach (var pair in dict.Pairs())
+            {
+                Collect(pair.Key);
+                Collect(pair.Value);
+            }
+        }
+
+        private void WritePairs(BinaryWriter w, PyDict dict)
+        {
+            w.Write(dict.Count);
+            foreach (var pair in dict.Pairs())
+            {
+                WriteValue(w, pair.Key);
+                WriteValue(w, pair.Value);
             }
         }
 
@@ -188,6 +231,23 @@ namespace CSharpPython
                         WriteValue(pw, ((Cell)c.RawObject).Value);
                         break;
                     }
+                    case ValueKind.Class:
+                    {
+                        w.Write(ContainerClass);
+                        var cls = (PyClass)c.RawObject;
+                        SnapshotIo.WriteString(pw, cls.Name);
+                        WriteValue(pw, cls.Base == null ? Value.None : Value.FromClass(cls.Base));
+                        WritePairs(pw, cls.Namespace);
+                        break;
+                    }
+                    case ValueKind.Instance:
+                    {
+                        w.Write(ContainerInstance);
+                        var inst = (PyInstance)c.RawObject;
+                        WriteValue(pw, Value.FromClass(inst.Class));
+                        WritePairs(pw, inst.Fields);
+                        break;
+                    }
                     default:
                     {
                         w.Write(ContainerDict);
@@ -241,6 +301,13 @@ namespace CSharpPython
                     WriteValue(w, bm.Self);
                     string name = bm.Function.Name;
                     SnapshotIo.WriteString(w, name.Substring(name.IndexOf('.') + 1));
+                    break;
+                }
+                case ValueKind.ScriptMethod:
+                {
+                    var m = (ScriptMethod)v.RawObject;
+                    WriteValue(w, m.Self);
+                    WriteValue(w, Value.FromFunction(m.Function));
                     break;
                 }
                 case ValueKind.Slice:
@@ -365,6 +432,8 @@ namespace CSharpPython
                 case ValueKind.Tuple:
                 case ValueKind.Dict:
                 case ValueKind.Cell:
+                case ValueKind.Class:
+                case ValueKind.Instance:
                     w.Write(Id(_containerIds, v));
                     break;
                 default:
@@ -445,6 +514,8 @@ namespace CSharpPython
                         break;
                     case 2: shells[i] = new PyDict(); break;
                     case 3: shells[i] = new Cell(Value.Unbound); break;
+                    case 4: shells[i] = new PyClass(null, null, new PyDict()); break;
+                    case 5: shells[i] = new PyInstance(null); break;
                     default: throw new SnapshotException("the snapshot is damaged");
                 }
                 lengths[i] = SnapshotIo.ReadCount(r, 1);
@@ -473,11 +544,19 @@ namespace CSharpPython
             }
 
             // Fill containers: tuples, then lists, then dicts.
-            for (byte pass = 1; pass <= 4; pass++)
+            for (byte pass = 1; pass <= 6; pass++)
             {
-                int kind = pass == 1 ? 1 : pass == 2 ? 3 : pass == 3 ? 0 : 2;
+                int kind = pass == 1 ? 1 : pass == 2 ? 3 : pass == 3 ? 0 : pass == 4 ? 2 : pass == 5 ? 4 : 5;
                 for (int i = 0; i < containers; i++)
                     if (kinds[i] == kind) FillContainer(i);
+            }
+            for (int i = 0; i < containers; i++)
+            {
+                // A damaged snapshot must not give a class itself as an ancestor, which would loop forever.
+                if (kinds[i] != 4) continue;
+                int steps = 0;
+                for (var c = ((PyClass)_objects[i]).Base; c != null; c = c.Base)
+                    if (++steps > containers) throw new SnapshotException("the snapshot is damaged");
             }
             foreach (var it in _dictIterators) it.FinishRestore();
             _filled = true;
@@ -503,6 +582,23 @@ namespace CSharpPython
                 case Cell cell:
                     cell.Value = ReadValue(r);
                     break;
+                case PyClass cls:
+                {
+                    cls.Name = SnapshotIo.ReadString(r);
+                    Value b = ReadValue(r);
+                    if (b.Kind == ValueKind.Class) cls.Base = (PyClass)b.RawObject;
+                    else if (b.Kind != ValueKind.None) throw new SnapshotException("the snapshot is damaged");
+                    ReadPairs(r, cls.Namespace);
+                    break;
+                }
+                case PyInstance inst:
+                {
+                    Value c = ReadValue(r);
+                    if (c.Kind != ValueKind.Class) throw new SnapshotException("the snapshot is damaged");
+                    inst.Class = (PyClass)c.RawObject;
+                    ReadPairs(r, inst.Fields);
+                    break;
+                }
                 case PyDict dict:
                 {
                     int n = SnapshotIo.ReadCount(r, 2);
@@ -513,6 +609,16 @@ namespace CSharpPython
                     }
                     break;
                 }
+            }
+        }
+
+        private void ReadPairs(BinaryReader r, PyDict into)
+        {
+            int n = SnapshotIo.ReadCount(r, 2);
+            for (int i = 0; i < n; i++)
+            {
+                Value key = ReadValue(r);
+                into.Set(key, ReadValue(r));
             }
         }
 
@@ -550,6 +656,14 @@ namespace CSharpPython
                     var method = Methods.Find(self.Kind, name);
                     if (method == null) throw new SnapshotException("unknown method '" + name + "'");
                     _objects[id] = new BoundMethod(self, method);
+                    break;
+                }
+                case ValueKind.ScriptMethod:
+                {
+                    Value self = ReadValue(r);
+                    Value fn = ReadValue(r);
+                    if (fn.Kind != ValueKind.Function) throw new SnapshotException("the snapshot is damaged");
+                    _objects[id] = new ScriptMethod(self, (PyFunction)fn.RawObject);
                     break;
                 }
                 case ValueKind.Slice:
@@ -682,6 +796,9 @@ namespace CSharpPython
                 case ValueKind.Tuple: return Value.FromTuple((PyTuple)ContainerAs(r.ReadInt32(), typeof(PyTuple)));
                 case ValueKind.Dict: return Value.FromDict((PyDict)ContainerAs(r.ReadInt32(), typeof(PyDict)));
                 case ValueKind.Cell: return Value.FromCell((Cell)ContainerAs(r.ReadInt32(), typeof(Cell)));
+                case ValueKind.Class: return Value.FromClass((PyClass)ContainerAs(r.ReadInt32(), typeof(PyClass)));
+                case ValueKind.Instance: return Value.FromInstance((PyInstance)ContainerAs(r.ReadInt32(), typeof(PyInstance)));
+                case ValueKind.ScriptMethod: return Value.FromScriptMethod((ScriptMethod)LeafAs(r.ReadInt32(), typeof(ScriptMethod)));
                 case ValueKind.Function: return Value.FromFunction((PyFunction)LeafAs(r.ReadInt32(), typeof(PyFunction)));
                 case ValueKind.BoundMethod: return Value.FromBound((BoundMethod)LeafAs(r.ReadInt32(), typeof(BoundMethod)));
                 case ValueKind.Slice: return Value.FromSlice((PySlice)LeafAs(r.ReadInt32(), typeof(PySlice)));

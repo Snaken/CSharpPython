@@ -42,6 +42,12 @@ namespace CSharpPython.Compilation
 
         public bool IsModule => Function == null;
 
+        /// <summary>
+        /// Whether this is the body of a class. Its names are not visible to the functions defined inside it, so
+        /// those skip it when looking for variables of enclosing scopes.
+        /// </summary>
+        public bool IsClass;
+
         public int LocalCount => Locals.Count;
 
         public bool TryGetLocal(string name, out int slot)

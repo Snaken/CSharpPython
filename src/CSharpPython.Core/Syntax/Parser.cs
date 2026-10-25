@@ -160,6 +160,7 @@ namespace CSharpPython.Syntax
             switch (Cur.Kind)
             {
                 case TokenKind.KwDef: into.Add(ParseDef()); return;
+                case TokenKind.KwClass: into.Add(ParseClass()); return;
                 case TokenKind.KwIf: into.Add(ParseIf()); return;
                 case TokenKind.KwWhile: into.Add(ParseWhile()); return;
                 case TokenKind.KwFor: into.Add(ParseFor()); return;
@@ -205,6 +206,27 @@ namespace CSharpPython.Syntax
             Expect(TokenKind.Colon, "':'");
             def.Body = ParseBlock("function definition");
             return def;
+        }
+
+        private ClassStmt ParseClass()
+        {
+            var cls = At(new ClassStmt(), Advance());
+            cls.Name = Expect(TokenKind.Name, "a class name").Text;
+            if (Accept(TokenKind.LParen))
+            {
+                while (Cur.Kind != TokenKind.RParen)
+                {
+                    if (Cur.Kind == TokenKind.Name && PeekAt(1).Kind == TokenKind.Assign)
+                        throw Error("class keyword arguments (such as metaclass) are not supported", Cur);
+                    cls.Bases.Add(ParseTernary());
+                    if (!Accept(TokenKind.Comma)) break;
+                }
+                Expect(TokenKind.RParen, "')'");
+            }
+            Expect(TokenKind.Colon, "':'");
+            cls.Body = new DefStmt { Name = cls.Name, Line = cls.Line, Column = cls.Column };
+            cls.Body.Body = ParseBlock("class definition");
+            return cls;
         }
 
         // The parameters of a def (ended by ')') or a lambda (ended by ':').

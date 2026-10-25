@@ -98,6 +98,9 @@ namespace CSharpPython.Compilation
         DictSetUnique, // dict key value -> dict; refuses a repeated key
         DictMerge,    // dict mapping -> dict; refuses repeated keys
         CallEx,       // callable [self] args-list [kwargs-dict] -> result; arg bit 0 = has kwargs dict, bit 1 = method call
+
+        ClassNamespace, // -> dict of the class body's assigned names; ends a class body
+        BuildClass,   // name [base] namespace -> class; arg = number of bases (0 or 1)
     }
 
     internal readonly struct Instruction
@@ -228,6 +231,7 @@ namespace CSharpPython.Compilation
                     case Op.Reraise:
                     case Op.RaiseCurrent:
                     case Op.MatchException:
+                    case Op.ClassNamespace:
                         break;
                     default: sb.Append(' ').Append(ins.Arg); break;
                 }

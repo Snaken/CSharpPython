@@ -48,6 +48,9 @@ namespace CSharpPython
         public static readonly PyType Handle = Define("handle", ValueKind.Handle);
         public static readonly PyType Type = Define("type", null);
 
+        /// <summary>The root of every class; only useful as a base class or in <c>isinstance</c>.</summary>
+        public static readonly PyType Object = Define("object", null);
+
         private static PyType Define(string name, ValueKind? kind)
         {
             var t = new PyType(name, kind);
@@ -63,16 +66,23 @@ namespace CSharpPython
             switch (v.Kind)
             {
                 case ValueKind.Exception: return Value.FromExceptionType(((PyExceptionValue)v.RawObject).Type);
+                case ValueKind.Instance: return Value.FromClass(((PyInstance)v.RawObject).Class);
                 case ValueKind.ExceptionType:
+                case ValueKind.Class:
                 case ValueKind.Type:
                     return Value.FromType(Type);
             }
+            var kind = KindOf(v);
             foreach (var t in ByName.Values)
-                if (t.Kind == v.Kind) return Value.FromType(t);
+                if (t.Kind == kind) return Value.FromType(t);
             throw new PyError("TypeError", "type() cannot describe this value");
         }
 
-        private static bool IsClass(Value v) => v.Kind == ValueKind.Type || v.Kind == ValueKind.ExceptionType;
+        // Bound methods of script classes and of built-in types are both of type "method".
+        private static ValueKind KindOf(Value v) => v.Kind == ValueKind.ScriptMethod ? ValueKind.BoundMethod : v.Kind;
+
+        private static bool IsClass(Value v) =>
+            v.Kind == ValueKind.Type || v.Kind == ValueKind.ExceptionType || v.Kind == ValueKind.Class;
 
         /// <summary><c>isinstance(value, cls)</c>, where cls is a type, an exception class or a tuple of those.</summary>
         public static bool IsInstance(Value value, Value cls)
@@ -82,10 +92,14 @@ namespace CSharpPython
                 case ValueKind.Type:
                 {
                     var t = (PyType)cls.RawObject;
+                    if (t == Object) return true;
                     if (t == Type) return IsClass(value);
                     if (t == Int && value.Kind == ValueKind.Bool) return true; // bool is a kind of int
-                    return t.Kind == value.Kind;
+                    return t.Kind == KindOf(value);
                 }
+                case ValueKind.Class:
+                    return value.Kind == ValueKind.Instance &&
+                           ((PyInstance)value.RawObject).Class.IsSubclassOf((PyClass)cls.RawObject);
                 case ValueKind.ExceptionType:
                     return value.Kind == ValueKind.Exception &&
                            ((PyExceptionValue)value.RawObject).Type.IsSubclassOf((PyExceptionType)cls.RawObject);
@@ -106,11 +120,15 @@ namespace CSharpPython
             {
                 case ValueKind.Type:
                 {
+                    var b = (PyType)cls.RawObject;
+                    if (b == Object) return true;
                     if (sub.Kind != ValueKind.Type) return false;
                     var a = (PyType)sub.RawObject;
-                    var b = (PyType)cls.RawObject;
                     return a == b || (a == Bool && b == Int);
                 }
+                case ValueKind.Class:
+                    return sub.Kind == ValueKind.Class &&
+                           ((PyClass)sub.RawObject).IsSubclassOf((PyClass)cls.RawObject);
                 case ValueKind.ExceptionType:
                     return sub.Kind == ValueKind.ExceptionType &&
                            ((PyExceptionType)sub.RawObject).IsSubclassOf((PyExceptionType)cls.RawObject);
@@ -131,6 +149,8 @@ namespace CSharpPython
                 case ValueKind.Function:
                 case ValueKind.Native:
                 case ValueKind.BoundMethod:
+                case ValueKind.ScriptMethod:
+                case ValueKind.Class:
                 case ValueKind.Type:
                 case ValueKind.ExceptionType:
                     return true;

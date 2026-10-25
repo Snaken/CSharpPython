@@ -63,6 +63,9 @@ namespace CSharpPython
         internal static Value FromException(PyExceptionValue e) => new Value(ValueKind.Exception, 0, e);
 
         internal static Value FromType(PyType t) => new Value(ValueKind.Type, 0, t);
+        internal static Value FromClass(PyClass c) => new Value(ValueKind.Class, 0, c);
+        internal static Value FromInstance(PyInstance i) => new Value(ValueKind.Instance, 0, i);
+        internal static Value FromScriptMethod(ScriptMethod m) => new Value(ValueKind.ScriptMethod, 0, m);
         internal static Value FromExceptionType(PyExceptionType t) => new Value(ValueKind.ExceptionType, 0, t);
 
         /// <summary>Creates a handle that refers to a host object. Handles are plain data, so they can be saved.</summary>

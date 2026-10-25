@@ -210,6 +210,17 @@ namespace CSharpPython.Syntax
         public List<Stmt> Body = new List<Stmt>();
     }
 
+    /// <summary>
+    /// A class definition. The body is kept as a parameterless <see cref="DefStmt"/> because it runs once, like a
+    /// function call, and its local variables become the class attributes.
+    /// </summary>
+    public sealed class ClassStmt : Stmt
+    {
+        public string Name;
+        public List<Expr> Bases = new List<Expr>();
+        public DefStmt Body;
+    }
+
     public sealed class ReturnStmt : Stmt
     {
         public Expr Value;

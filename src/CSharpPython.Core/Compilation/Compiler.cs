@@ -209,6 +209,7 @@ namespace CSharpPython.Compilation
                 case WhileStmt w: CompileWhile(w); break;
                 case ForStmt f: CompileFor(f); break;
                 case DefStmt d: CompileDef(d); break;
+                case ClassStmt c: CompileClass(c); break;
                 case ReturnStmt r:
                     if (_unit.InFinally > 0) throw Error("'return' inside a 'finally' block is not supported", r);
                     if (r.Value != null) CompileExpr(r.Value);
@@ -388,8 +389,21 @@ namespace CSharpPython.Compilation
             StoreName(d.Name);
         }
 
+        // name, [base], then the class body run as a function that returns its namespace, then BuildClass.
+        private void CompileClass(ClassStmt c)
+        {
+            if (c.Bases.Count > 1) throw Error("multiple inheritance is not supported", c.Bases[1]);
+            Emit(Op.LoadConst, Constant(Value.FromString(c.Name)));
+            foreach (var b in c.Bases) CompileExpr(b);
+            CompileFunction(c.Body, true);
+            Emit(Op.Call, 0);
+            SetLine(c);
+            Emit(Op.BuildClass, c.Bases.Count);
+            StoreName(c.Name);
+        }
+
         // Compiles a def or lambda and leaves the new function on the stack.
-        private void CompileFunction(DefStmt d)
+        private void CompileFunction(DefStmt d, bool isClassBody = false)
         {
             var scope = _resolved.Functions[d];
             int numDefaults = 0;
@@ -410,7 +424,7 @@ namespace CSharpPython.Compilation
             // The cells of the enclosing function's variables that this function uses.
             foreach (var name in scope.FreeVars)
             {
-                if (_unit.Scope.TryGetLocal(name, out int slot)) Emit(Op.LoadCellRef, slot);
+                if (!_unit.Scope.IsClass && _unit.Scope.TryGetLocal(name, out int slot)) Emit(Op.LoadCellRef, slot);
                 else
                 {
                     _unit.Scope.TryGetFree(name, out int free);
@@ -426,7 +440,8 @@ namespace CSharpPython.Compilation
                 Emit(Op.MakeCell, slot);
             }
             CompileBody(d.Body);
-            Emit(Op.LoadConst, Constant(Value.None));
+            if (isClassBody) Emit(Op.ClassNamespace);
+            else Emit(Op.LoadConst, Constant(Value.None));
             Emit(Op.Return);
             var code = Finish(false, d, numDefaults, numPosDefaults);
             _unit = outer;

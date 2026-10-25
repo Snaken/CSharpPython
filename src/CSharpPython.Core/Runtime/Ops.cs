@@ -46,7 +46,10 @@ namespace CSharpPython
                 case ValueKind.Module: return "module";
                 case ValueKind.Iterator: return "iterator";
                 case ValueKind.Exception: return ((PyExceptionValue)v.RawObject).Type.Name;
+                case ValueKind.Instance: return ((PyInstance)v.RawObject).Class.Name;
+                case ValueKind.ScriptMethod: return "method";
                 case ValueKind.ExceptionType:
+                case ValueKind.Class:
                 case ValueKind.Type: return "type";
                 case ValueKind.Handle: return "handle";
                 default: return "unbound";

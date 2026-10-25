@@ -31,6 +31,8 @@ namespace CSharpPython
             public Handler[] Handlers = new Handler[4];
             public int HandlerCount;
             public Value ExcInfo;   // the exception being handled, for a bare 'raise'
+            public bool IsConstructor; // running __init__ for a call of a class; the call's result is Constructed
+            public Value Constructed;
         }
 
         // Raised by 'raise' so that it travels the same path as errors thrown by native code.
@@ -413,7 +415,12 @@ namespace CSharpPython
                     {
                         Value obj = _stack[--_sp];
                         string name = code.Names[ins.Arg];
-                        if (obj.Kind != ValueKind.Module && Ops.TryGetMethod(obj, name, out NativeFunction method))
+                        if (obj.Kind == ValueKind.Instance && Ops.TryGetScriptMethod(obj, name, out PyFunction scriptMethod))
+                        {
+                            Push(Value.FromFunction(scriptMethod));
+                            Push(obj);
+                        }
+                        else if (obj.Kind != ValueKind.Module && Ops.TryGetMethod(obj, name, out NativeFunction method))
                         {
                             Push(Value.FromNative(method));
                             Push(obj);
@@ -691,6 +698,18 @@ namespace CSharpPython
                         break;
                     }
 
+                    case Op.ClassNamespace:
+                    {
+                        var ns = new PyDict();
+                        for (int i = 0; i < code.NumLocals; i++)
+                            if (_stack[bas + i].Kind != ValueKind.Unbound) ns.Set(Value.FromString(code.LocalNames[i]), _stack[bas + i]);
+                        Push(Value.FromDict(ns));
+                        break;
+                    }
+                    case Op.BuildClass:
+                        BuildClass(ins.Arg);
+                        break;
+
                     case Op.Call:
                     case Op.CallKw:
                     case Op.CallMethod:
@@ -715,6 +734,12 @@ namespace CSharpPython
                     case Op.Return:
                     {
                         Value result = _stack[--_sp];
+                        if (frame.IsConstructor)
+                        {
+                            if (result.Kind != ValueKind.None)
+                                throw new PyError("TypeError", "__init__() should return None, not '" + result.TypeName + "'");
+                            result = frame.Constructed;
+                        }
                         bool wasEvent = frame.IsEvent;
                         _sp = frame.CalleeIndex;
                         _frameCount--;
@@ -918,7 +943,12 @@ namespace CSharpPython
 
             if (method && _stack[calleeIndex + 1].Kind != ValueKind.Unbound)
             {
-                // A native method with its receiver in front of the arguments.
+                // A method with its receiver in front of the arguments.
+                if (callee.Kind == ValueKind.Function)
+                {
+                    CallFunction((PyFunction)callee.RawObject, calleeIndex, calleeIndex + 1, argc + 1, positional + 1, kwNames);
+                    return CallFrame;
+                }
                 return CallNative((NativeFunction)callee.RawObject, calleeIndex, calleeIndex + 1, argc + 1, positional + 1, kwNames, 1);
             }
 
@@ -937,6 +967,15 @@ namespace CSharpPython
                     _stack[argStart - 1] = bound.Self;
                     return CallNative(bound.Function, calleeIndex, argStart - 1, argc + 1, positional + 1, kwNames, 1);
                 }
+                case ValueKind.ScriptMethod:
+                {
+                    var bound = (ScriptMethod)callee.RawObject;
+                    _stack[argStart - 1] = bound.Self;
+                    CallFunction(bound.Function, calleeIndex, argStart - 1, argc + 1, positional + 1, kwNames);
+                    return CallFrame;
+                }
+                case ValueKind.Class:
+                    return Construct(callee, calleeIndex, argStart, argc, positional, kwNames);
                 case ValueKind.ExceptionType:
                 {
                     if (kwNames != null) throw new PyError("TypeError", "exception classes take no keyword arguments");
@@ -955,6 +994,45 @@ namespace CSharpPython
                 default:
                     throw new PyError("TypeError", "'" + callee.TypeName + "' object is not callable");
             }
+        }
+
+        // Calls a script class: makes the instance and runs __init__ in a frame of its own, so that it can wait.
+        private int Construct(Value callee, int calleeIndex, int argStart, int argc, int positional, string[] kwNames)
+        {
+            var cls = (PyClass)callee.RawObject;
+            var self = Value.FromInstance(new PyInstance(cls));
+            if (cls.TryFind("__init__", out Value init))
+            {
+                if (init.Kind != ValueKind.Function) throw new PyError("TypeError", "__init__ must be a function");
+                _stack[argStart - 1] = self;
+                CallFunction((PyFunction)init.RawObject, calleeIndex, argStart - 1, argc + 1, positional + 1, kwNames);
+                var frame = _frames[_frameCount - 1];
+                frame.IsConstructor = true;
+                frame.Constructed = self;
+                return CallFrame;
+            }
+            if (argc > 0) throw new PyError("TypeError", cls.Name + "() takes no arguments");
+            _sp = calleeIndex;
+            Push(self);
+            return CallDone;
+        }
+
+        private void BuildClass(int bases)
+        {
+            var ns = (PyDict)_stack[--_sp].RawObject;
+            PyClass parent = null;
+            if (bases == 1)
+            {
+                Value b = _stack[--_sp];
+                if (b.Kind == ValueKind.Class) parent = (PyClass)b.RawObject;
+                else if (b.Kind == ValueKind.Type && (PyType)b.RawObject == PyTypes.Object) parent = null;
+                else if (b.Kind == ValueKind.Type || b.Kind == ValueKind.ExceptionType)
+                    throw new PyError("TypeError", "cannot inherit from the built-in type '" +
+                        (b.Kind == ValueKind.Type ? ((PyType)b.RawObject).Name : ((PyExceptionType)b.RawObject).Name) + "' yet");
+                else throw new PyError("TypeError", "bases must be classes, not '" + b.TypeName + "'");
+            }
+            string name = (string)_stack[--_sp].RawObject;
+            Push(Value.FromClass(new PyClass(name, parent, ns)));
         }
 
         private static NativeFunction ConstructorOf(Value type)
@@ -1241,6 +1319,17 @@ namespace CSharpPython
                         status = CallNative(bound.Function, calleeIndex, argStart - 1, argc + 1, argc + 1, null, 1);
                         break;
                     }
+                    case ValueKind.ScriptMethod:
+                    {
+                        var bound = (ScriptMethod)callee.RawObject;
+                        _stack[argStart - 1] = bound.Self;
+                        CallFunction(bound.Function, calleeIndex, argStart - 1, argc + 1, argc + 1, null);
+                        status = CallFrame;
+                        break;
+                    }
+                    case ValueKind.Class:
+                        status = Construct(callee, calleeIndex, argStart, argc, argc, null);
+                        break;
                     default:
                         _sp = calleeIndex;
                         throw new PyError("TypeError", "'" + callee.TypeName + "' object is not callable");
@@ -1341,6 +1430,8 @@ namespace CSharpPython
             f.Closure = null;
             f.HandlerCount = 0;
             f.ExcInfo = default;
+            f.IsConstructor = false;
+            f.Constructed = default;
         }
     }
 }

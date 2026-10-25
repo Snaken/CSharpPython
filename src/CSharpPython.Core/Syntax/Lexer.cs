@@ -29,8 +29,8 @@ namespace CSharpPython.Syntax
             { "global", TokenKind.KwGlobal }, { "nonlocal", TokenKind.KwNonlocal }, { "lambda", TokenKind.KwLambda },
             { "try", TokenKind.KwTry }, { "except", TokenKind.KwExcept }, { "finally", TokenKind.KwFinally },
             { "raise", TokenKind.KwRaise }, { "import", TokenKind.KwImport }, { "from", TokenKind.KwFrom },
-            { "as", TokenKind.KwAs },
-            { "class", TokenKind.KwUnsupported }, { "yield", TokenKind.KwUnsupported }, { "with", TokenKind.KwUnsupported },
+            { "as", TokenKind.KwAs }, { "class", TokenKind.KwClass },
+            { "yield", TokenKind.KwUnsupported }, { "with", TokenKind.KwUnsupported },
             { "del", TokenKind.KwUnsupported }, { "assert", TokenKind.KwUnsupported }, { "async", TokenKind.KwUnsupported },
             { "await", TokenKind.KwUnsupported },
         };

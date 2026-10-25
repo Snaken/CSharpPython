@@ -7,7 +7,7 @@ namespace CSharpPython
 {
     public sealed partial class PyTask
     {
-        private const ushort SnapshotVersion = 2;
+        private const ushort SnapshotVersion = 3;
         private static readonly byte[] SnapshotMagic = { (byte)'C', (byte)'S', (byte)'P', (byte)'Y' };
 
         // The deepest value stack a restored snapshot may claim, so that damaged data cannot ask for gigabytes.
@@ -33,6 +33,7 @@ namespace CSharpPython
             for (int i = 0; i < _frameCount; i++)
             {
                 writer.Collect(_frames[i].ExcInfo);
+                if (_frames[i].IsConstructor) writer.Collect(_frames[i].Constructed);
                 if (_frames[i].Closure != null)
                     foreach (var cell in _frames[i].Closure) writer.Collect(Value.FromCell(cell));
             }
@@ -105,6 +106,8 @@ namespace CSharpPython
                 int cells = f.Closure?.Length ?? 0;
                 w.Write(cells);
                 for (int c = 0; c < cells; c++) writer.WriteValue(w, Value.FromCell(f.Closure[c]));
+                w.Write(f.IsConstructor);
+                if (f.IsConstructor) writer.WriteValue(w, f.Constructed);
             }
 
             w.Flush();
@@ -222,6 +225,12 @@ namespace CSharpPython
                 f.HandlerCount = handlers;
                 f.ExcInfo = reader.ReadValue(r);
                 f.Closure = reader.ReadClosure(r, code);
+                f.IsConstructor = r.ReadBoolean();
+                if (f.IsConstructor)
+                {
+                    f.Constructed = reader.ReadValue(r);
+                    if (f.Constructed.Kind != ValueKind.Instance) throw new SnapshotException("the snapshot is damaged");
+                }
                 if (f.Pc < 0 || f.Pc > code.Instructions.Length || f.Base < 0 || f.Base + code.NumLocals > sp ||
                     f.CalleeIndex < 0 || f.CalleeIndex > f.Base)
                     throw new SnapshotException("the snapshot is damaged");

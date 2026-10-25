@@ -27,7 +27,28 @@ namespace CSharpPython
                 }
             }
             foreach (var type in ExceptionTypes.All) into[type.Name] = Value.FromExceptionType(type);
+            into["object"] = Value.FromType(PyTypes.Object);
             modules["math"] = MathModule();
+        }
+
+        private static string NameArg(Value v, string function)
+        {
+            if (v.Kind != ValueKind.Str) throw new PyError("TypeError", function + "(): attribute name must be string");
+            return (string)v.RawObject;
+        }
+
+        private static Value GetAttrFn(CallContext c, ReadOnlySpan<Value> a)
+        {
+            string name = NameArg(a[1], "getattr");
+            if (a.Length < 3) return Ops.GetAttr(a[0], name);
+            try
+            {
+                return Ops.GetAttr(a[0], name);
+            }
+            catch (PyError e) when (e.TypeName == "AttributeError")
+            {
+                return a[2];
+            }
         }
 
         private static NativeFunction F(string name, int min, int max, NativeFn fn, bool keywords = false) =>
@@ -80,6 +101,24 @@ namespace CSharpPython
             yield return F("type", 1, 1, (c, a) => PyTypes.TypeOf(a[0]));
             yield return F("isinstance", 2, 2, (c, a) => Value.FromBool(PyTypes.IsInstance(a[0], a[1])));
             yield return F("issubclass", 2, 2, (c, a) => Value.FromBool(PyTypes.IsSubclass(a[0], a[1])));
+            yield return F("getattr", 2, 3, GetAttrFn);
+            yield return F("setattr", 3, 3, (c, a) =>
+            {
+                Ops.SetAttr(a[0], NameArg(a[1], "setattr"), a[2]);
+                return Value.None;
+            });
+            yield return F("hasattr", 2, 2, (c, a) =>
+            {
+                try
+                {
+                    Ops.GetAttr(a[0], NameArg(a[1], "hasattr"));
+                    return Value.True;
+                }
+                catch (PyError e) when (e.TypeName == "AttributeError")
+                {
+                    return Value.False;
+                }
+            });
             yield return F("callable", 1, 1, (c, a) => Value.FromBool(PyTypes.IsCallable(a[0])));
             yield return F("format", 1, 2, (c, a) => Value.FromString(Ops.FormatValue(a[0], a.Length > 1 ? a[1].AsString() : null)));
         }

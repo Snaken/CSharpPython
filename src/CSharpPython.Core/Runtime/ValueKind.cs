@@ -28,5 +28,11 @@ namespace CSharpPython
         Cell,
         /// <summary>A built-in type such as <c>int</c>, see <see cref="PyType"/>.</summary>
         Type,
+        /// <summary>A class defined by the script, see <see cref="PyClass"/>.</summary>
+        Class,
+        /// <summary>An object created from a script class.</summary>
+        Instance,
+        /// <summary>A script method bound to its instance.</summary>
+        ScriptMethod,
     }
 }

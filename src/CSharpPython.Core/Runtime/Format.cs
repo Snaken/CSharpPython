@@ -77,6 +77,16 @@ namespace CSharpPython
                     sb.Append(')');
                     return;
                 }
+                case ValueKind.Class: sb.Append("<class '__main__.").Append(((PyClass)v.RawObject).Name).Append("'>"); return;
+                case ValueKind.Instance: sb.Append(((PyInstance)v.RawObject).DefaultRepr()); return;
+                case ValueKind.ScriptMethod:
+                {
+                    var m = (ScriptMethod)v.RawObject;
+                    sb.Append("<bound method ").Append(m.Function.Name).Append(" of ");
+                    WriteRepr(sb, m.Self, seen);
+                    sb.Append('>');
+                    return;
+                }
                 case ValueKind.Type: sb.Append("<class '").Append(((PyType)v.RawObject).Name).Append("'>"); return;
                 case ValueKind.ExceptionType: sb.Append("<class '").Append(((PyExceptionType)v.RawObject).Name).Append("'>"); return;
                 case ValueKind.Handle:

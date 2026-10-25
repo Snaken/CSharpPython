@@ -73,8 +73,11 @@ namespace CSharpPython.Compilation
                 case DefStmt d:
                     VisitDef(d);
                     break;
+                case ClassStmt c:
+                    VisitClass(c);
+                    break;
                 case ReturnStmt r:
-                    if (_scope.IsModule) throw Error("'return' outside function", r);
+                    if (_scope.IsModule || _scope.IsClass) throw Error("'return' outside function", r);
                     if (r.Value != null) VisitExpr(r.Value);
                     break;
                 case BreakStmt b:
@@ -153,6 +156,25 @@ namespace CSharpPython.Compilation
             Bind(d.Name);
         }
 
+        private void VisitClass(ClassStmt c)
+        {
+            foreach (var b in c.Bases) VisitExpr(b);
+            var scope = new Scope(c.Body, _scope) { IsClass = true };
+            _result.Functions[c.Body] = scope;
+
+            var savedScope = _scope;
+            var savedUsed = _used;
+            int savedLoops = _loopDepth;
+            _scope = scope;
+            _used = new HashSet<string>();
+            _loopDepth = 0;
+            VisitBody(c.Body.Body);
+            _scope = savedScope;
+            _used = savedUsed;
+            _loopDepth = savedLoops;
+            Bind(c.Name);
+        }
+
         // Resolves a def or lambda. Defaults are evaluated in the enclosing scope, when the function is created.
         private void VisitFunction(DefStmt d)
         {
@@ -203,7 +225,13 @@ namespace CSharpPython.Compilation
             foreach (var name in names)
             {
                 if (scope.IsModule || scope.DeclaredGlobals.Contains(name)) continue;
-                if (scope.IsLocal(name))
+                if (scope.IsClass)
+                {
+                    // A class body keeps its own names in a namespace; it only passes the variables of enclosing
+                    // functions on to the methods defined inside it.
+                    if ((!scope.IsLocal(name) || fromChildren.Contains(name)) && IsLocalOfEnclosing(scope, name)) scope.AddFree(name);
+                }
+                else if (scope.IsLocal(name))
                 {
                     if (fromChildren.Contains(name)) scope.MakeCell(name);
                 }
@@ -217,6 +245,7 @@ namespace CSharpPython.Compilation
         {
             for (var p = scope.Parent; p != null && !p.IsModule; p = p.Parent)
             {
+                if (p.IsClass) continue;
                 if (p.IsLocal(name)) return true;
                 if (p.DeclaredGlobals.Contains(name)) return false;
             }
