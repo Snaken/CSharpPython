@@ -767,12 +767,13 @@ namespace CSharpPython
             Add(t, "set", "pop", 0, 0, (c, a) =>
             {
                 var s = a[0].AsSet();
-                foreach (var v in s.Members())
+                using (var e = s.Members().GetEnumerator())
                 {
+                    if (!e.MoveNext()) throw new PyError("KeyError", "'pop from an empty set'");
+                    var v = e.Current;
                     s.Remove(v);
                     return v;
                 }
-                throw new PyError("KeyError", "'pop from an empty set'");
             });
             Add(t, "set", "clear", 0, 0, (c, a) => { a[0].AsSet().Items.Clear(); return Value.None; });
             Add(t, "set", "copy", 0, 0, (c, a) => Value.FromSet(a[0].AsSet().Copy().LikeOf(a[0].AsSet())));

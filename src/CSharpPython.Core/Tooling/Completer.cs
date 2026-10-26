@@ -102,7 +102,7 @@ namespace CSharpPython.Editor
             var last = before.Count > 0 ? before[before.Count - 1] : (Token?)null;
 
             var line = CurrentLine(before);
-            if (line.Count > 0 && line[0].Kind == TokenKind.KwImport && (last.Value.Kind == TokenKind.KwImport || last.Value.Kind == TokenKind.Comma || last.Value.Kind == TokenKind.Dot))
+            if (line.Count > 0 && line[0].Kind == TokenKind.KwImport && last.HasValue && (last.Value.Kind == TokenKind.KwImport || last.Value.Kind == TokenKind.Comma || last.Value.Kind == TokenKind.Dot))
                 AddModules(vm, items, ModulePrefix(line));
             else if (line.Count > 0 && line[0].Kind == TokenKind.KwFrom)
                 FromContext(line, vm, items);

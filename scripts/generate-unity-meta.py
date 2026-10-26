@@ -15,7 +15,7 @@ SKIP_DIRS = {"bin", "obj"}
 
 
 def guid(rel):
-    return hashlib.md5(rel.encode("utf-8")).hexdigest()
+    return hashlib.md5(rel.encode("utf-8"), usedforsecurity=False).hexdigest()
 
 
 def file_meta(rel):

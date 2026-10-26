@@ -596,7 +596,7 @@ namespace CSharpPython
         private object[] _objects;           // containers first, then leaves
         private int _containerCount;
         private int[] _blockOffset, _blockLength;
-        private bool[] _building;
+        private HashSet<int> _building;
         private readonly List<DictKeyIterator> _dictIterators = new List<DictKeyIterator>();
         private bool _filled; // true once every container has its contents
 
@@ -644,7 +644,7 @@ namespace CSharpPython
             _containerCount = containers;
             _blockOffset = new int[containers + leaves];
             _blockLength = new int[containers + leaves];
-            _building = new bool[containers + leaves];
+            _building = new HashSet<int>();
             for (int i = 0; i < containers; i++)
             {
                 _blockOffset[i] = offsets[i];
@@ -758,8 +758,7 @@ namespace CSharpPython
 
         private void BuildLeaf(int id)
         {
-            if (_building[id]) throw new SnapshotException("the snapshot is damaged (circular reference)");
-            _building[id] = true;
+            if (!_building.Add(id)) throw new SnapshotException("the snapshot is damaged (circular reference)");
             var r = Block(id);
             var kind = (ValueKind)r.ReadByte();
             switch (kind)
@@ -840,7 +839,7 @@ namespace CSharpPython
                 default:
                     throw new SnapshotException("the snapshot is damaged");
             }
-            _building[id] = false;
+            _building.Remove(id);
         }
 
         private PyIterator ReadIterator(BinaryReader r)
