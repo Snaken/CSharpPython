@@ -163,7 +163,7 @@ namespace CSharpPython
                 case ValueKind.Float:
                 {
                     double d = v.RawFloat;
-                    if (d == Math.Floor(d) && !double.IsInfinity(d))
+                    if (IsIntegral(d))
                     {
                         // An integral float hashes like the integer of the same value, whatever its size.
                         if (d >= -9.2233720368547758e18 && d < 9.2233720368547758e18) return HashInt((long)d);
@@ -205,6 +205,9 @@ namespace CSharpPython
                 default: return System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(v.RawObject);
             }
         }
+
+        // True for a finite float with no fractional part (the difference is exactly 0, or at least double.Epsilon).
+        private static bool IsIntegral(double d) => Math.Abs(d - Math.Floor(d)) < double.Epsilon;
 
         private static int HashInt(long i) => unchecked((int)(i ^ (i >> 32)));
 
@@ -627,7 +630,7 @@ namespace CSharpPython
                     if (item.Kind == ValueKind.Float)
                     {
                         double d = item.RawFloat;
-                        if (d != Math.Floor(d) || double.IsInfinity(d) || d >= 9.2233720368547758e18 || d < -9.2233720368547758e18) return false;
+                        if (!IsIntegral(d) || d >= 9.2233720368547758e18 || d < -9.2233720368547758e18) return false;
                         item = Value.FromInt((long)d);
                     }
                     long n = item.RawInt;
