@@ -366,7 +366,35 @@ namespace CSharpPython
         private static Value Sum(CallContext ctx, ReadOnlySpan<Value> a)
         {
             Value total = a.Length > 1 ? a[1] : Value.FromInt(0);
-            foreach (var item in Ops.ToList(a[0])) total = Ops.Add(total, item);
+            var items = Ops.ToList(a[0]);
+            int index = 0;
+            // Like CPython 3.12+, floats are added with compensation, so sum([0.1, 0.2, 0.3]) is 0.6.
+            if (total.Kind == ValueKind.Float || index < items.Count && items[0].Kind == ValueKind.Float)
+            {
+                if (total.IsInteger && total.Kind != ValueKind.BigInt || total.Kind == ValueKind.Float)
+                {
+                    double sum = total.AsFloat(), compensation = 0;
+                    for (; index < items.Count; index++)
+                    {
+                        var item = items[index];
+                        if (item.Kind != ValueKind.Float && !(item.IsInteger && item.Kind != ValueKind.BigInt)) break;
+                        double x = item.AsFloat();
+                        double t = sum + x;
+                        if (double.IsInfinity(t) || double.IsNaN(t))
+                        {
+                            sum = t;
+                            compensation = 0;
+                            continue;
+                        }
+                        if (Math.Abs(sum) >= Math.Abs(x)) compensation += (sum - t) + x;
+                        else compensation += (x - t) + sum;
+                        sum = t;
+                    }
+                    if (compensation != 0 && !double.IsInfinity(sum) && !double.IsNaN(sum)) sum += compensation;
+                    total = Value.FromFloat(sum);
+                }
+            }
+            for (; index < items.Count; index++) total = Ops.Add(total, items[index]);
             return total;
         }
 
@@ -670,7 +698,6 @@ namespace CSharpPython
             Fn("atan2", 2, x => Math.Atan2(x[0], x[1]));
             Fn("exp", 1, x => double.IsInfinity(Math.Exp(x[0])) && !double.IsInfinity(x[0]) ? throw new PyError("OverflowError", "math range error") : Math.Exp(x[0]));
             Fn("fabs", 1, x => Math.Abs(x[0]));
-            Fn("hypot", 2, x => Math.Sqrt(x[0] * x[0] + x[1] * x[1]));
             Fn("radians", 1, x => x[0] * Math.PI / 180.0);
             Fn("degrees", 1, x => x[0] * 180.0 / Math.PI);
             Fn("pow", 2, x =>
@@ -682,6 +709,7 @@ namespace CSharpPython
                 if (double.IsInfinity(p) && finiteInputs) throw new PyError("OverflowError", "math range error");
                 return p;
             });
+            MathExtras.Install(m);
             return m;
         }
     }

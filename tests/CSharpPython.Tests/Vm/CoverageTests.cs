@@ -182,7 +182,8 @@ print(len(d), keys[0], keys[-1], d[199], d['new'])"), Is.EqualTo("51 150 new 199
             Assert.That(Methods.NamesOf(ValueKind.List), Does.Contain("append"));
             Assert.That(Methods.NamesOf(ValueKind.Dict), Does.Contain("get"));
             Assert.That(Methods.NamesOf(ValueKind.Tuple), Does.Contain("count"));
-            Assert.That(Methods.NamesOf(ValueKind.Int), Is.Empty);
+            Assert.That(Methods.NamesOf(ValueKind.Int), Does.Contain("bit_length"));
+            Assert.That(Methods.NamesOf(ValueKind.Slice), Is.Empty);
         }
 
         [Test]

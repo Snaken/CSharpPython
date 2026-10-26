@@ -144,6 +144,9 @@ namespace CSharpPython
                     // object.__setattr__(self, name, value) and the like, for a class's own hooks to call.
                     if ((PyType)obj.RawObject == PyTypes.Object && Methods.Find(ValueKind.Instance, name) is NativeFunction objectMethod)
                         return Value.FromNative(objectMethod);
+                    // str.lower, dict.fromkeys and the like: the method of the type, with the instance as its first argument.
+                    if (Methods.FindOnType((PyType)obj.RawObject, name) is NativeFunction typeMethod)
+                        return Value.FromNative(typeMethod);
                     break;
                 case ValueKind.Function:
                     if (name == "__name__") return Value.FromString(((PyFunction)obj.RawObject).Name);

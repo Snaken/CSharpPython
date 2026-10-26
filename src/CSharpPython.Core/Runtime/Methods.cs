@@ -6,12 +6,14 @@ using System.Text;
 namespace CSharpPython
 {
     /// <summary>The built-in methods of str, list, dict and tuple.</summary>
-    internal static class Methods
+    internal static partial class Methods
     {
         private static readonly Dictionary<string, NativeFunction> StrMethods = new Dictionary<string, NativeFunction>();
         private static readonly Dictionary<string, NativeFunction> ListMethods = new Dictionary<string, NativeFunction>();
         private static readonly Dictionary<string, NativeFunction> DictMethods = new Dictionary<string, NativeFunction>();
         private static readonly Dictionary<string, NativeFunction> TupleMethods = new Dictionary<string, NativeFunction>();
+        private static readonly Dictionary<string, NativeFunction> IntMethods = new Dictionary<string, NativeFunction>();
+        private static readonly Dictionary<string, NativeFunction> FloatMethods = new Dictionary<string, NativeFunction>();
         private static readonly Dictionary<string, NativeFunction> SetMethods = new Dictionary<string, NativeFunction>();
         private static readonly Dictionary<string, NativeFunction> DescriptorMethods = new Dictionary<string, NativeFunction>();
         private static readonly Dictionary<string, NativeFunction> IteratorMethods = new Dictionary<string, NativeFunction>();
@@ -41,6 +43,10 @@ namespace CSharpPython
             switch (kind)
             {
                 case ValueKind.Str: table = StrMethods; break;
+                case ValueKind.Int:
+                case ValueKind.Bool:
+                case ValueKind.BigInt: table = IntMethods; break;
+                case ValueKind.Float: table = FloatMethods; break;
                 case ValueKind.List: table = ListMethods; break;
                 case ValueKind.Dict: table = DictMethods; break;
                 case ValueKind.Tuple: table = TupleMethods; break;
@@ -62,6 +68,10 @@ namespace CSharpPython
             switch (kind)
             {
                 case ValueKind.Str: return StrMethods.Keys;
+                case ValueKind.Int:
+                case ValueKind.Bool:
+                case ValueKind.BigInt: return IntMethods.Keys;
+                case ValueKind.Float: return FloatMethods.Keys;
                 case ValueKind.List: return ListMethods.Keys;
                 case ValueKind.Dict: return DictMethods.Keys;
                 case ValueKind.Tuple: return TupleMethods.Keys;
@@ -88,6 +98,9 @@ namespace CSharpPython
             InstallIterator();
             InstallDescriptor();
             InstallInstance();
+            InstallMoreStr();
+            InstallNumbers();
+            InstallMoreDict();
         }
 
         // property.getter / setter / deleter return a copy of the property with that function replaced.

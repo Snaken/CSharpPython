@@ -15,7 +15,6 @@ Everything known to be missing, grouped by area. The order inside a group is rou
 - `return`, `break` and `continue` inside `finally`.
 - Classes: multiple inheritance with a proper MRO, inheriting from built-in types (`list`, `dict`, `int`, ...), `object()`, `__slots__`, `__del__`, `__missing__`, and the special methods `__trunc__`, `__floor__`, `__ceil__` and `__getattribute__`.
 - Special methods, property getters and setters and attribute hooks that can wait. Today they run to completion, like sort-key callbacks, so they cannot call `game.wait`.
-- Positional-only parameters (`def f(a, /, b)`).
 - Built-ins: `globals()` and `locals()`, `iter(callable, sentinel)`, `print(file=)`, `bytes` and `bytearray`.
 - Literals and formatting: bytes and complex literals, nested format specs in f-strings.
 - Numbers: `range()` with bounds beyond 64 bits, a CPython-compatible `hash()`, and a fractional power of a negative number (`(-8) ** (1/3)` raises `ValueError` because there are no complex numbers).
@@ -27,9 +26,9 @@ Everything known to be missing, grouped by area. The order inside a group is rou
 Only `math` exists today, and only a part of it. Wanted, with games in mind:
 
 - `random`, seedable and saved by snapshots so a restored task continues the same sequence.
-- More of `math`: `isclose`, `comb`, `perm`, `factorial`, `gcd`, `isqrt`, `copysign` and the hyperbolic functions.
+- More of `math`: `erf`, `gamma`, `lgamma`, `fma`, `nextafter`, `ulp` and `sumprod`.
 - `collections` (`deque`, `Counter`, `defaultdict`, `namedtuple`), `itertools`, `functools`, `enum`, `dataclasses`, `string`, `json`.
-- Missing methods on built-in types, for example `str.partition`, `rpartition`, `rsplit`, `swapcase`, `removeprefix`, `removesuffix`, `casefold`, `expandtabs`, `isdecimal`, `translate` and `format_map`; `dict.fromkeys` and `popitem`; `int.bit_length`; `float.is_integer`.
+- Missing methods on built-in types, for example `str.translate`, `maketrans`, `format_map` and `encode`; `int.to_bytes`, `from_bytes` and `as_integer_ratio`; `float.hex` and `fromhex`. `str.casefold` does not fold `İ`, and `isnumeric` misses CJK numerals.
 
 ## Host API and Unity
 

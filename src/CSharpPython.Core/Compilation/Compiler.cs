@@ -101,6 +101,7 @@ namespace CSharpPython.Compilation
             {
                 code.NumParams = def.Params.Count;
                 code.NumKwOnly = def.KeywordOnly.Count;
+                code.NumPosOnly = def.PositionalOnly;
                 code.HasVarArgs = def.VarArgs != null;
                 code.HasVarKeywords = def.VarKeywords != null;
                 code.ParamNames = new string[def.Params.Count + def.KeywordOnly.Count];

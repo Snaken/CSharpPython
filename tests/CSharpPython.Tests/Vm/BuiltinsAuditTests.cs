@@ -17,7 +17,7 @@ namespace CSharpPython.Tests.Vm
         {
             Assert.That(Out("print('append' in dir([]), 'upper' in dir('x'), 'keys' in dir({}), 'add' in dir(set()))"), Is.EqualTo("True True True True"));
             Assert.That(Out("print('add' in dir(frozenset()), 'union' in dir(frozenset()))"), Is.EqualTo("False True"));
-            Assert.That(Out("print(dir(1), dir(None))"), Is.EqualTo("[] []"));
+            Assert.That(Out("print(dir(1), dir(None))"), Is.EqualTo("['bit_count', 'bit_length', 'is_integer'] []"));
         }
 
         [Test]

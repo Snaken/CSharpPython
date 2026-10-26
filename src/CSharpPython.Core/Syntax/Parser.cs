@@ -280,7 +280,15 @@ namespace CSharpPython.Syntax
             {
                 if (def.VarKeywords != null)
                     throw Error("arguments cannot follow var-keyword argument", Cur);
-                if (Cur.Kind == TokenKind.Star)
+                if (Cur.Kind == TokenKind.Slash)
+                {
+                    var slash = Advance();
+                    if (keywordOnly || def.VarArgs != null) throw Error("/ must be ahead of *", slash);
+                    if (def.PositionalOnly > 0) throw Error("/ may appear only once", slash);
+                    if (def.Params.Count == 0) throw Error("at least one argument must precede /", slash);
+                    def.PositionalOnly = def.Params.Count;
+                }
+                else if (Cur.Kind == TokenKind.Star)
                 {
                     var star = Advance();
                     if (keywordOnly) throw Error("* argument may appear only once", star);

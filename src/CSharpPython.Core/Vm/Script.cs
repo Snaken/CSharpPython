@@ -73,6 +73,7 @@ namespace CSharpPython
             h.Add(code.NumDefaults);
             h.Add(code.NumPosDefaults);
             h.Add(code.NumKwOnly);
+            if (code.NumPosOnly != 0) h.Add(code.NumPosOnly);   // only when used, so older snapshots still match
             h.Add(code.HasVarArgs ? 1 : 0);
             h.Add(code.HasVarKeywords ? 1 : 0);
             foreach (var n in code.ParamNames ?? System.Array.Empty<string>()) h.Add(n);

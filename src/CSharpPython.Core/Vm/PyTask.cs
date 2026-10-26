@@ -1538,11 +1538,10 @@ namespace CSharpPython
             PyDict leftover = c.HasVarKeywords ? new PyDict() : null;
             for (int k = 0; k < kwCount; k++)
             {
-                int index = Array.IndexOf(c.ParamNames, kwNames[k]);
+                int index = Array.IndexOf(c.ParamNames, kwNames[k], c.NumPosOnly);
                 if (index < 0)
                 {
-                    if (leftover == null)
-                        throw new PyError("TypeError", fn.Name + "() got an unexpected keyword argument '" + kwNames[k] + "'");
+                    if (leftover == null) throw UnexpectedKeyword(fn, kwNames[k]);
                     leftover.Set(Value.FromString(kwNames[k]), kwValues[k]);
                     continue;
                 }
@@ -1586,9 +1585,8 @@ namespace CSharpPython
 
             for (int k = 0; k < kwNames.Length; k++)
             {
-                int index = Array.IndexOf(c.ParamNames, kwNames[k]);
-                if (index < 0)
-                    throw new PyError("TypeError", fn.Name + "() got an unexpected keyword argument '" + kwNames[k] + "'");
+                int index = Array.IndexOf(c.ParamNames, kwNames[k], c.NumPosOnly);
+                if (index < 0) throw UnexpectedKeyword(fn, kwNames[k]);
                 if (_stack[argStart + index].Kind != ValueKind.Unbound)
                     throw new PyError("TypeError", fn.Name + "() got multiple values for argument '" + kwNames[k] + "'");
                 _stack[argStart + index] = kwValues[k];
@@ -1603,6 +1601,13 @@ namespace CSharpPython
                 else (missing ?? (missing = new List<string>())).Add(c.ParamNames[i]);
             }
             if (missing != null) throw new PyError("TypeError", MissingArguments(fn, missing));
+        }
+
+        private static PyError UnexpectedKeyword(PyFunction fn, string name)
+        {
+            if (Array.IndexOf(fn.Code.ParamNames, name, 0, fn.Code.NumPosOnly) >= 0)
+                return new PyError("TypeError", fn.Name + "() got some positional-only arguments passed as keyword arguments: '" + name + "'");
+            return new PyError("TypeError", fn.Name + "() got an unexpected keyword argument '" + name + "'");
         }
 
         private static string TooManyPositional(PyFunction fn, int given)

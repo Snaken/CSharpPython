@@ -66,8 +66,17 @@ namespace CSharpPython.Editor
             { "math.floor", "x" }, { "math.ceil", "x" }, { "math.trunc", "x" }, { "math.isnan", "x" },
             { "math.isinf", "x" }, { "math.sin", "x" }, { "math.cos", "x" }, { "math.tan", "x" },
             { "math.asin", "x" }, { "math.acos", "x" }, { "math.atan", "x" }, { "math.atan2", "y, x" },
-            { "math.exp", "x" }, { "math.fabs", "x" }, { "math.hypot", "x, y" }, { "math.radians", "x" },
+            { "math.exp", "x" }, { "math.fabs", "x" }, { "math.hypot", "*coordinates" }, { "math.radians", "x" },
             { "math.degrees", "x" }, { "math.pow", "x, y" },
+            { "math.isfinite", "x" }, { "math.isclose", "a, b, *, rel_tol=1e-09, abs_tol=0.0" },
+            { "math.copysign", "x, y" }, { "math.fmod", "x, y" }, { "math.remainder", "x, y" },
+            { "math.modf", "x" }, { "math.frexp", "x" }, { "math.ldexp", "x, i" },
+            { "math.cbrt", "x" }, { "math.exp2", "x" }, { "math.expm1", "x" }, { "math.log1p", "x" },
+            { "math.sinh", "x" }, { "math.cosh", "x" }, { "math.tanh", "x" },
+            { "math.asinh", "x" }, { "math.acosh", "x" }, { "math.atanh", "x" },
+            { "math.factorial", "n" }, { "math.gcd", "*integers" }, { "math.lcm", "*integers" },
+            { "math.isqrt", "n" }, { "math.comb", "n, k" }, { "math.perm", "n, k=None" },
+            { "math.prod", "iterable, *, start=1" }, { "math.fsum", "iterable" }, { "math.dist", "p, q" },
 
             // str methods.
             { "str.upper", "" }, { "str.lower", "" }, { "str.strip", "chars=None" }, { "str.lstrip", "chars=None" },
@@ -79,6 +88,11 @@ namespace CSharpPython.Editor
             { "str.islower", "" }, { "str.capitalize", "" }, { "str.title", "" }, { "str.format", "*args, **kwargs" },
             { "str.zfill", "width" }, { "str.ljust", "width, fillchar=' '" }, { "str.rjust", "width, fillchar=' '" },
             { "str.center", "width, fillchar=' '" }, { "str.splitlines", "keepends=False" },
+            { "str.casefold", "" }, { "str.swapcase", "" }, { "str.isascii", "" }, { "str.isdecimal", "" },
+            { "str.isnumeric", "" }, { "str.isidentifier", "" }, { "str.isprintable", "" }, { "str.istitle", "" },
+            { "str.expandtabs", "tabsize=8" }, { "str.partition", "sep" }, { "str.rpartition", "sep" },
+            { "str.removeprefix", "prefix" }, { "str.removesuffix", "suffix" },
+            { "str.rindex", "sub, start=0, end=None" }, { "str.rsplit", "sep=None, maxsplit=-1" },
 
             // list methods.
             { "list.append", "x" }, { "list.extend", "iterable" }, { "list.insert", "index, x" },
@@ -90,6 +104,10 @@ namespace CSharpPython.Editor
             { "dict.get", "key, default=None" }, { "dict.keys", "" }, { "dict.values", "" }, { "dict.items", "" },
             { "dict.pop", "key, default=None" }, { "dict.setdefault", "key, default=None" },
             { "dict.update", "other=None, **kwargs" }, { "dict.clear", "" }, { "dict.copy", "" },
+            { "dict.fromkeys", "iterable, value=None" }, { "dict.popitem", "" },
+
+            // int and float methods.
+            { "int.bit_length", "" }, { "int.bit_count", "" }, { "int.is_integer", "" }, { "float.is_integer", "" },
 
             // set methods.
             { "property.getter", "function" }, { "property.setter", "function" }, { "property.deleter", "function" },

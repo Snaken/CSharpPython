@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Positional-only parameters: `def f(a, b, /, c)`.
+- `math`: `isfinite`, `isclose`, `copysign`, `fmod`, `remainder`, `modf`, `frexp`, `ldexp`, `cbrt`, `exp2`, `expm1`, `log1p`, the hyperbolic functions, `factorial`, `gcd`, `lcm`, `isqrt`, `comb`, `perm`, `prod`, `fsum` and `dist`; `hypot` takes any number of arguments.
+- `str`: `partition`, `rpartition`, `rsplit`, `rindex`, `removeprefix`, `removesuffix`, `swapcase`, `casefold`, `expandtabs`, `isascii`, `isdecimal`, `isnumeric`, `isidentifier`, `isprintable` and `istitle`.
+- `dict.fromkeys` and `dict.popitem`; `int.bit_length`, `bit_count` and `is_integer`; `float.is_integer`.
+- Methods can be read from the type, as in `sorted(words, key=str.lower)`.
+- `sum` adds floats with compensation, as CPython 3.12 and later does.
+
 ## 0.1.1
 
 Found by testing 0.1.0 in a Unity 6.3 player (Mono and IL2CPP): the player checks all passed, and this release fixes the one serious issue it turned up.

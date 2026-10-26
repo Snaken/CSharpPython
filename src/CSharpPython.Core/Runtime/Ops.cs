@@ -207,7 +207,7 @@ namespace CSharpPython
         }
 
         // True for a finite float with no fractional part (the difference is exactly 0, or at least double.Epsilon).
-        private static bool IsIntegral(double d) => Math.Abs(d - Math.Floor(d)) < double.Epsilon;
+        internal static bool IsIntegral(double d) => Math.Abs(d - Math.Floor(d)) < double.Epsilon;
 
         private static int HashInt(long i) => unchecked((int)(i ^ (i >> 32)));
 

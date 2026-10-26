@@ -173,6 +173,9 @@ namespace CSharpPython.Compilation
         /// **kwargs slot.
         /// </summary>
         public int NumKwOnly;
+
+        /// <summary>How many of the first parameters can only be given by position (those before a <c>/</c>).</summary>
+        public int NumPosOnly;
         public bool HasVarArgs;
         public bool HasVarKeywords;
 

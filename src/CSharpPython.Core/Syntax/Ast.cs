@@ -217,6 +217,9 @@ namespace CSharpPython.Syntax
         public List<Expr> Decorators = new List<Expr>();
         public List<Param> Params = new List<Param>();
 
+        /// <summary>How many of the first <see cref="Params"/> come before a <c>/</c> and so cannot be given by keyword.</summary>
+        public int PositionalOnly;
+
         /// <summary>Parameters after <c>*args</c> or a bare <c>*</c>; they can only be given by keyword.</summary>
         public List<Param> KeywordOnly = new List<Param>();
 

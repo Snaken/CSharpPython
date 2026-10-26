@@ -169,7 +169,7 @@ namespace CSharpPython.Tests.Editor
             Assert.That(names, Is.EquivalentTo(new[] { "spawn", "player", "MAX_HP", "NAME" }));
             Assert.That(Names("import game as g\ng.sp|"), Is.EqualTo(new[] { "spawn" }));
             Assert.That(Names("import math\nmath.sq|"), Is.EqualTo(new[] { "sqrt" }));
-            Assert.That(Names("import math\nmath.p|"), Is.EquivalentTo(new[] { "pi", "pow" }));
+            Assert.That(Names("import math\nmath.p|"), Is.EquivalentTo(new[] { "pi", "pow", "perm", "prod" }));
 
             var items = At("import game\ngame.|").Items;
             Assert.That(items.Single(i => i.Text == "MAX_HP").Kind, Is.EqualTo(CompletionKind.Constant));
