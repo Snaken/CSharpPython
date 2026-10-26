@@ -124,6 +124,12 @@ namespace CSharpPython
         public static Value AddInPlace(Value a, Value b)
         {
             if (TryInPlace(a, "__iadd__", b, out Value r)) return r;
+            if (a.Kind == ValueKind.Deque)
+            {
+                var deque = (PyDeque)a.RawObject;
+                foreach (var item in Ops.ToList(b)) deque.AddRight(item);
+                return a;
+            }
             try { return Add(a, b); }
             catch (PyError e) when (IsOperandError(e, "+")) { throw AsInPlace(e, "+"); }
         }

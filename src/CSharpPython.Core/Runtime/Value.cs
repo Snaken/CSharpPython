@@ -43,6 +43,8 @@ namespace CSharpPython
 
         public static Value FromList(PyList list) => new Value(ValueKind.List, 0, list);
 
+        internal static Value FromDeque(PyDeque deque) => new Value(ValueKind.Deque, 0, deque);
+
         public static Value FromTuple(PyTuple tuple) => new Value(ValueKind.Tuple, 0, tuple);
 
         public static Value FromDict(PyDict dict) => new Value(ValueKind.Dict, 0, dict);

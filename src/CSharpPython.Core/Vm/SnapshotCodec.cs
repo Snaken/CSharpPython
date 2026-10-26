@@ -67,7 +67,7 @@ namespace CSharpPython
 
     internal sealed class SnapshotWriter
     {
-        private const byte ContainerList = 0, ContainerTuple = 1, ContainerDict = 2, ContainerCell = 3, ContainerClass = 4, ContainerInstance = 5, ContainerSet = 6, ContainerFrozenSet = 7;
+        private const byte ContainerList = 0, ContainerTuple = 1, ContainerDict = 2, ContainerCell = 3, ContainerClass = 4, ContainerInstance = 5, ContainerSet = 6, ContainerFrozenSet = 7, ContainerDeque = 8;
 
         private readonly PyVm _vm;
         private readonly Script _script;
@@ -96,6 +96,10 @@ namespace CSharpPython
                 case ValueKind.Tuple:
                     if (AddContainer(v))
                         foreach (var item in ((PyTuple)v.RawObject).Items) Collect(item);
+                    break;
+                case ValueKind.Deque:
+                    if (AddContainer(v))
+                        foreach (var item in ((PyDeque)v.RawObject).ToList()) Collect(item);
                     break;
                 case ValueKind.Dict:
                     if (AddContainer(v))
@@ -206,6 +210,7 @@ namespace CSharpPython
             switch (it)
             {
                 case ListIterator l: Collect(Value.FromList(l.List)); break;
+                case DequeIterator q: Collect(Value.FromDeque(q.Deque)); break;
                 case TupleIterator t: Collect(Value.FromTuple(t.Tuple)); break;
                 case DictKeyIterator d: Collect(Value.FromDict(d.Dict)); break;
                 case InstanceIterator i: Collect(i.Target); break;
@@ -264,6 +269,15 @@ namespace CSharpPython
                         var items = ((PyList)c.RawObject).Items;
                         pw.Write(items.Count);
                         foreach (var item in items) WriteValue(pw, item);
+                        break;
+                    }
+                    case ValueKind.Deque:
+                    {
+                        w.Write(ContainerDeque);
+                        var deque = (PyDeque)c.RawObject;
+                        w.Write(deque.MaxLen);
+                        pw.Write(deque.Count);
+                        foreach (var item in deque.ToList()) WriteValue(pw, item);
                         break;
                     }
                     case ValueKind.Tuple:
@@ -430,6 +444,11 @@ namespace CSharpPython
                     WriteValue(w, Value.FromList(l.List));
                     w.Write(l.Index);
                     break;
+                case DequeIterator q:
+                    w.Write((byte)11);
+                    WriteValue(w, Value.FromDeque(q.Deque));
+                    w.Write(q.Index);
+                    break;
                 case TupleIterator t:
                     w.Write((byte)2);
                     WriteValue(w, Value.FromTuple(t.Tuple));
@@ -554,6 +573,7 @@ namespace CSharpPython
                     SnapshotIo.WriteString(w, ((PyType)v.RawObject).Name);
                     break;
                 case ValueKind.List:
+                case ValueKind.Deque:
                 case ValueKind.Tuple:
                 case ValueKind.Dict:
                 case ValueKind.Set:
@@ -587,7 +607,7 @@ namespace CSharpPython
                     foreach (var member in module.Value.Members)
                         if (member.Value.Kind == ValueKind.Native && !_natives.ContainsKey((NativeFunction)member.Value.RawObject))
                             _natives[(NativeFunction)member.Value.RawObject] = "m:" + module.Key + ":" + member.Key;
-                foreach (var kind in new[] { ValueKind.Str, ValueKind.List, ValueKind.Dict, ValueKind.Tuple, ValueKind.Set, ValueKind.Iterator, ValueKind.Int, ValueKind.Float })
+                foreach (var kind in new[] { ValueKind.Str, ValueKind.List, ValueKind.Dict, ValueKind.Tuple, ValueKind.Set, ValueKind.Iterator, ValueKind.Int, ValueKind.Float, ValueKind.Deque })
                     foreach (var name in Methods.NamesOf(kind))
                     {
                         var method = Methods.Find(kind, name);
@@ -619,6 +639,7 @@ namespace CSharpPython
         private int[] _blockOffset, _blockLength;
         private HashSet<int> _building;
         private readonly List<DictKeyIterator> _dictIterators = new List<DictKeyIterator>();
+        private readonly List<DequeIterator> _dequeIterators = new List<DequeIterator>();
         private bool _filled; // true once every container has its contents
 
         public SnapshotReader(PyVm vm, Script script, byte[] data)
@@ -652,6 +673,13 @@ namespace CSharpPython
                     case 5: shells[i] = new PyInstance(null); break;
                     case 6: shells[i] = new PySet(); break;
                     case 7: shells[i] = new PySet { Frozen = true }; break;
+                    case 8:
+                    {
+                        long maxLen = r.ReadInt64();
+                        if (maxLen < -1) throw new SnapshotException("the snapshot is damaged");
+                        shells[i] = new PyDeque(maxLen);
+                        break;
+                    }
                     default: throw new SnapshotException("the snapshot is damaged");
                 }
                 lengths[i] = SnapshotIo.ReadCount(r, 1);
@@ -680,9 +708,9 @@ namespace CSharpPython
             }
 
             // Fill containers: tuples, then lists, then dicts.
-            for (byte pass = 1; pass <= 7; pass++)
+            for (byte pass = 1; pass <= 8; pass++)
             {
-                int kind = pass == 1 ? 1 : pass == 2 ? 3 : pass == 3 ? 0 : pass == 4 ? 2 : pass == 5 ? 4 : pass == 6 ? 5 : 6;
+                int kind = pass == 1 ? 1 : pass == 2 ? 3 : pass == 3 ? 0 : pass == 4 ? 2 : pass == 5 ? 4 : pass == 6 ? 5 : pass == 7 ? 6 : 8;
                 for (int i = 0; i < containers; i++)
                     if (kinds[i] == kind || (kind == 6 && kinds[i] == 7)) FillContainer(i);
             }
@@ -696,6 +724,7 @@ namespace CSharpPython
             }
 
             foreach (var it in _dictIterators) it.FinishRestore();
+            foreach (var it in _dequeIterators) it.Resync();
             _filled = true;
         }
 
@@ -716,6 +745,12 @@ namespace CSharpPython
                 case PyTuple tuple:
                     for (int i = 0; i < tuple.Items.Length; i++) tuple.Items[i] = ReadValue(r);
                     break;
+                case PyDeque deque:
+                {
+                    int n = SnapshotIo.ReadCount(r, 1);
+                    for (int i = 0; i < n; i++) deque.AddRight(ReadValue(r));
+                    break;
+                }
                 case Cell cell:
                     cell.Value = ReadValue(r);
                     break;
@@ -882,6 +917,15 @@ namespace CSharpPython
                     var list = ReadValue(r).AsList();
                     return new ListIterator(list) { Index = r.ReadInt32() };
                 }
+                case 11:
+                {
+                    Value deque = ReadValue(r);
+                    if (deque.Kind != ValueKind.Deque) throw new SnapshotException("the snapshot is damaged");
+                    var it = new DequeIterator((PyDeque)deque.RawObject) { Index = r.ReadInt32() };
+                    if (_filled) it.Resync();
+                    else _dequeIterators.Add(it);
+                    return it;
+                }
                 case 2:
                 {
                     var tuple = ReadValue(r).AsTuple();
@@ -1041,6 +1085,7 @@ namespace CSharpPython
                 }
                 case ValueKind.List: return Value.FromList((PyList)ContainerAs(r.ReadInt32(), typeof(PyList)));
                 case ValueKind.Tuple: return Value.FromTuple((PyTuple)ContainerAs(r.ReadInt32(), typeof(PyTuple)));
+                case ValueKind.Deque: return Value.FromDeque((PyDeque)ContainerAs(r.ReadInt32(), typeof(PyDeque)));
                 case ValueKind.Dict: return Value.FromDict((PyDict)ContainerAs(r.ReadInt32(), typeof(PyDict)));
                 case ValueKind.Set: return Value.FromSet((PySet)ContainerAs(r.ReadInt32(), typeof(PySet)));
                 case ValueKind.Cell: return Value.FromCell((Cell)ContainerAs(r.ReadInt32(), typeof(Cell)));

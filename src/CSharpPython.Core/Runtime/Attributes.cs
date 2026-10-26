@@ -186,6 +186,8 @@ namespace CSharpPython
             }
             if (obj.Kind == ValueKind.Dict && name == "default_factory" && ((PyDict)obj.RawObject).Flavor == DictFlavor.Default)
                 return ((PyDict)obj.RawObject).Factory;
+            if (obj.Kind == ValueKind.Deque && name == "maxlen")
+                return ((PyDeque)obj.RawObject).MaxLen < 0 ? Value.None : Value.FromInt(((PyDeque)obj.RawObject).MaxLen);
             if (Methods.FindFor(obj, name) is NativeFunction method)
                 return Value.FromBound(new BoundMethod(obj, method));
             throw NoAttribute(obj, name);

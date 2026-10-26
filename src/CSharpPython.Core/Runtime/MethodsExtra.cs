@@ -38,6 +38,7 @@ namespace CSharpPython
                 case ValueKind.Tuple:
                 case ValueKind.Dict:
                 case ValueKind.Set:
+                case ValueKind.Deque:
                     return Find(type.Kind.Value, name);
                 default:
                     return null;
@@ -69,6 +70,85 @@ namespace CSharpPython
         {
             Value current = counts.TryGetValue(key, out Value existing) ? existing : Value.FromInt(0);
             counts.Set(key, subtract ? Ops.Sub(current, amount) : Ops.Add(current, amount));
+        }
+
+        private static PyDeque D(ReadOnlySpan<Value> a) => (PyDeque)a[0].RawObject;
+
+        private static void InstallDeque()
+        {
+            var t = DequeMethods;
+            Add(t, "deque", "append", 1, 1, (c, a) => { D(a).AddRight(a[1]); return Value.None; });
+            Add(t, "deque", "appendleft", 1, 1, (c, a) => { D(a).AddLeft(a[1]); return Value.None; });
+            Add(t, "deque", "pop", 0, 0, (c, a) => D(a).PopRight());
+            Add(t, "deque", "popleft", 0, 0, (c, a) => D(a).PopLeft());
+            Add(t, "deque", "extend", 1, 1, (c, a) =>
+            {
+                var d = D(a);
+                foreach (var item in Ops.ToList(a[1])) d.AddRight(item);
+                return Value.None;
+            });
+            Add(t, "deque", "extendleft", 1, 1, (c, a) =>
+            {
+                var d = D(a);
+                foreach (var item in Ops.ToList(a[1])) d.AddLeft(item);
+                return Value.None;
+            });
+            Add(t, "deque", "clear", 0, 0, (c, a) => { D(a).Clear(); return Value.None; });
+            Add(t, "deque", "copy", 0, 0, (c, a) =>
+            {
+                var copy = new PyDeque(D(a).MaxLen);
+                foreach (var item in D(a).ToList()) copy.AddRight(item);
+                return Value.FromDeque(copy);
+            });
+            Add(t, "deque", "count", 1, 1, (c, a) =>
+            {
+                long n = 0;
+                foreach (var item in D(a).ToList()) if (Ops.Equal(item, a[1])) n++;
+                return Value.FromInt(n);
+            });
+            Add(t, "deque", "index", 1, 3, (c, a) =>
+            {
+                var items = D(a).ToList();
+                long start = OptInt(a, 2, 0), stop = OptInt(a, 3, items.Count);
+                if (start < 0) start = Math.Max(0, start + items.Count);
+                if (stop < 0) stop = Math.Max(0, stop + items.Count);
+                for (long i = start; i < Math.Min(stop, items.Count); i++)
+                    if (Ops.Equal(items[(int)i], a[1])) return Value.FromInt(i);
+                throw Ops.ValueError(Ops.Repr(a[1]) + " is not in deque");
+            });
+            Add(t, "deque", "insert", 2, 2, (c, a) =>
+            {
+                var d = D(a);
+                if (d.MaxLen >= 0 && d.Count >= d.MaxLen) throw new PyError("IndexError", "deque already at its maximum size");
+                var items = d.ToList();
+                long at = a[1].AsInt();
+                if (at < 0) at = Math.Max(0, at + items.Count);
+                items.Insert((int)Math.Min(at, items.Count), a[2]);
+                d.ReplaceWith(items);
+                return Value.None;
+            });
+            Add(t, "deque", "remove", 1, 1, (c, a) =>
+            {
+                var d = D(a);
+                var items = d.ToList();
+                for (int i = 0; i < items.Count; i++)
+                {
+                    if (!Ops.Equal(items[i], a[1])) continue;
+                    items.RemoveAt(i);
+                    d.ReplaceWith(items);
+                    return Value.None;
+                }
+                throw Ops.ValueError("deque.remove(x): x not in deque");
+            });
+            Add(t, "deque", "reverse", 0, 0, (c, a) =>
+            {
+                var d = D(a);
+                var items = d.ToList();
+                items.Reverse();
+                d.ReplaceWith(items);
+                return Value.None;
+            });
+            Add(t, "deque", "rotate", 0, 1, (c, a) => { D(a).Rotate(OptInt(a, 1, 1)); return Value.None; });
         }
 
         private static void InstallCounter()

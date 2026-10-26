@@ -11,7 +11,9 @@ namespace CSharpPython
             PyTypes.DefaultDict.Constructor = new NativeFunction("defaultdict", MakeDefaultDict, 0, -1, true);
             PyTypes.Counter.Constructor = new NativeFunction("Counter", MakeCounter, 0, -1, true);
             m.Members["defaultdict"] = Value.FromType(PyTypes.DefaultDict);
+            PyTypes.Deque.Constructor = new NativeFunction("deque", MakeDeque, 0, 2, true);
             m.Members["Counter"] = Value.FromType(PyTypes.Counter);
+            m.Members["deque"] = Value.FromType(PyTypes.Deque);
             return m;
         }
 
@@ -28,6 +30,32 @@ namespace CSharpPython
             for (int i = 0; i < ctx.KeywordNames.Length; i++)
                 dict.Set(Value.FromString(ctx.KeywordNames[i]), a[ctx.PositionalCount + i]);
             return Value.FromDict(dict);
+        }
+
+        private static Value MakeDeque(CallContext ctx, ReadOnlySpan<Value> a)
+        {
+            Value iterable = default, maxArg = Value.None;
+            bool hasIterable = false;
+            if (ctx.PositionalCount > 0) { iterable = a[0]; hasIterable = true; }
+            if (ctx.PositionalCount > 1) maxArg = a[1];
+            for (int i = 0; i < ctx.KeywordNames.Length; i++)
+            {
+                string name = ctx.KeywordNames[i];
+                Value v = a[ctx.PositionalCount + i];
+                if (name == "maxlen" && ctx.PositionalCount < 2) maxArg = v;
+                else if (name == "iterable" && ctx.PositionalCount < 1) { iterable = v; hasIterable = true; }
+                else throw Ops.TypeError("deque() got an unexpected keyword argument '" + name + "'");
+            }
+            long maxLen = -1;
+            if (!maxArg.IsNone)
+            {
+                if (!maxArg.IsInteger) throw Ops.TypeError("an integer is required");
+                maxLen = maxArg.AsInt();
+                if (maxLen < 0) throw Ops.ValueError("maxlen must be non-negative");
+            }
+            var deque = new PyDeque(maxLen);
+            if (hasIterable) foreach (var item in Ops.ToList(iterable)) deque.AddRight(item);
+            return Value.FromDeque(deque);
         }
 
         private static Value MakeCounter(CallContext ctx, ReadOnlySpan<Value> a)

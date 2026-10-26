@@ -45,6 +45,7 @@ namespace CSharpPython
         public static readonly PyType Dict = Define("dict", ValueKind.Dict);
         public static readonly PyType DefaultDict = Define("defaultdict", ValueKind.Dict, "collections");
         public static readonly PyType Counter = Define("Counter", ValueKind.Dict, "collections");
+        public static readonly PyType Deque = Define("deque", ValueKind.Deque, "collections");
         public static readonly PyType Set = Define("set", ValueKind.Set);
         public static readonly PyType FrozenSet = Define("frozenset", ValueKind.Set);
         public static readonly PyType Range = Define("range", ValueKind.Range);

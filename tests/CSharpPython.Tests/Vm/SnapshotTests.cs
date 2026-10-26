@@ -70,6 +70,7 @@ namespace CSharpPython.Tests.Vm
 
         private static readonly string[] Scripts =
         {
+            "import game\nfrom collections import deque\nd = deque([1, 2, 3], maxlen=5)\nq = deque()\nit = iter(d)\nfirst = next(it)\ngame.wait(1)\nrest = list(it)\nfor i in range(4):\n    d.append(i * 10)\n    q.appendleft(i)\n    game.wait(1)\nd.rotate(2)\nprint(d, d.maxlen, list(q), first, rest, q.popleft(), q.pop(), d == deque(d, maxlen=5), len(q), [x for x in reversed(d)])",
             "import game\nfrom collections import Counter\nn = (255).bit_length() + (7).bit_count()\ngame.wait(1)\nprint(n, (2.0).is_integer(), dict.fromkeys('ab', 0), str.upper('x'), list(map(str.strip, [' a ', 'b '])), Counter.most_common(Counter('aab')), Counter('abb').elements())",
             "import game\nfrom collections import defaultdict, Counter\ndef make():\n    return ['m']\ng = defaultdict(list)\nh = defaultdict(lambda: 5)\nk = defaultdict(make)\nc = Counter('mississippi')\nfor i in range(4):\n    g[i % 2].append(i)\n    h[i] += 1\n    k[i] += ['x']\n    c['s'] += 1\n    game.wait(1)\nc.update('abc')\nprint(dict(g), dict(h), dict(k), c.most_common(3), type(g).__name__, g.default_factory is list, h['new'], c + Counter(a=2))",
             "import game\nimport random\nrandom.seed(7)\nxs = []\nfor i in range(6):\n    xs.append(random.randint(1, 100))\n    if i % 2 == 0:\n        game.wait(1)\nxs.append(random.gauss())\ngame.wait(1)\nxs.append(random.random())\nrandom.shuffle(xs)\nprint(xs, random.sample(range(50), 4), random.choices('abc', k=3))",

@@ -46,5 +46,7 @@ namespace CSharpPython
         DictView,
         /// <summary>An <c>int</c> outside the range of 64 bits. Always outside it: values that fit are <see cref="Int"/>.</summary>
         BigInt,
+        /// <summary>A <c>collections.deque</c>, see <see cref="PyDeque"/>.</summary>
+        Deque,
     }
 }

@@ -38,6 +38,7 @@ namespace CSharpPython
                 case ValueKind.List: return "list";
                 case ValueKind.Tuple: return "tuple";
                 case ValueKind.Dict: return DictTypeName((PyDict)v.RawObject);
+                case ValueKind.Deque: return "deque";
                 case ValueKind.Set: return ((PySet)v.RawObject).Frozen ? "frozenset" : "set";
                 case ValueKind.Range: return "range";
                 case ValueKind.DictView: return ((PyDictView)v.RawObject).TypeName;
@@ -69,6 +70,7 @@ namespace CSharpPython
                 case ValueKind.Float: return v.RawFloat != 0.0;
                 case ValueKind.Str: return ((string)v.RawObject).Length != 0;
                 case ValueKind.List: return ((PyList)v.RawObject).Count != 0;
+                case ValueKind.Deque: return ((PyDeque)v.RawObject).Count != 0;
                 case ValueKind.Tuple: return ((PyTuple)v.RawObject).Count != 0;
                 case ValueKind.Dict: return ((PyDict)v.RawObject).Count != 0;
                 case ValueKind.Set: return ((PySet)v.RawObject).Count != 0;
@@ -106,6 +108,8 @@ namespace CSharpPython
                     return SequenceEqual(((PyList)a.RawObject).Items, ((PyList)b.RawObject).Items, depth);
                 case ValueKind.Tuple:
                     return SequenceEqual(((PyTuple)a.RawObject).Items, ((PyTuple)b.RawObject).Items, depth);
+                case ValueKind.Deque:
+                    return SequenceEqual(((PyDeque)a.RawObject).ToList(), ((PyDeque)b.RawObject).ToList(), depth);
                 case ValueKind.Dict:
                     if (IsCounter(a) && IsCounter(b)) return CounterEqual((PyDict)a.RawObject, (PyDict)b.RawObject, depth);
                     return DictEqual((PyDict)a.RawObject, (PyDict)b.RawObject, depth);
@@ -197,6 +201,7 @@ namespace CSharpPython
                     return unchecked((Hash(slice.Start) * 31 + Hash(slice.Stop)) * 31 + Hash(slice.Step));
                 }
                 case ValueKind.List:
+                case ValueKind.Deque:
                 case ValueKind.Dict:
                 case ValueKind.DictView:
                     throw TypeError("unhashable type: '" + TypeName(v) + "'");
@@ -250,6 +255,14 @@ namespace CSharpPython
                     case ValueKind.Dict:
                         if (IsCounter(a) && IsCounter(b)) return CounterArithmetic(a, b, '+');
                         break;
+                    case ValueKind.Deque:
+                    {
+                        var x = (PyDeque)a.RawObject;
+                        var joined = new PyDeque(x.MaxLen);
+                        foreach (var v in x.ToList()) joined.AddRight(v);
+                        foreach (var v in ((PyDeque)b.RawObject).ToList()) joined.AddRight(v);
+                        return Value.FromDeque(joined);
+                    }
                     case ValueKind.Tuple:
                     {
                         var x = ((PyTuple)a.RawObject).Items;
@@ -516,6 +529,8 @@ namespace CSharpPython
                 return CompareSequences(((PyList)a.RawObject).Items, ((PyList)b.RawObject).Items, o, depth);
             if (a.Kind == ValueKind.Tuple && b.Kind == ValueKind.Tuple)
                 return CompareSequences(((PyTuple)a.RawObject).Items, ((PyTuple)b.RawObject).Items, o, depth);
+            if (a.Kind == ValueKind.Deque && b.Kind == ValueKind.Deque)
+                return CompareSequences(((PyDeque)a.RawObject).ToList(), ((PyDeque)b.RawObject).ToList(), o, depth);
             if (IsSetLike(a) && IsSetLike(b) && (a.Kind == ValueKind.DictView || b.Kind == ValueKind.DictView))
                 return CompareSets(AsSetOperand(a), AsSetOperand(b), o);
             if (a.Kind == ValueKind.Set && b.Kind == ValueKind.Set) return CompareSets((PySet)a.RawObject, (PySet)b.RawObject, o);
@@ -616,6 +631,9 @@ namespace CSharpPython
                 case ValueKind.Tuple:
                     foreach (var v in ((PyTuple)container.RawObject).Items) if (Equal(v, item)) return true;
                     return false;
+                case ValueKind.Deque:
+                    foreach (var v in ((PyDeque)container.RawObject).ToList()) if (Equal(v, item)) return true;
+                    return false;
                 case ValueKind.Dict:
                     return ((PyDict)container.RawObject).ContainsKey(item);
                 case ValueKind.Set:
@@ -660,6 +678,7 @@ namespace CSharpPython
                 case ValueKind.Str: return ((string)v.RawObject).Length;
                 case ValueKind.List: return ((PyList)v.RawObject).Count;
                 case ValueKind.Tuple: return ((PyTuple)v.RawObject).Count;
+                case ValueKind.Deque: return ((PyDeque)v.RawObject).Count;
                 case ValueKind.Dict: return ((PyDict)v.RawObject).Count;
                 case ValueKind.Set: return ((PySet)v.RawObject).Count;
                 case ValueKind.Range: return ((PyRange)v.RawObject).Length;
@@ -703,6 +722,11 @@ namespace CSharpPython
 
             switch (target.Kind)
             {
+                case ValueKind.Deque:
+                {
+                    var deque = (PyDeque)target.RawObject;
+                    return deque[(int)NormalizeIndex(DequeIndex(index), deque.Count, "deque")];
+                }
                 case ValueKind.List:
                 {
                     var items = ((PyList)target.RawObject).Items;
@@ -734,6 +758,12 @@ namespace CSharpPython
             }
         }
 
+        private static long DequeIndex(Value index)
+        {
+            if (index.Kind == ValueKind.Slice) throw TypeError("sequence index must be integer, not 'slice'");
+            return ToIndex(index, "sequence index");
+        }
+
         public static void SetItem(Value target, Value index, Value value)
         {
             if (target.Kind == ValueKind.Instance)
@@ -748,6 +778,12 @@ namespace CSharpPython
             }
             switch (target.Kind)
             {
+                case ValueKind.Deque:
+                {
+                    var deque = (PyDeque)target.RawObject;
+                    deque[(int)NormalizeIndex(DequeIndex(index), deque.Count, "deque")] = value;
+                    return;
+                }
                 case ValueKind.List:
                 {
                     var items = ((PyList)target.RawObject).Items;
@@ -810,6 +846,15 @@ namespace CSharpPython
                 case ValueKind.Dict:
                     if (!((PyDict)target.RawObject).Remove(index) && !IsCounter(target)) throw new PyError("KeyError", Repr(index));
                     return;
+                case ValueKind.Deque:
+                {
+                    var deque = (PyDeque)target.RawObject;
+                    int at = (int)NormalizeIndex(DequeIndex(index), deque.Count, "deque");
+                    var rest = deque.ToList();
+                    rest.RemoveAt(at);
+                    deque.ReplaceWith(rest);
+                    return;
+                }
                 case ValueKind.Tuple:
                 case ValueKind.Str:
                 case ValueKind.Set:
@@ -908,6 +953,7 @@ namespace CSharpPython
             switch (v.Kind)
             {
                 case ValueKind.List: return new ListIterator((PyList)v.RawObject);
+                case ValueKind.Deque: return new DequeIterator((PyDeque)v.RawObject);
                 case ValueKind.Tuple: return new TupleIterator((PyTuple)v.RawObject);
                 case ValueKind.Str: return new StringIterator((string)v.RawObject);
                 case ValueKind.Dict: return new DictKeyIterator((PyDict)v.RawObject);
@@ -929,6 +975,7 @@ namespace CSharpPython
         {
             if (iterable.Kind == ValueKind.List) return new List<Value>(((PyList)iterable.RawObject).Items);
             if (iterable.Kind == ValueKind.Tuple) return new List<Value>(((PyTuple)iterable.RawObject).Items);
+            if (iterable.Kind == ValueKind.Deque) return ((PyDeque)iterable.RawObject).ToList();
             var it = GetIterator(iterable);
             var result = new List<Value>();
             while (it.Next(out Value item))

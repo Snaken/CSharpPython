@@ -91,6 +91,11 @@ namespace CSharpPython.Editor
             { "Counter.most_common", "n=None" }, { "Counter.elements", "" }, { "Counter.total", "" },
             { "Counter.update", "iterable=None, **kwds" }, { "Counter.subtract", "iterable=None, **kwds" },
 
+            { "deque.append", "x" }, { "deque.appendleft", "x" }, { "deque.pop", "" }, { "deque.popleft", "" },
+            { "deque.extend", "iterable" }, { "deque.extendleft", "iterable" }, { "deque.clear", "" }, { "deque.copy", "" },
+            { "deque.count", "x" }, { "deque.index", "x, start=0, stop=None" }, { "deque.insert", "i, x" },
+            { "deque.remove", "value" }, { "deque.reverse", "" }, { "deque.rotate", "n=1" },
+
             // str methods.
             { "str.upper", "" }, { "str.lower", "" }, { "str.strip", "chars=None" }, { "str.lstrip", "chars=None" },
             { "str.rstrip", "chars=None" }, { "str.split", "sep=None, maxsplit=-1" }, { "str.join", "iterable" },

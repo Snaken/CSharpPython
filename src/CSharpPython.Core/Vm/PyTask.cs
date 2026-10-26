@@ -1848,7 +1848,7 @@ namespace CSharpPython
         // The items of the iterable after a '*' in a call (display = false) or in a list, tuple or set display.
         private static List<Value> SpreadItems(Value source, bool display)
         {
-            if (source.Kind != ValueKind.List && source.Kind != ValueKind.Tuple && source.Kind != ValueKind.Str
+            if (source.Kind != ValueKind.List && source.Kind != ValueKind.Deque && source.Kind != ValueKind.Tuple && source.Kind != ValueKind.Str
                 && source.Kind != ValueKind.Range && source.Kind != ValueKind.Dict && source.Kind != ValueKind.Set && source.Kind != ValueKind.DictView && source.Kind != ValueKind.Iterator
                 && !(source.Kind == ValueKind.Instance && Ops.IsIterable(source)))
                 throw new PyError("TypeError", (display ? "Value after * must be an iterable, not " : "argument after * must be an iterable, not ") + source.TypeName);
@@ -1858,7 +1858,7 @@ namespace CSharpPython
         // The items of what is being unpacked, or the TypeError for something that is not iterable.
         private static List<Value> UnpackSource(Value seq)
         {
-            if (seq.Kind != ValueKind.List && seq.Kind != ValueKind.Tuple && seq.Kind != ValueKind.Str
+            if (seq.Kind != ValueKind.List && seq.Kind != ValueKind.Deque && seq.Kind != ValueKind.Tuple && seq.Kind != ValueKind.Str
                 && seq.Kind != ValueKind.Range && seq.Kind != ValueKind.Dict && seq.Kind != ValueKind.Set && seq.Kind != ValueKind.DictView && seq.Kind != ValueKind.Iterator
                 && !(seq.Kind == ValueKind.Instance && Ops.IsIterable(seq)))
                 throw new PyError("TypeError", "cannot unpack non-iterable " + seq.TypeName + " object");

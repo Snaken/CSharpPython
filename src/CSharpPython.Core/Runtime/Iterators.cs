@@ -53,6 +53,30 @@ namespace CSharpPython
         }
     }
 
+    internal sealed class DequeIterator : PyIterator
+    {
+        private readonly PyDeque _deque;
+        private int _index;
+        private int _version;
+
+        public DequeIterator(PyDeque deque) { _deque = deque; _version = deque.Version; }
+
+        public PyDeque Deque => _deque;
+
+        public int Index { get => _index; set => _index = value; }
+
+        /// <summary>After a restore the saved iterator takes the version of the deque as it is now.</summary>
+        public void Resync() { _version = _deque.Version; }
+
+        public override bool Next(out Value value)
+        {
+            if (_version != _deque.Version) throw new PyError("RuntimeError", "deque mutated during iteration");
+            if (_index >= _deque.Count) { value = default; return false; }
+            value = _deque[_index++];
+            return true;
+        }
+    }
+
     internal sealed class TupleIterator : PyIterator
     {
         private readonly PyTuple _tuple;

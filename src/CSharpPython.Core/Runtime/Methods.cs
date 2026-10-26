@@ -13,6 +13,7 @@ namespace CSharpPython
         private static readonly Dictionary<string, NativeFunction> DictMethods = new Dictionary<string, NativeFunction>();
         private static readonly Dictionary<string, NativeFunction> TupleMethods = new Dictionary<string, NativeFunction>();
         private static readonly Dictionary<string, NativeFunction> IntMethods = new Dictionary<string, NativeFunction>();
+        private static readonly Dictionary<string, NativeFunction> DequeMethods = new Dictionary<string, NativeFunction>();
         private static readonly Dictionary<string, NativeFunction> FloatMethods = new Dictionary<string, NativeFunction>();
         private static readonly Dictionary<string, NativeFunction> SetMethods = new Dictionary<string, NativeFunction>();
         private static readonly Dictionary<string, NativeFunction> DescriptorMethods = new Dictionary<string, NativeFunction>();
@@ -48,6 +49,7 @@ namespace CSharpPython
                 case ValueKind.Bool:
                 case ValueKind.BigInt: table = IntMethods; break;
                 case ValueKind.Float: table = FloatMethods; break;
+                case ValueKind.Deque: table = DequeMethods; break;
                 case ValueKind.List: table = ListMethods; break;
                 case ValueKind.Dict: table = DictMethods; break;
                 case ValueKind.Tuple: table = TupleMethods; break;
@@ -73,6 +75,7 @@ namespace CSharpPython
                 case ValueKind.Bool:
                 case ValueKind.BigInt: return IntMethods.Keys;
                 case ValueKind.Float: return FloatMethods.Keys;
+                case ValueKind.Deque: return DequeMethods.Keys;
                 case ValueKind.List: return ListMethods.Keys;
                 case ValueKind.Dict: return DictMethods.Keys;
                 case ValueKind.Tuple: return TupleMethods.Keys;
@@ -103,6 +106,7 @@ namespace CSharpPython
             InstallNumbers();
             InstallMoreDict();
             InstallCounter();
+            InstallDeque();
         }
 
         // property.getter / setter / deleter return a copy of the property with that function replaced.

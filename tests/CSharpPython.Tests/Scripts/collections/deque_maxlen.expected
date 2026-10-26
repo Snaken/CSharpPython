@@ -1,0 +1,22 @@
+deque([], maxlen=3) 3
+deque([0], maxlen=3) deque([0, 1], maxlen=3) deque([0, 1, 2], maxlen=3) deque([1, 2, 3], maxlen=3) deque([2, 3, 4], maxlen=3) deque([3, 4, 5], maxlen=3) 
+deque([0, 3, 4], maxlen=3) deque([10, 0, 3], maxlen=3) deque([20, 10, 0], maxlen=3) 
+deque([6, 7, 8, 9], maxlen=4) deque([6, 7, 8, 9], maxlen=4) deque([1, 2], maxlen=5) deque(['e', 'f'], maxlen=2)
+deque([], maxlen=0) 0
+deque([], maxlen=0) 0
+deque([3, 4, 5], maxlen=3)
+deque([8, 7, 3], maxlen=3)
+deque([3, 8, 7], maxlen=3) deque([3, 8, 7], maxlen=3) 3 deque([8, 7, 9], maxlen=3) 3
+deque([8, 7, 100], maxlen=3)
+IndexError
+deque([1, 'a', 2], maxlen=3)
+IndexError
+ValueError
+TypeError
+TypeError
+deque deque([1])
+NoneType None
+AttributeError
+3 True True
+[3.0, 4.0, 5.0, 7.666666666666667, 10.333333333333334, 13.666666666666666]
+['a', 'al', 'ar', 'all', 'alr', 'arl', 'arr']

@@ -98,6 +98,13 @@ namespace CSharpPython
                     return;
                 }
                 case ValueKind.Dict: WriteDict(sb, (PyDict)v.RawObject, seen); return;
+                case ValueKind.Deque:
+                {
+                    var deque = (PyDeque)v.RawObject;
+                    string close = deque.MaxLen >= 0 ? "], maxlen=" + deque.MaxLen.ToString(CultureInfo.InvariantCulture) + ")" : "])";
+                    WriteSequence(sb, deque.ToList(), deque, "deque([", close, seen);
+                    return;
+                }
                 case ValueKind.Set:
                 {
                     var set = (PySet)v.RawObject;
