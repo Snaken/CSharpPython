@@ -434,6 +434,7 @@ namespace CSharpPython
                 case 'f':
                 case 'F':
                     text = abs.ToString("F" + (precision < 0 ? 6 : precision), CultureInfo.InvariantCulture);
+                    if (alternate && text.IndexOf('.') < 0) text += ".";
                     break;
                 case '%':
                     text = (abs * 100).ToString("F" + (precision < 0 ? 6 : precision), CultureInfo.InvariantCulture) + "%";
@@ -441,6 +442,7 @@ namespace CSharpPython
                 case 'e':
                 case 'E':
                     text = FormatExponent(abs, precision < 0 ? 6 : precision, type == 'E');
+                    if (alternate && text.IndexOf('.') < 0) text = text.Insert(text.IndexOfAny(new[] { 'e', 'E' }), ".");
                     break;
                 case 'g':
                 case 'G':

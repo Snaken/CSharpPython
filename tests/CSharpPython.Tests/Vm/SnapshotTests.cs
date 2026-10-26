@@ -70,6 +70,7 @@ namespace CSharpPython.Tests.Vm
 
         private static readonly string[] Scripts =
         {
+            "import game\nfmt = '%-6s|%05.1f|%(k)s'\nname = 'ab'\ngame.wait(1)\nprint('%-6s|%05.1f|%x' % (name, 3.14159, 255))\nprint('%(k)s-%(j)d' % {'k': name, 'j': 7})\ngame.wait(1)\nprint(fmt[:6] % name)",
             "data = [1, 2, 3, 4]\nres = [y for x in data if (y := x * x) > 4]\ni = 0\nwhile (v := data[i]) < 3:\n    i += 1\ndef f(d):\n    out = [(last := x) for x in d]\n    def get():\n        return last\n    return get\nprint(res, y, v, f(data)(), (z := 5) + z)",
             "def deco(f):\n    def w(*a):\n        return f(*a) + 1\n    return w\n@deco\ndef g(x):\n    return x * 2\nclass C:\n    n = 0\n    @staticmethod\n    def s(a):\n        return a + 1\n    @classmethod\n    def make(cls):\n        cls.n += 1\n        return cls.n\n    @property\n    def p(self):\n        return self._p * 2\n    @p.setter\n    def p(self, v):\n        self._p = v\n    @p.deleter\n    def p(self):\n        self._p = 0\nc = C()\nc.p = 4\nprint(g(5), C.s(1), C.make(), c.make(), c.p)\ndel c.p\nprint(c.p, C.p is C.p)",
             "def reg(cls):\n    cls.tag = 'x'\n    return cls\n@reg\nclass K:\n    @property\n    def v(self):\n        return 7\n    def __init__(self):\n        self.items = [K.make(i) for i in range(2)] if False else []\nk = K()\nbound = K.v\nsm = staticmethod(len)\nprint(k.v, K.tag, type(bound).__name__, type(sm).__name__, bound is K.v)",

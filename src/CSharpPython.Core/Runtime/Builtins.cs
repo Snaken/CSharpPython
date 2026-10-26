@@ -557,7 +557,7 @@ namespace CSharpPython
             return (n < 0 ? "-" : "") + prefix + digits;
         }
 
-        private static string Ascii(string text)
+        internal static string Ascii(string text)
         {
             var sb = new System.Text.StringBuilder();
             for (int i = 0; i < text.Length; i++)

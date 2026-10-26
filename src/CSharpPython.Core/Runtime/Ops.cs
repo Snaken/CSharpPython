@@ -350,6 +350,7 @@ namespace CSharpPython
 
         public static Value Mod(Value a, Value b)
         {
+            if (a.Kind == ValueKind.Str) return Value.FromString(PercentFormat((string)a.RawObject, b));
             if (!a.IsNumber || !b.IsNumber)
             {
                 if (a.Kind == ValueKind.Instance || b.Kind == ValueKind.Instance) return InstanceBinary(a, b, "__mod__", "__rmod__", "%");
