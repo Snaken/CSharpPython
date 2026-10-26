@@ -210,10 +210,10 @@ print(len(d), keys[0], keys[-1], d[199], d['new'])"), Is.EqualTo("51 150 new 199
                 Instructions = instructions,
                 Lines = instructions.Select(_ => 1).ToArray(),
                 Constants = new[] { Value.None },
-                Names = new string[0],
-                Functions = new Code[0],
-                LocalNames = new string[0],
-                ParamNames = new string[0],
+                Names = System.Array.Empty<string>(),
+                Functions = System.Array.Empty<Code>(),
+                LocalNames = System.Array.Empty<string>(),
+                ParamNames = System.Array.Empty<string>(),
                 IsModule = true,
             };
             return new Script(code);

@@ -245,7 +245,7 @@ namespace CSharpPython.Tests.Editor
         {
             var vm = new PyVm();
             foreach (var kv in vm.Builtins)
-                if (!kv.Key.StartsWith(".") && (kv.Value.Kind == ValueKind.Native || kv.Value.Kind == ValueKind.Type))
+                if (!kv.Key.StartsWith('.') && (kv.Value.Kind == ValueKind.Native || kv.Value.Kind == ValueKind.Type))
                     Assert.That(Signatures.Find(kv.Key), Is.Not.Null, "built-in " + kv.Key);
             foreach (var kv in vm.Modules["math"].Members)
                 if (kv.Value.Kind == ValueKind.Native)
@@ -263,10 +263,10 @@ namespace CSharpPython.Tests.Editor
             void Check(string key, NativeFunction fn, int self)
             {
                 var parameters = SignatureHelper.SplitParameters(Signatures.Find(key));
-                bool varargs = parameters.Any(p => p.StartsWith("*") && !p.StartsWith("**") && p.Length > 1);
+                bool varargs = parameters.Any(p => p.StartsWith('*') && !p.StartsWith("**") && p.Length > 1);
                 int star = parameters.IndexOf("*");
-                int positional = star >= 0 ? star : parameters.Count(p => !p.StartsWith("*"));
-                int required = parameters.Count(p => !p.Contains("=") && !p.StartsWith("*"));
+                int positional = star >= 0 ? star : parameters.Count(p => !p.StartsWith('*'));
+                int required = parameters.Count(p => !p.Contains('=') && !p.StartsWith('*'));
                 int max = fn.MaxArgs < 0 ? -1 : fn.MaxArgs - self;
                 int min = fn.MinArgs - self;
                 if (!varargs && max >= 0) Assert.That(positional, Is.GreaterThanOrEqualTo(max), key + " positional");
@@ -275,7 +275,7 @@ namespace CSharpPython.Tests.Editor
             }
             foreach (var kv in vm.Builtins)
             {
-                if (kv.Key.StartsWith(".")) continue;
+                if (kv.Key.StartsWith('.')) continue;
                 if (kv.Value.Kind == ValueKind.Native) Check(kv.Key, (NativeFunction)kv.Value.RawObject, 0);
                 if (kv.Value.Kind == ValueKind.Type && ((PyType)kv.Value.RawObject).Constructor != null)
                     Check(kv.Key, ((PyType)kv.Value.RawObject).Constructor, 0);

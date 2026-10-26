@@ -380,7 +380,7 @@ namespace CSharpPython.Tests.Vm
             var script = vm.Compile("x = 1");
             byte[] good = vm.Start(script).Save();
 
-            Assert.That(Assert.Throws<SnapshotException>(() => vm.Restore(script, new byte[0])).Message, Does.Contain("damaged").Or.Contain("not a"));
+            Assert.That(Assert.Throws<SnapshotException>(() => vm.Restore(script, System.Array.Empty<byte>())).Message, Does.Contain("damaged").Or.Contain("not a"));
             var wrongMagic = (byte[])good.Clone();
             wrongMagic[0] ^= 0xFF;
             Assert.That(Assert.Throws<SnapshotException>(() => vm.Restore(script, wrongMagic)).Message, Does.Contain("not a CSharpPython snapshot"));

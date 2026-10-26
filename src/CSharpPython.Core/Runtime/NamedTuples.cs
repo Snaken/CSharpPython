@@ -34,20 +34,7 @@ namespace CSharpPython
                 for (int i = 0; i < tuple.Items.Length; i++) result.Set(Value.FromString(tuple.Named.Fields[i]), tuple.Items[i]);
                 return Value.FromDict(result);
             });
-            Add("_replace", 0, 0, (c, a) =>
-            {
-                var tuple = (PyTuple)a[0].RawObject;
-                var items = (Value[])tuple.Items.Clone();
-                var unknown = new List<string>();
-                for (int i = 0; i < c.KeywordNames.Length; i++)
-                {
-                    int at = Array.IndexOf(tuple.Named.Fields, c.KeywordNames[i]);
-                    if (at < 0) unknown.Add("'" + c.KeywordNames[i] + "'");
-                    else items[at] = a[c.PositionalCount + i];
-                }
-                 if (unknown.Count > 0) throw Ops.TypeError("Got unexpected field names: [" + string.Join(", ", unknown) + "]");
-                return Instance(tuple.Named, items);
-            }, true);
+            Add("_replace", 0, 0, Replace, true);
             MakeMethod = new NativeFunction("namedtuple._make", (c, a) =>
             {
                 var type = (PyType)a[0].RawObject;
@@ -55,6 +42,21 @@ namespace CSharpPython
                 if (items.Count != type.Fields.Length) throw Ops.TypeError("Expected " + type.Fields.Length + " arguments, got " + items.Count);
                 return Instance(type, items.ToArray());
             }, 2, 2);
+        }
+
+        private static Value Replace(CallContext c, ReadOnlySpan<Value> a)
+        {
+            var tuple = (PyTuple)a[0].RawObject;
+            var items = (Value[])tuple.Items.Clone();
+            var unknown = new List<string>();
+            for (int i = 0; i < c.KeywordNames.Length; i++)
+            {
+                int at = Array.IndexOf(tuple.Named.Fields, c.KeywordNames[i]);
+                if (at < 0) unknown.Add("'" + c.KeywordNames[i] + "'");
+                else items[at] = a[c.PositionalCount + i];
+            }
+            if (unknown.Count > 0) throw Ops.TypeError("Got unexpected field names: [" + string.Join(", ", unknown) + "]");
+            return Instance(tuple.Named, items);
         }
 
         public static IEnumerable<string> MethodNames => InstanceMethods.Keys;

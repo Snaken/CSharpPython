@@ -30,7 +30,7 @@ namespace CSharpPython.Tests.Blocks
         private static void ExpectError(BlockGraph g, string messagePart, string node = null, string pin = null, BlockLibrary lib = null)
         {
             var errors = Errors(g, lib);
-            var match = errors.FirstOrDefault(e => e.Message.IndexOf(messagePart, System.StringComparison.OrdinalIgnoreCase) >= 0);
+            var match = errors.FirstOrDefault(e => e.Message.Contains(messagePart, System.StringComparison.OrdinalIgnoreCase));
             Assert.That(match, Is.Not.Null, "no error containing '" + messagePart + "' in: " + string.Join(" | ", errors.Select(e => e.ToString())));
             if (node != null) Assert.That(match.NodeId, Is.EqualTo(node));
             if (pin != null) Assert.That(match.Pin, Is.EqualTo(pin));
@@ -295,7 +295,7 @@ namespace CSharpPython.Tests.Blocks
 
         // ---- Results of calls ----
 
-        private static BlockLibrary Dice() => new BlockLibrary().AddFunction("roll", new string[0], module: "dice");
+        private static BlockLibrary Dice() => new BlockLibrary().AddFunction("roll", System.Array.Empty<string>(), module: "dice");
 
         [Test]
         public void ResultsCannotBeUsedBeforeTheCallRuns()

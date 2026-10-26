@@ -269,7 +269,7 @@ namespace CSharpPython.Tests.Blocks
         [Test]
         public void FlowCallWithUnusedResultIsAStatement()
         {
-            var lib = new BlockLibrary().AddFunction("ping", new string[0], module: "net");
+            var lib = new BlockLibrary().AddFunction("ping", System.Array.Empty<string>(), module: "net");
             var f = Chain("main", N("c", "call", "net.ping"));
             Assert.That(Source(Graph(f), lib), Is.EqualTo("import net\n\ndef main():\n    net.ping()\n"));
         }
@@ -278,7 +278,7 @@ namespace CSharpPython.Tests.Blocks
         public void EachModuleIsImportedOnceInFirstUseOrder()
         {
             var lib = new BlockLibrary()
-                .AddFunction("b1", new string[0], module: "beta").AddFunction("b2", new string[0], module: "beta").AddFunction("a1", new string[0], module: "alpha");
+                .AddFunction("b1", System.Array.Empty<string>(), module: "beta").AddFunction("b2", System.Array.Empty<string>(), module: "beta").AddFunction("a1", System.Array.Empty<string>(), module: "alpha");
             var f = Chain("main", N("x", "call", "beta.b1"), N("y", "call", "alpha.a1"), N("z", "call", "beta.b2"));
             Assert.That(Source(Graph(f), lib), Does.StartWith("import beta\nimport alpha\n\ndef main():"));
         }
@@ -458,7 +458,7 @@ namespace CSharpPython.Tests.Blocks
             onHit.Add(new BlockNode("hp", "get", "hp"));
             onHit.Add(new BlockNode("boom", "call", "game.explode"));
             graph.AddFunction(onHit);
-            var library = new BlockLibrary().AddFunction("explode", new string[0], module: "game");
+            var library = new BlockLibrary().AddFunction("explode", System.Array.Empty<string>(), module: "game");
             var result = BlockCompiler.Compile(graph, library);
             Assert.That(result.Diagnostics, Is.Empty);
 

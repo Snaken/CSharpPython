@@ -49,7 +49,7 @@ namespace CSharpPython.Tests.Runtime
 
         public static string R(Value v) => v.Repr();
 
-        public static string Output;
+        public static string Output { get; set; }
 
         public static CallContext Context(int positional, string[] keywordNames = null)
         {

@@ -47,7 +47,7 @@ namespace CSharpPython.Tests.Editor
         public void LocalsAreKeptApartFromGlobalsOfTheSameName()
         {
             string src = "x = 1\ndef f():\n    x = 2\n    return x\nprint(x)\n";
-            Assert.That(Refactoring.FindReferences(src, 0).Select(r => r.Offset), Is.EqualTo(new[] { 0, src.LastIndexOf("x") }));
+            Assert.That(Refactoring.FindReferences(src, 0).Select(r => r.Offset), Is.EqualTo(new[] { 0, src.LastIndexOf('x') }));
             int inner = src.IndexOf("x = 2");
             Assert.That(Refactoring.FindReferences(src, inner).Count, Is.EqualTo(2));
         }
