@@ -49,6 +49,8 @@ namespace CSharpPython
 
         public static Value FromSet(PySet set) => new Value(ValueKind.Set, 0, set);
 
+        public static Value FromDictView(PyDictView view) => new Value(ValueKind.DictView, 0, view);
+
         public static Value FromRange(PyRange range) => new Value(ValueKind.Range, 0, range);
 
         internal static Value FromSlice(PySlice slice) => new Value(ValueKind.Slice, 0, slice);

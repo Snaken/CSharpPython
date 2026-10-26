@@ -106,6 +106,12 @@ namespace CSharpPython
                     if (set.Frozen) sb.Append(')');
                     return;
                 }
+                case ValueKind.DictView:
+                {
+                    var view = (PyDictView)v.RawObject;
+                    WriteSequence(sb, view.Members(), view, view.TypeName + "([", "])", seen);
+                    return;
+                }
                 case ValueKind.Range:
                 {
                     var r = (PyRange)v.RawObject;

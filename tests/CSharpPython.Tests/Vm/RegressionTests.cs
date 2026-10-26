@@ -200,11 +200,11 @@ namespace CSharpPython.Tests.Vm
         }
 
         [Test]
-        public void DictViewsAreLists()
+        public void DictViewsPrintLikeCpython()
         {
-            Assert.That(Eval("{'a': 1}.keys()"), Is.EqualTo("['a']"));
-            Assert.That(Eval("{'a': 1}.values()"), Is.EqualTo("[1]"));
-            Assert.That(Eval("{'a': 1}.items()"), Is.EqualTo("[('a', 1)]"));
+            Assert.That(Eval("{'a': 1}.keys()"), Is.EqualTo("dict_keys(['a'])"));
+            Assert.That(Eval("{'a': 1}.values()"), Is.EqualTo("dict_values([1])"));
+            Assert.That(Eval("{'a': 1}.items()"), Is.EqualTo("dict_items([('a', 1)])"));
         }
 
         [Test]

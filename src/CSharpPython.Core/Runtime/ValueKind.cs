@@ -42,5 +42,7 @@ namespace CSharpPython
         Descriptor,
         /// <summary>The <c>Ellipsis</c> value, written <c>...</c>.</summary>
         Ellipsis,
+        /// <summary>The result of <c>keys()</c>, <c>values()</c> or <c>items()</c>, see <see cref="PyDictView"/>.</summary>
+        DictView,
     }
 }

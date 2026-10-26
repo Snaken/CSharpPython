@@ -70,6 +70,7 @@ namespace CSharpPython.Tests.Vm
 
         private static readonly string[] Scripts =
         {
+            "import game\nd = {'a': 1}\nk, v, i = d.keys(), d.values(), d.items()\nit = iter(i)\ngame.wait(1)\nd['b'] = 2\ngame.wait(1)\nprint(k, v, i, next(it), type(k).__name__, k | {'z'} == {'a', 'b', 'z'}, ('b', 2) in i, k == d.keys())",
             "import game\nclass R:\n    def __init__(self, n): self.n = n\n    def __enter__(self):\n        game.wait(1)\n        return self.n\n    def __exit__(self, *a):\n        print('exit', self.n)\n        return False\nbase = {'a': 1}\nwith (R(1) as x,\n      R(2) as y):\n    base |= {'b': x + y}\n    game.wait(1)\nprint(base | {'a': 9}, base)",
             "import game\nfmt = '%-6s|%05.1f|%(k)s'\nname = 'ab'\ngame.wait(1)\nprint('%-6s|%05.1f|%x' % (name, 3.14159, 255))\nprint('%(k)s-%(j)d' % {'k': name, 'j': 7})\ngame.wait(1)\nprint(fmt[:6] % name)",
             "data = [1, 2, 3, 4]\nres = [y for x in data if (y := x * x) > 4]\ni = 0\nwhile (v := data[i]) < 3:\n    i += 1\ndef f(d):\n    out = [(last := x) for x in d]\n    def get():\n        return last\n    return get\nprint(res, y, v, f(data)(), (z := 5) + z)",

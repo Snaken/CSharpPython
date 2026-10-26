@@ -112,6 +112,9 @@ namespace CSharpPython
                         CollectPairs(inst.Fields);
                     }
                     break;
+                case ValueKind.DictView:
+                    if (AddLeaf(v)) Collect(Value.FromDict(((PyDictView)v.RawObject).Dict));
+                    break;
                 case ValueKind.ScriptMethod:
                     if (AddLeaf(v))
                     {
@@ -339,6 +342,13 @@ namespace CSharpPython
                     WriteValue(w, bm.Self);
                     string name = bm.Function.Name;
                     SnapshotIo.WriteString(w, name.Substring(name.IndexOf('.') + 1));
+                    break;
+                }
+                case ValueKind.DictView:
+                {
+                    var view = (PyDictView)v.RawObject;
+                    w.Write((byte)view.Mode);
+                    WriteValue(w, Value.FromDict(view.Dict));
                     break;
                 }
                 case ValueKind.ScriptMethod:
@@ -772,6 +782,14 @@ namespace CSharpPython
                     _objects[id] = new BoundMethod(self, method);
                     break;
                 }
+                case ValueKind.DictView:
+                {
+                    byte mode = r.ReadByte();
+                    Value dict = ReadValue(r);
+                    if (mode > (byte)DictViewKind.Items || dict.Kind != ValueKind.Dict) throw new SnapshotException("the snapshot is damaged");
+                    _objects[id] = new PyDictView((PyDict)dict.RawObject, (DictViewKind)mode);
+                    break;
+                }
                 case ValueKind.ScriptMethod:
                 {
                     Value self = ReadValue(r);
@@ -988,6 +1006,7 @@ namespace CSharpPython
                 case ValueKind.Cell: return Value.FromCell((Cell)ContainerAs(r.ReadInt32(), typeof(Cell)));
                 case ValueKind.Class: return Value.FromClass((PyClass)ContainerAs(r.ReadInt32(), typeof(PyClass)));
                 case ValueKind.Instance: return Value.FromInstance((PyInstance)ContainerAs(r.ReadInt32(), typeof(PyInstance)));
+                case ValueKind.DictView: return Value.FromDictView((PyDictView)LeafAs(r.ReadInt32(), typeof(PyDictView)));
                 case ValueKind.ScriptMethod: return Value.FromScriptMethod((ScriptMethod)LeafAs(r.ReadInt32(), typeof(ScriptMethod)));
                 case ValueKind.Function: return Value.FromFunction((PyFunction)LeafAs(r.ReadInt32(), typeof(PyFunction)));
                 case ValueKind.BoundMethod: return Value.FromBound((BoundMethod)LeafAs(r.ReadInt32(), typeof(BoundMethod)));

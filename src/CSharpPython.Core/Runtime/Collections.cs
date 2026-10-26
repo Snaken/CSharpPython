@@ -80,6 +80,34 @@ namespace CSharpPython
     }
 
     /// <summary>A Python range. Lengths are computed, never materialised.</summary>
+    public enum DictViewKind : byte { Keys, Values, Items }
+
+    /// <summary>A live view of a dictionary's keys, values or (key, value) pairs.</summary>
+    public sealed class PyDictView
+    {
+        public readonly PyDict Dict;
+        public readonly DictViewKind Mode;
+
+        public PyDictView(PyDict dict, DictViewKind mode)
+        {
+            Dict = dict;
+            Mode = mode;
+        }
+
+        public string TypeName => Mode == DictViewKind.Keys ? "dict_keys" : Mode == DictViewKind.Values ? "dict_values" : "dict_items";
+
+        /// <summary>Keys and items views behave like sets; a values view does not.</summary>
+        public bool IsSetLike => Mode != DictViewKind.Values;
+
+        public List<Value> Members()
+        {
+            var result = new List<Value>(Dict.Count);
+            foreach (var kv in Dict.Pairs())
+                result.Add(Mode == DictViewKind.Keys ? kv.Key : Mode == DictViewKind.Values ? kv.Value : Value.Tuple(kv.Key, kv.Value));
+            return result;
+        }
+    }
+
     public sealed class PyRange
     {
         public readonly long Start, Stop, Step;

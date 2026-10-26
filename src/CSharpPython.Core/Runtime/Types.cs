@@ -43,6 +43,9 @@ namespace CSharpPython
         public static readonly PyType Set = Define("set", ValueKind.Set);
         public static readonly PyType FrozenSet = Define("frozenset", ValueKind.Set);
         public static readonly PyType Range = Define("range", ValueKind.Range);
+        public static readonly PyType DictKeys = Define("dict_keys", ValueKind.DictView);
+        public static readonly PyType DictValues = Define("dict_values", ValueKind.DictView);
+        public static readonly PyType DictItems = Define("dict_items", ValueKind.DictView);
         public static readonly PyType Slice = Define("slice", ValueKind.Slice);
         public static readonly PyType Function = Define("function", ValueKind.Function);
         public static readonly PyType Native = Define("builtin_function_or_method", ValueKind.Native);
@@ -77,6 +80,7 @@ namespace CSharpPython
                 case ValueKind.Instance: return Value.FromClass(((PyInstance)v.RawObject).Class);
                 case ValueKind.Iterator when v.RawObject is PyGenerator: return Value.FromType(Generator);
                 case ValueKind.Set: return Value.FromType(((PySet)v.RawObject).Frozen ? FrozenSet : Set);
+                case ValueKind.DictView: return Value.FromType(ViewType((PyDictView)v.RawObject));
                 case ValueKind.Descriptor:
                     switch (((PyDescriptor)v.RawObject).Kind)
                     {
@@ -94,6 +98,9 @@ namespace CSharpPython
                 if (t.Kind == kind) return Value.FromType(t);
             throw new PyError("TypeError", "type() cannot describe this value");
         }
+
+        private static PyType ViewType(PyDictView view) =>
+            view.Mode == DictViewKind.Keys ? DictKeys : view.Mode == DictViewKind.Values ? DictValues : DictItems;
 
         // Bound methods of script classes and of built-in types are both of type "method".
         private static ValueKind KindOf(Value v) => v.Kind == ValueKind.ScriptMethod ? ValueKind.BoundMethod : v.Kind;
@@ -113,6 +120,7 @@ namespace CSharpPython
                     if (t == Type) return IsClass(value);
                     if (t == Int && value.Kind == ValueKind.Bool) return true; // bool is a kind of int
                     if (t.Kind == ValueKind.Set && value.Kind == ValueKind.Set) return ((PySet)value.RawObject).Frozen == (t == FrozenSet);
+                    if (t.Kind == ValueKind.DictView && value.Kind == ValueKind.DictView) return ViewType((PyDictView)value.RawObject) == t;
                     if (t.Kind == ValueKind.Descriptor && value.Kind == ValueKind.Descriptor) return TypeOf(value).RawObject == (object)t;
                     return t.Kind == KindOf(value);
                 }

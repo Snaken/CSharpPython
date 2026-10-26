@@ -194,7 +194,7 @@ Not supported yet: `async`/`await`, bytes/complex literals, nested format specs 
 
 - Integers are 64-bit and checked; there are no big ints.
 - Built-in exceptions keep only a message string, so `ValueError(42).args` is `('42',)`. Exception classes you write keep their real `args`.
-- `dict.keys()/values()/items()` return lists, not views.
+- `dict.keys()/values()/items()` return live views (`dict_keys([...])`; `len`, `in`, iteration, `reversed`, and set operators and comparisons on keys and items, as in Python). Iterating `values()` or `items()` walks a copy, so adding a key in the loop doesn't raise as it does in CPython, and views have no methods (no `isdisjoint` or `.mapping`).
 - `sorted`, `list.sort`, `min` and `max` accept `key=` (and `min`/`max` accept `default=`), but a key function runs to completion and cannot wait.
 - `return`, `break` and `continue` are not allowed inside a `finally` block (they are in `try`, `except` and `else`, and run the enclosing `finally` blocks).
 - A negative base with a fractional power raises `ValueError` (no complex numbers).
@@ -237,7 +237,7 @@ The test suite is large and uses CPython 3 as an oracle for language semantics; 
 ## Roadmap
 
 - Blocks: more block kinds as they are needed.
-- Language: more special methods (`__trunc__`, `__floor__`, `__getattribute__`, ...), dict views, big ints.
+- Language: more special methods (`__trunc__`, `__floor__`, `__getattribute__`, ...), big ints.
 
 ## License
 

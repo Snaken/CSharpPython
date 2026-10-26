@@ -1819,7 +1819,7 @@ namespace CSharpPython
         private static List<Value> SpreadItems(Value source, bool display)
         {
             if (source.Kind != ValueKind.List && source.Kind != ValueKind.Tuple && source.Kind != ValueKind.Str
-                && source.Kind != ValueKind.Range && source.Kind != ValueKind.Dict && source.Kind != ValueKind.Set && source.Kind != ValueKind.Iterator
+                && source.Kind != ValueKind.Range && source.Kind != ValueKind.Dict && source.Kind != ValueKind.Set && source.Kind != ValueKind.DictView && source.Kind != ValueKind.Iterator
                 && !(source.Kind == ValueKind.Instance && Ops.IsIterable(source)))
                 throw new PyError("TypeError", (display ? "Value after * must be an iterable, not " : "argument after * must be an iterable, not ") + source.TypeName);
             return Ops.ToList(source);
@@ -1829,7 +1829,7 @@ namespace CSharpPython
         private static List<Value> UnpackSource(Value seq)
         {
             if (seq.Kind != ValueKind.List && seq.Kind != ValueKind.Tuple && seq.Kind != ValueKind.Str
-                && seq.Kind != ValueKind.Range && seq.Kind != ValueKind.Dict && seq.Kind != ValueKind.Set && seq.Kind != ValueKind.Iterator
+                && seq.Kind != ValueKind.Range && seq.Kind != ValueKind.Dict && seq.Kind != ValueKind.Set && seq.Kind != ValueKind.DictView && seq.Kind != ValueKind.Iterator
                 && !(seq.Kind == ValueKind.Instance && Ops.IsIterable(seq)))
                 throw new PyError("TypeError", "cannot unpack non-iterable " + seq.TypeName + " object");
             return Ops.ToList(seq);

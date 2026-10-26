@@ -42,6 +42,7 @@ namespace CSharpPython
                 case ValueKind.Dict: return "dict";
                 case ValueKind.Set: return ((PySet)v.RawObject).Frozen ? "frozenset" : "set";
                 case ValueKind.Range: return "range";
+                case ValueKind.DictView: return ((PyDictView)v.RawObject).TypeName;
                 case ValueKind.Slice: return "slice";
                 case ValueKind.Function: return "function";
                 case ValueKind.Native: return "builtin_function_or_method";
@@ -74,6 +75,7 @@ namespace CSharpPython
                 case ValueKind.Dict: return ((PyDict)v.RawObject).Count != 0;
                 case ValueKind.Set: return ((PySet)v.RawObject).Count != 0;
                 case ValueKind.Range: return ((PyRange)v.RawObject).Length != 0;
+                case ValueKind.DictView: return ((PyDictView)v.RawObject).Dict.Count != 0;
                 case ValueKind.Instance: return InstanceTruthy(v);
                 default: return true;
             }
@@ -91,7 +93,8 @@ namespace CSharpPython
                 return a.AsFloat() == b.AsFloat();
             }
             if (a.Kind == ValueKind.Instance || b.Kind == ValueKind.Instance) return InstanceEqual(a, b);
-            if (a.Kind != b.Kind) return false;
+            if (a.Kind != b.Kind)
+                return IsSetLike(a) && IsSetLike(b) && SetEqual(AsSetOperand(a), AsSetOperand(b));
 
             switch (a.Kind)
             {
@@ -106,6 +109,10 @@ namespace CSharpPython
                 case ValueKind.Dict:
                     return DictEqual((PyDict)a.RawObject, (PyDict)b.RawObject, depth);
                 case ValueKind.Set: return SetEqual((PySet)a.RawObject, (PySet)b.RawObject);
+                case ValueKind.DictView:
+                    return IsSetLike(a) && IsSetLike(b) && ((PyDictView)a.RawObject).Mode == ((PyDictView)b.RawObject).Mode
+                        ? SetEqual(AsSetOperand(a), AsSetOperand(b))
+                        : ReferenceEquals(a.RawObject, b.RawObject);
                 case ValueKind.Handle: return a.RawAux == b.RawAux && a.RawInt == b.RawInt;
                 case ValueKind.Slice:
                 {
@@ -184,6 +191,7 @@ namespace CSharpPython
                 }
                 case ValueKind.List:
                 case ValueKind.Dict:
+                case ValueKind.DictView:
                     throw TypeError("unhashable type: '" + TypeName(v) + "'");
                 case ValueKind.Range:
                 {
@@ -254,6 +262,7 @@ namespace CSharpPython
                 return Value.FromInt(r);
             }
             if (a.IsNumber && b.IsNumber) return Value.FromFloat(a.AsFloat() - b.AsFloat());
+            if (TryViewSetOperation(a, b, 3, out Value viewResult)) return viewResult;
             if (a.Kind == ValueKind.Set && b.Kind == ValueKind.Set) return Value.FromSet(SetDifference((PySet)a.RawObject, (PySet)b.RawObject).LikeOf((PySet)a.RawObject));
             if (a.Kind == ValueKind.Instance || b.Kind == ValueKind.Instance) return InstanceBinary(a, b, "__sub__", "__rsub__", "-");
             throw BadOperands("-", a, b);
@@ -469,6 +478,8 @@ namespace CSharpPython
                 return CompareSequences(((PyList)a.RawObject).Items, ((PyList)b.RawObject).Items, o, depth);
             if (a.Kind == ValueKind.Tuple && b.Kind == ValueKind.Tuple)
                 return CompareSequences(((PyTuple)a.RawObject).Items, ((PyTuple)b.RawObject).Items, o, depth);
+            if (IsSetLike(a) && IsSetLike(b) && (a.Kind == ValueKind.DictView || b.Kind == ValueKind.DictView))
+                return CompareSets(AsSetOperand(a), AsSetOperand(b), o);
             if (a.Kind == ValueKind.Set && b.Kind == ValueKind.Set) return CompareSets((PySet)a.RawObject, (PySet)b.RawObject, o);
             if (a.Kind == ValueKind.Instance || b.Kind == ValueKind.Instance) return CompareOp(a, b, o).IsTruthy;
             throw TypeError("'" + OrderSymbol(o) + "' not supported between instances of '" + TypeName(a) + "' and '" + TypeName(b) + "'");
@@ -486,6 +497,43 @@ namespace CSharpPython
         }
 
         // ---- Sets -----------------------------------------------------------------------------------------------
+
+        private static bool IsSetLike(Value v) =>
+            v.Kind == ValueKind.Set || (v.Kind == ValueKind.DictView && ((PyDictView)v.RawObject).IsSetLike);
+
+        private static PySet AsSetOperand(Value v)
+        {
+            if (v.Kind == ValueKind.Set) return (PySet)v.RawObject;
+            var set = new PySet();
+            foreach (var item in ((PyDictView)v.RawObject).Members()) set.Add(item);
+            return set;
+        }
+
+        // keys() and items() views take part in set operators with any iterable on the other side; the result is a set.
+        private static bool TryViewSetOperation(Value a, Value b, int kind, out Value result)
+        {
+            result = default;
+            bool aView = a.Kind == ValueKind.DictView && ((PyDictView)a.RawObject).IsSetLike;
+            bool bView = b.Kind == ValueKind.DictView && ((PyDictView)b.RawObject).IsSetLike;
+            if (!aView && !bView) return false;
+            Value other = aView ? b : a;
+            if (other.Kind == ValueKind.Instance || (other.Kind == ValueKind.DictView && !((PyDictView)other.RawObject).IsSetLike)) return false;
+            if (other.IsNumber || other.Kind == ValueKind.None) throw TypeError("'" + TypeName(other) + "' object is not iterable");
+            var x = aView ? AsSetOperand(a) : Methods.ToSet(a);
+            var y = bView ? AsSetOperand(b) : Methods.ToSet(b);
+            switch (kind)
+            {
+                case 0:
+                    var union = x.Copy();
+                    foreach (var v in y.Members()) union.Add(v);
+                    result = Value.FromSet(union);
+                    break;
+                case 1: result = Value.FromSet(Methods.SetSymmetricDifference(x, y)); break;
+                case 2: result = Value.FromSet(Methods.SetIntersection(x, y)); break;
+                default: result = Value.FromSet(SetDifference(x, y)); break;
+            }
+            return true;
+        }
 
         private static bool SetEqual(PySet x, PySet y) => ReferenceEquals(x, y) || x.Count == y.Count && IsSubset(x, y);
 
@@ -534,6 +582,16 @@ namespace CSharpPython
                     return ((PyDict)container.RawObject).ContainsKey(item);
                 case ValueKind.Set:
                     return ((PySet)container.RawObject).Contains(item);
+                case ValueKind.DictView:
+                {
+                    var view = (PyDictView)container.RawObject;
+                    if (view.Mode == DictViewKind.Keys) return view.Dict.ContainsKey(item);
+                    if (view.Mode == DictViewKind.Items)
+                        return item.Kind == ValueKind.Tuple && ((PyTuple)item.RawObject).Count == 2
+                            && view.Dict.TryGetValue(((PyTuple)item.RawObject).Items[0], out Value found) && Equal(found, ((PyTuple)item.RawObject).Items[1]);
+                    foreach (var kv in view.Dict.Pairs()) if (Equal(kv.Value, item)) return true;
+                    return false;
+                }
                 case ValueKind.Range:
                 {
                     var r = (PyRange)container.RawObject;
@@ -567,6 +625,7 @@ namespace CSharpPython
                 case ValueKind.Dict: return ((PyDict)v.RawObject).Count;
                 case ValueKind.Set: return ((PySet)v.RawObject).Count;
                 case ValueKind.Range: return ((PyRange)v.RawObject).Length;
+                case ValueKind.DictView: return ((PyDictView)v.RawObject).Dict.Count;
                 case ValueKind.Instance: return InstanceLength(v);
                 default: throw TypeError("object of type '" + TypeName(v) + "' has no len()");
             }
@@ -813,6 +872,11 @@ namespace CSharpPython
                 case ValueKind.Dict: return new DictKeyIterator((PyDict)v.RawObject);
                 case ValueKind.Set: return new DictKeyIterator(((PySet)v.RawObject).Items);
                 case ValueKind.Range: return new RangeIterator((PyRange)v.RawObject);
+                case ValueKind.DictView:
+                {
+                    var view = (PyDictView)v.RawObject;
+                    return view.Mode == DictViewKind.Keys ? new DictKeyIterator(view.Dict) : (PyIterator)new ListIterator(new PyList(view.Members()));
+                }
                 case ValueKind.Iterator: return (PyIterator)v.RawObject;
                 case ValueKind.Instance: return InstanceIterate(v);
                 default: throw TypeError("'" + TypeName(v) + "' object is not iterable");

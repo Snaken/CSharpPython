@@ -665,12 +665,9 @@ namespace CSharpPython
             var t = DictMethods;
             Add(t, "dict", "get", 1, 2, (c, a) =>
                 a[0].AsDict().TryGetValue(a[1], out Value v) ? v : (a.Length > 2 ? a[2] : Value.None));
-            Add(t, "dict", "keys", 0, 0, (c, a) =>
-                Value.FromList(new PyList(a[0].AsDict().Pairs().Select(kv => kv.Key))));
-            Add(t, "dict", "values", 0, 0, (c, a) =>
-                Value.FromList(new PyList(a[0].AsDict().Pairs().Select(kv => kv.Value))));
-            Add(t, "dict", "items", 0, 0, (c, a) =>
-                Value.FromList(new PyList(a[0].AsDict().Pairs().Select(kv => Value.Tuple(kv.Key, kv.Value)))));
+            Add(t, "dict", "keys", 0, 0, (c, a) => Value.FromDictView(new PyDictView(a[0].AsDict(), DictViewKind.Keys)));
+            Add(t, "dict", "values", 0, 0, (c, a) => Value.FromDictView(new PyDictView(a[0].AsDict(), DictViewKind.Values)));
+            Add(t, "dict", "items", 0, 0, (c, a) => Value.FromDictView(new PyDictView(a[0].AsDict(), DictViewKind.Items)));
             Add(t, "dict", "pop", 1, 2, (c, a) =>
             {
                 var d = a[0].AsDict();

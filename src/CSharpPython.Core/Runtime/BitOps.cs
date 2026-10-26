@@ -24,6 +24,7 @@ namespace CSharpPython
                 foreach (var v in y.Members()) union.Add(v);
                 return Value.FromSet(union);
             }
+            if (TryViewSetOperation(a, b, kind, out Value viewResult)) return viewResult;
             if (kind == 0 && a.Kind == ValueKind.Dict && b.Kind == ValueKind.Dict)
             {
                 var merged = new PyDict();
