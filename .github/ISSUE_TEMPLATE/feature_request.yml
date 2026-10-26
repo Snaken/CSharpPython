@@ -1,0 +1,20 @@
+name: Feature request
+description: A Python feature, library function or host API that is missing
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: Please check the [roadmap](https://github.com/Snaken/CSharpPython/blob/main/docs/roadmap.md) first; it lists what is known to be missing and what is not planned.
+  - type: textarea
+    id: wanted
+    attributes:
+      label: What do you want to do?
+      description: The script or host code you would like to write.
+      render: python
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: What you are building and what you do instead today.

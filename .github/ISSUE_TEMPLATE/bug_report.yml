@@ -1,0 +1,39 @@
+name: Bug report
+description: Something behaves differently from CPython 3, crashes, or hangs
+labels: [bug]
+body:
+  - type: textarea
+    id: script
+    attributes:
+      label: Script
+      description: The smallest script that shows the problem.
+      render: python
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+      description: What CPython 3 prints, or what you expected.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+      description: What CSharpPython did, including the error message and line number.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Package version or commit, and whether you use Unity (which version, Editor or IL2CPP/WebGL build) or plain .NET.
+    validations:
+      required: true
+  - type: textarea
+    id: host
+    attributes:
+      label: Host code
+      description: Only if it matters, how you register modules and run the task.
+      render: csharp
