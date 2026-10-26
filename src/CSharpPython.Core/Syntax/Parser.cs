@@ -414,8 +414,35 @@ namespace CSharpPython.Syntax
         {
             var tok = Advance();
             var items = new List<(Token tok, Expr context, Expr target)>();
+            bool parenthesized = false;
+            if (Cur.Kind == TokenKind.LParen)
+            {
+                // with (a as x, b as y): - try the parenthesized item list first; if it isn't followed by ':' the
+                // parenthesis belonged to the first expression, so parse again from the start.
+                int saved = _index;
+                try
+                {
+                    Advance();
+                    ParseWithItems(items, true);
+                    Expect(TokenKind.RParen, "')'");
+                    parenthesized = items.Count > 0 && Cur.Kind == TokenKind.Colon;
+                }
+                catch (PySyntaxError) { }
+                if (!parenthesized) { _index = saved; items.Clear(); }
+            }
+            if (!parenthesized) ParseWithItems(items, false);
+            Expect(TokenKind.Colon, "':'");
+            var body = ParseBlock("'with' statement");
+            for (int i = items.Count - 1; i >= 0; i--)
+                body = WrapWith(items[i].tok, items[i].context, items[i].target, body);
+            into.AddRange(body);
+        }
+
+        private void ParseWithItems(List<(Token tok, Expr context, Expr target)> items, bool parenthesized)
+        {
             do
             {
+                if (parenthesized && Cur.Kind == TokenKind.RParen) break;
                 var itemTok = Cur;
                 var context = ParseTernary();
                 Expr target = null;
@@ -427,11 +454,6 @@ namespace CSharpPython.Syntax
                 items.Add((itemTok, context, target));
             }
             while (Accept(TokenKind.Comma));
-            Expect(TokenKind.Colon, "':'");
-            var body = ParseBlock("'with' statement");
-            for (int i = items.Count - 1; i >= 0; i--)
-                body = WrapWith(items[i].tok, items[i].context, items[i].target, body);
-            into.AddRange(body);
         }
 
         private List<Stmt> WrapWith(Token tok, Expr context, Expr target, List<Stmt> body)

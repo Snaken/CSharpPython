@@ -24,6 +24,13 @@ namespace CSharpPython
                 foreach (var v in y.Members()) union.Add(v);
                 return Value.FromSet(union);
             }
+            if (kind == 0 && a.Kind == ValueKind.Dict && b.Kind == ValueKind.Dict)
+            {
+                var merged = new PyDict();
+                foreach (var kv in ((PyDict)a.RawObject).Pairs()) merged.Set(kv.Key, kv.Value);
+                foreach (var kv in ((PyDict)b.RawObject).Pairs()) merged.Set(kv.Key, kv.Value);
+                return Value.FromDict(merged);
+            }
             if (a.Kind == ValueKind.Instance || b.Kind == ValueKind.Instance) return InstanceBinary(a, b, method, reflected, symbol);
             throw BadOperands(symbol, a, b);
         }
@@ -83,6 +90,11 @@ namespace CSharpPython
         private static Value InPlaceBit(Value a, Value b, int kind, string method, string symbol)
         {
             if (SetInPlace(a, b, kind)) return a;
+            if (kind == 0 && a.Kind == ValueKind.Dict)
+            {
+                Methods.UpdateDict((PyDict)a.RawObject, b);
+                return a;
+            }
             if (TryInPlace(a, method, b, out Value r)) return r;
             try
             {
