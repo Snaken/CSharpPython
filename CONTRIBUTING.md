@@ -8,6 +8,7 @@ dotnet test -c Release
 dotnet test -c Release --collect:"XPlat Code Coverage"
 python3 scripts/check-coverage.py <coverage.cobertura.xml> 95
 python3 scripts/generate-unity-meta.py          # after adding or removing source files (add --check to verify)
+python3 benchmarks/run.py                        # timings against CPython (see docs/performance.md)
 ```
 
 The test suite is large and uses CPython 3 as an oracle for language semantics (generated test cases hold the output CPython produced); each fixed bug gets a regression test. CI builds with warnings as errors, runs the tests on Linux, macOS and Windows, and enforces a line-coverage floor.

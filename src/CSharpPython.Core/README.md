@@ -2,6 +2,11 @@
 
 A Python-style language parser, compiler and bytecode VM written in plain C#, designed to be embedded in Unity games (and any other .NET host).
 
+[![CI](https://github.com/Snaken/CSharpPython/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Snaken/CSharpPython/actions/workflows/ci.yml)
+[![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=Snaken_CSharpPython&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=Snaken_CSharpPython)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=Snaken_CSharpPython&metric=coverage)](https://sonarcloud.io/summary/new_code?id=Snaken_CSharpPython)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/Snaken/CSharpPython/blob/main/LICENSE)
+
 > Status: early development (0.1.0).
 
 ## Why
@@ -53,6 +58,7 @@ while (task.Update() != TaskState.Finished)   // call once per game tick
 | [Saving and resuming tasks](https://github.com/Snaken/CSharpPython/blob/main/docs/snapshots.md) | Snapshots for save games and offline progress |
 | [Editor tooling](https://github.com/Snaken/CSharpPython/blob/main/docs/editor-tooling.md) | Highlighting, completion, hover, rename and diagnostics for an in-game editor |
 | [Blocks](https://github.com/Snaken/CSharpPython/blob/main/docs/blocks.md) | A visual node graph that compiles to Python |
+| [Performance](https://github.com/Snaken/CSharpPython/blob/main/docs/performance.md) | How fast it runs compared with CPython, and how to measure it |
 | [Roadmap](https://github.com/Snaken/CSharpPython/blob/main/docs/roadmap.md) | Everything known to be missing, and what is not planned |
 | [Contributing](https://github.com/Snaken/CSharpPython/blob/main/CONTRIBUTING.md) | Building, testing and how the code is laid out |
 
