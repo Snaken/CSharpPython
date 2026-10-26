@@ -35,13 +35,15 @@ namespace CSharpPython
                 return Value.FromDict(result);
             });
             Add("_replace", 0, 0, Replace, true);
-            MakeMethod = new NativeFunction("namedtuple._make", (c, a) =>
-            {
-                var type = (PyType)a[0].RawObject;
-                var items = Ops.ToList(a[1]);
-                if (items.Count != type.Fields.Length) throw Ops.TypeError("Expected " + type.Fields.Length + " arguments, got " + items.Count);
-                return Instance(type, items.ToArray());
-            }, 2, 2);
+            MakeMethod = new NativeFunction("namedtuple._make", MakeFromIterable, 2, 2);
+        }
+
+        private static Value MakeFromIterable(CallContext c, ReadOnlySpan<Value> a)
+        {
+            var type = (PyType)a[0].RawObject;
+            var items = Ops.ToList(a[1]);
+            if (items.Count != type.Fields.Length) throw Ops.TypeError("Expected " + type.Fields.Length + " arguments, got " + items.Count);
+            return Instance(type, items.ToArray());
         }
 
         private static Value Replace(CallContext c, ReadOnlySpan<Value> a)
