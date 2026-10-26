@@ -1,0 +1,27 @@
+True [0, 1, 2, 3]
+False [0, 1, 2, 3]
+False [0, 0] False False True False True
+True False
+49999995000000 22 110
+10 1.0 0.6 6.5
+16.5 0.5 3.5 4.0
+[1, 2, 3] (1, 2) 1180591620717411303425 1.1805916207174113e+21
+inf inf 3 7
+TypeError
+TypeError
+TypeError
+TypeError
+2 9 1 4 a c
+7 None 3 7
+a bb
+(1, 'a') (1, 'b') 1 1.0 True 1
+0 [0, 1, 2, 3]
+0 16 1 9
+ValueError
+ValueError
+TypeError
+TypeError
+TypeError
+TypeError
+TypeError
+TypeError

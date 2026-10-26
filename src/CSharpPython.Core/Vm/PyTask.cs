@@ -1826,6 +1826,18 @@ namespace CSharpPython
             throw new PyError("RuntimeError", "a function called from a built-in such as sorted() cannot wait");
         }
 
+        // Counts work done inside a native function as steps: the slice ends right after the call, and MaxSteps still
+        // applies (the call is stopped part-way when it is passed).
+        internal void Charge(long steps)
+        {
+            if (steps <= 0) return;
+            long absorbed = Math.Min(steps, Math.Max(_budget, 0)); // the slice accounting already counts these
+            _budget -= steps;
+            _totalSteps += steps - absorbed;
+            long max = Vm.Options.MaxSteps;
+            if (max > 0 && _totalSteps + _sliceSpent + _sliceSize - Math.Max(_budget, 0) >= max) throw new StepLimitSignal();
+        }
+
         // The slice ran out in the middle of a nested call: keep going, but still stop at MaxSteps.
         private void RefillBudget()
         {

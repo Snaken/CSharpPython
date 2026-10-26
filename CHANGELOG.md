@@ -13,6 +13,7 @@
 - `str`: `partition`, `rpartition`, `rsplit`, `rindex`, `removeprefix`, `removesuffix`, `swapcase`, `casefold`, `expandtabs`, `isascii`, `isdecimal`, `isnumeric`, `isidentifier`, `isprintable` and `istitle`.
 - `dict.fromkeys` and `dict.popitem`; `int.bit_length`, `bit_count` and `is_integer`; `float.is_integer`.
 - Methods can be read from the type, as in `sorted(words, key=str.lower)`.
+- `sum`, `min`, `max`, `any` and `all` read their input one item at a time, so `sum(range(10**7))` works, `any` and `all` stop at the first answer, and a generator is no longer run to the end first. Their work counts as steps (ends the slice, stopped by `MaxSteps`). Host functions can do the same with `ctx.Charge(steps)`.
 - `sum` adds floats with compensation, as CPython 3.12 and later does.
 
 ## 0.1.1

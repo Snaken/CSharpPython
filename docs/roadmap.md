@@ -18,7 +18,6 @@ Everything known to be missing, grouped by area. The order inside a group is rou
 - Built-ins: `globals()` and `locals()`, `iter(callable, sentinel)`, `print(file=)`, `bytes` and `bytearray`.
 - Literals and formatting: bytes and complex literals, nested format specs in f-strings.
 - Numbers: `range()` with bounds beyond 64 bits, a CPython-compatible `hash()`, and a fractional power of a negative number (`(-8) ** (1/3)` raises `ValueError` because there are no complex numbers).
-- Whole-iterable built-ins (`sum`, `any`, `all`, `min`, `max`) that stream instead of building a list, so `sum(range(10**7))` works within a time budget.
 - Strings are UTF-16 internally, so `len('😀')` is 2 where CPython says 1. Making strings count code points is a possible later change.
 
 ## Standard library

@@ -151,8 +151,8 @@ namespace CSharpPython
             yield return F("vars", 1, 1, (c, a) => Vars(a[0]));
             yield return F("ascii", 1, 1, (c, a) => Value.FromString(Ascii(Ops.Repr(a[0]))));
             yield return F("reversed", 1, 1, Reversed);
-            yield return F("any", 1, 1, (c, a) => Value.FromBool(Ops.ToList(a[0]).Any(v => v.IsTruthy)));
-            yield return F("all", 1, 1, (c, a) => Value.FromBool(Ops.ToList(a[0]).All(v => v.IsTruthy)));
+            yield return F("any", 1, 1, (c, a) => Value.FromBool(AnyAll(c, a[0], true)));
+            yield return F("all", 1, 1, (c, a) => Value.FromBool(!AnyAll(c, a[0], false)));
             yield return F("chr", 1, 1, (c, a) =>
             {
                 if (a[0].Kind == ValueKind.BigInt) throw Ops.ValueError("chr() arg not in range(0x110000)");
@@ -348,55 +348,91 @@ namespace CSharpPython
             if (ctx.PositionalCount > 1 && hasDefault)
                 throw Ops.TypeError("Cannot specify a default for " + name + "() with multiple positional arguments");
 
-            List<Value> items = ctx.PositionalCount == 1 ? Ops.ToList(a[0]) : a.Slice(0, ctx.PositionalCount).ToArray().ToList();
-            if (items.Count == 0)
+            int count = 0;
+            PyIterator source = ctx.PositionalCount == 1 ? Ops.GetIterator(a[0]) : new ListIterator(new PyList(a.Slice(0, ctx.PositionalCount).ToArray().ToList()));
+            if (!source.Next(out Value best))
             {
                 if (hasDefault) return fallback;
                 throw Ops.ValueError(name + "() arg is an empty sequence");
             }
-            Value[] keys = Methods.KeysFor(ctx, key, items);
-            int best = 0;
-            for (int i = 1; i < items.Count; i++)
+            Value bestKey = key.IsNone ? best : ctx.Call(key, best);
+            while (source.Next(out Value item))
             {
-                Value candidate = keys == null ? items[i] : keys[i];
-                Value current = keys == null ? items[best] : keys[best];
-                if (Ops.Compare(candidate, current, max ? Ops.Order.Gt : Ops.Order.Lt)) best = i;
+                Tick(ctx, ref count);
+                Value itemKey = key.IsNone ? item : ctx.Call(key, item);
+                if (Ops.Compare(itemKey, bestKey, max ? Ops.Order.Gt : Ops.Order.Lt)) { best = item; bestKey = itemKey; }
             }
-            return items[best];
+            ctx.Charge(count);
+            return best;
+        }
+
+        // Counts work done by a built-in that walks a whole iterable, a batch at a time (see CallContext.Charge).
+        private static void Tick(CallContext ctx, ref int count)
+        {
+            if (++count < 1024) return;
+            ctx.Charge(count);
+            count = 0;
+        }
+
+        // True when an item has the truth value 'seen'; stops at the first one, like CPython (so an endless generator is fine).
+        private static bool AnyAll(CallContext ctx, Value iterable, bool seen)
+        {
+            var it = Ops.GetIterator(iterable);
+            int count = 0;
+            while (it.Next(out Value item))
+            {
+                if (item.IsTruthy == seen)
+                {
+                    ctx.Charge(count);
+                    return true;
+                }
+                Tick(ctx, ref count);
+            }
+            ctx.Charge(count);
+            return false;
         }
 
         private static Value Sum(CallContext ctx, ReadOnlySpan<Value> a)
         {
             Value total = a.Length > 1 ? a[1] : Value.FromInt(0);
-            var items = Ops.ToList(a[0]);
-            int index = 0;
+            var it = Ops.GetIterator(a[0]);
+            int count = 0;
+            bool more = it.Next(out Value item);
             // Like CPython 3.12+, floats are added with compensation, so sum([0.1, 0.2, 0.3]) is 0.6.
-            if (total.Kind == ValueKind.Float || index < items.Count && items[0].Kind == ValueKind.Float)
+            if (total.Kind == ValueKind.Float || more && item.Kind == ValueKind.Float)
             {
                 if (total.IsInteger && total.Kind != ValueKind.BigInt || total.Kind == ValueKind.Float)
                 {
                     double sum = total.AsFloat(), compensation = 0;
-                    for (; index < items.Count; index++)
+                    while (more && (item.Kind == ValueKind.Float || item.IsInteger && item.Kind != ValueKind.BigInt))
                     {
-                        var item = items[index];
-                        if (item.Kind != ValueKind.Float && !(item.IsInteger && item.Kind != ValueKind.BigInt)) break;
                         double x = item.AsFloat();
                         double t = sum + x;
                         if (double.IsInfinity(t) || double.IsNaN(t))
                         {
                             sum = t;
                             compensation = 0;
-                            continue;
                         }
-                        if (Math.Abs(sum) >= Math.Abs(x)) compensation += (sum - t) + x;
-                        else compensation += (x - t) + sum;
-                        sum = t;
+                        else
+                        {
+                            if (Math.Abs(sum) >= Math.Abs(x)) compensation += (sum - t) + x;
+                            else compensation += (x - t) + sum;
+                            sum = t;
+                        }
+                        more = it.Next(out item);
+                        Tick(ctx, ref count);
                     }
                     if (compensation != 0 && !double.IsInfinity(sum) && !double.IsNaN(sum)) sum += compensation;
                     total = Value.FromFloat(sum);
                 }
             }
-            for (; index < items.Count; index++) total = Ops.Add(total, items[index]);
+            while (more)
+            {
+                total = Ops.Add(total, item);
+                more = it.Next(out item);
+                Tick(ctx, ref count);
+            }
+            ctx.Charge(count);
             return total;
         }
 

@@ -69,7 +69,7 @@ Host objects are passed to scripts as plain-data handles: a host-defined type id
 
 ## Calling back into the script
 
-A native function can call a script function, built-in or bound method with `ctx.Call(callee, args...)`, for example to apply a callback or a sort key. The call runs to completion before `Call` returns, so the callee cannot wait (it gets a `RuntimeError`); it counts towards `MaxSteps`, and an exception it raises continues up through the script as usual.
+A native function can call a script function, built-in or bound method with `ctx.Call(callee, args...)`, for example to apply a callback or a sort key. The call runs to completion before `Call` returns, so the callee cannot wait (it gets a `RuntimeError`); it counts towards `MaxSteps`, and an exception it raises continues up through the script as usual. A native function that loops over many items should call `ctx.Charge(steps)` now and then (once per batch of items is enough): the work then counts as steps, so it ends the current slice and `MaxSteps` can stop the loop part-way.
 
 ## Exceptions
 

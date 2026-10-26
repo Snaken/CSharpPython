@@ -23,6 +23,13 @@ namespace CSharpPython
         }
 
         /// <summary>
+        /// Counts <paramref name="steps"/> of work done inside a native function as script steps. Call it from a native
+        /// loop that can run for a long time (once per batch of items is enough), so that it ends the current slice and
+        /// is stopped by <see cref="VmOptions.MaxSteps"/> like script code. It does nothing outside a running task.
+        /// </summary>
+        public void Charge(long steps) => Task?.Charge(steps);
+
+        /// <summary>
         /// Pauses the calling script for <paramref name="ticks"/> ticks (see <see cref="PyTask.Tick"/>). The call
         /// returns <paramref name="result"/> to the script once it resumes. A host function calls this and then
         /// returns normally.
