@@ -168,8 +168,10 @@ namespace CSharpPython
             });
         }
 
-        // The comparisons here are deliberately exact (NaN is never equal to anything, as with ==).
-        private static bool Exactly(double a, double b) => !double.IsNaN(a) && a.Equals(b);
+        // Exact equality, written as a difference: two different doubles always differ by at least double.Epsilon, and NaN
+        // is never equal to anything. Infinities need their own test because their difference is NaN.
+        internal static bool Exactly(double a, double b) =>
+            Math.Abs(a - b) < double.Epsilon || double.IsInfinity(a) && double.IsInfinity(b) && (a > 0) == (b > 0);
 
         private static double CopySign(double magnitude, double sign) =>
             BitConverter.DoubleToInt64Bits(sign) < 0 == BitConverter.DoubleToInt64Bits(magnitude) < 0 ? magnitude : -magnitude;

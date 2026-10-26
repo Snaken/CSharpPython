@@ -667,7 +667,7 @@ namespace CSharpPython
                 if (x <= 0) throw Ops.ValueError("math domain error");
                 if (a.Length == 1) return Value.FromFloat(Math.Log(x));
                 double b = a[1].AsFloat();
-                if (b.Equals(1.0)) throw new PyError("ZeroDivisionError", "float division by zero");
+                if (MathExtras.Exactly(b, 1.0)) throw new PyError("ZeroDivisionError", "float division by zero");
                 if (b <= 0) throw Ops.ValueError("math domain error");
                 return Value.FromFloat(Math.Log(x) / Math.Log(b));
             }));
