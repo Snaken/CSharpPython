@@ -38,6 +38,7 @@ namespace CSharpPython.Compilation
 
         private void VisitStmt(Stmt stmt)
         {
+            Nesting.CheckStack(stmt);
             switch (stmt)
             {
                 case ExprStmt e:
@@ -334,6 +335,7 @@ namespace CSharpPython.Compilation
 
         private void VisitExpr(Expr expr)
         {
+            if (expr != null) Nesting.CheckStack(expr);
             switch (expr)
             {
                 case null:

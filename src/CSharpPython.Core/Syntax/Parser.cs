@@ -26,6 +26,7 @@ namespace CSharpPython.Syntax
         private readonly int _columnBase;
         private int _index;
         private bool _noIn;
+        private int _depth;
 
         private Parser(List<Token> tokens, int lineBase, int columnBase)
         {
@@ -177,6 +178,14 @@ namespace CSharpPython.Syntax
 
         // Parses the body after a ':' - either an indented block or statements on the same line.
         private List<Stmt> ParseBlock(string owner)
+        {
+            Enter();
+            var body = ParseBlockCore(owner);
+            Leave();
+            return body;
+        }
+
+        private List<Stmt> ParseBlockCore(string owner)
         {
             var body = new List<Stmt>();
             if (Cur.Kind == TokenKind.Newline)
@@ -904,7 +913,23 @@ namespace CSharpPython.Syntax
             return At(new NamedExpr { Name = nameTok.Text, Value = ParseTernary() }, nameTok);
         }
 
+        private void Enter()
+        {
+            if (++_depth > Nesting.MaxDepth) throw Nesting.TooDeep(LineOf(Cur), ColumnOf(Cur));
+            Nesting.CheckStack(LineOf(Cur), ColumnOf(Cur));
+        }
+
+        private void Leave() => _depth--;
+
         private Expr ParseTernary()
+        {
+            Enter();
+            var result = ParseTernaryCore();
+            Leave();
+            return result;
+        }
+
+        private Expr ParseTernaryCore()
         {
             if (Cur.Kind == TokenKind.KwLambda) return ParseLambda();
             var value = ParseOr();
@@ -920,8 +945,10 @@ namespace CSharpPython.Syntax
         private Expr ParseOr()
         {
             var left = ParseAnd();
+            int chain = 0;
             while (Cur.Kind == TokenKind.KwOr)
             {
+                if (++chain > Nesting.MaxChain) throw Nesting.TooLong(LineOf(Cur), ColumnOf(Cur));
                 var tok = Advance();
                 left = At(new BoolOpExpr { IsAnd = false, Left = left, Right = ParseAnd() }, tok);
             }
@@ -931,8 +958,10 @@ namespace CSharpPython.Syntax
         private Expr ParseAnd()
         {
             var left = ParseNot();
+            int chain = 0;
             while (Cur.Kind == TokenKind.KwAnd)
             {
+                if (++chain > Nesting.MaxChain) throw Nesting.TooLong(LineOf(Cur), ColumnOf(Cur));
                 var tok = Advance();
                 left = At(new BoolOpExpr { IsAnd = true, Left = left, Right = ParseNot() }, tok);
             }
@@ -943,7 +972,10 @@ namespace CSharpPython.Syntax
         {
             if (Cur.Kind != TokenKind.KwNot) return ParseComparison();
             var tok = Advance();
-            return At(new UnaryExpr { Op = UnaryOp.Not, Operand = ParseNot() }, tok);
+            Enter();
+            var operand = ParseNot();
+            Leave();
+            return At(new UnaryExpr { Op = UnaryOp.Not, Operand = operand }, tok);
         }
 
         private bool TryCompareOp(out CompareOp op, out int tokenCount)
@@ -1018,9 +1050,19 @@ namespace CSharpPython.Syntax
 
         private Expr ParseBinary(int minPower)
         {
+            Enter();
+            var result = ParseBinaryCore(minPower);
+            Leave();
+            return result;
+        }
+
+        private Expr ParseBinaryCore(int minPower)
+        {
             var left = ParseUnary();
+            int chain = 0;
             while (TryBinaryOp(Cur.Kind, out BinaryOp op, out int power) && power > minPower)
             {
+                if (++chain > Nesting.MaxChain) throw Nesting.TooLong(LineOf(Cur), ColumnOf(Cur));
                 var tok = Advance();
                 // '**' is right associative, everything else is left associative.
                 var right = ParseBinary(op == BinaryOp.Power ? power - 1 : power);
@@ -1047,9 +1089,12 @@ namespace CSharpPython.Syntax
 
         private Expr ParsePostfix(Expr expr)
         {
+            int chain = 0;
             while (true)
             {
                 var tok = Cur;
+                if (tok.Kind == TokenKind.LParen || tok.Kind == TokenKind.LBracket || tok.Kind == TokenKind.Dot)
+                    if (++chain > Nesting.MaxChain) throw Nesting.TooLong(LineOf(tok), ColumnOf(tok));
                 switch (tok.Kind)
                 {
                     case TokenKind.LParen:

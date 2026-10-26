@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Source nested too deeply, or with very long operator chains, now raises a `PySyntaxError` instead of overflowing the stack and ending the process. Brackets, operators and blocks may nest about 150 levels, and an expression may chain 500 operators.
+- Added benchmarks against CPython (`benchmarks/`, `docs/performance.md`).
+
 ## 0.1.0
 
 First release.

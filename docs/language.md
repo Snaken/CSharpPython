@@ -95,3 +95,5 @@ Classes have instances, instance and class attributes, methods, `__init__` and s
 ## Limits and safety
 
 `vm.Options`: `StepsPerSlice` (instructions per `Update`), `MaxSteps` (hard cap, uncatchable `StepLimitExceeded`), `MaxCallDepth` (catchable `RecursionError`), `MaxQueuedEvents`, `MaxIntBits` (largest integer result, in bits; bigger raises a catchable `OverflowError`).
+
+Source code is also bounded so that hostile text cannot overflow the host's stack: brackets, operators and blocks may nest about 150 levels, and one expression may chain at most 500 operators (`a + b + c`, `a.b.c`). Beyond that, compiling raises a `PySyntaxError`. Built-ins that consume a whole iterable (`sum`, `list`, `any`, `sorted`, ...) stop with a `MemoryError` after about 4 million items, so `sum(range(10**7))` fails where CPython succeeds; a `for` loop is not affected and is paced by the step budget.

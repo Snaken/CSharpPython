@@ -231,6 +231,7 @@ namespace CSharpPython.Compilation
 
         private void CompileStmt(Stmt stmt)
         {
+            Nesting.CheckStack(stmt);
             SetLine(stmt);
             switch (stmt)
             {
@@ -718,6 +719,7 @@ namespace CSharpPython.Compilation
 
         private void CompileExpr(Expr expr)
         {
+            Nesting.CheckStack(expr);
             switch (expr)
             {
                 case ConstantExpr c:

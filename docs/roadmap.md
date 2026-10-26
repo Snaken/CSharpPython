@@ -4,8 +4,8 @@ Everything known to be missing, grouped by area. The order inside a group is rou
 
 ## Release
 
-- Try the Unity package in a real Unity 6.3 project: Editor, an IL2CPP standalone build and a WebGL build.
-- First tag and GitHub release; publish to NuGet and OpenUPM.
+- A WebGL build and a check inside the Editor and on a `GameObject`. A standalone Mono and IL2CPP player passes its checks.
+- Publish to NuGet and OpenUPM.
 - Samples (a script running on a `GameObject`, an in-game editor using the editor tooling) and an API reference.
 
 ## Language
@@ -15,9 +15,11 @@ Everything known to be missing, grouped by area. The order inside a group is rou
 - `return`, `break` and `continue` inside `finally`.
 - Classes: multiple inheritance with a proper MRO, inheriting from built-in types (`list`, `dict`, `int`, ...), `object()`, `__slots__`, `__del__`, `__missing__`, and the special methods `__trunc__`, `__floor__`, `__ceil__` and `__getattribute__`.
 - Special methods, property getters and setters and attribute hooks that can wait. Today they run to completion, like sort-key callbacks, so they cannot call `game.wait`.
+- Positional-only parameters (`def f(a, /, b)`).
 - Built-ins: `globals()` and `locals()`, `iter(callable, sentinel)`, `print(file=)`, `bytes` and `bytearray`.
 - Literals and formatting: bytes and complex literals, nested format specs in f-strings.
-- Numbers: `range()` with bounds beyond 64 bits, a CPython-compatible `hash()`.
+- Numbers: `range()` with bounds beyond 64 bits, a CPython-compatible `hash()`, and a fractional power of a negative number (`(-8) ** (1/3)` raises `ValueError` because there are no complex numbers).
+- Whole-iterable built-ins (`sum`, `any`, `all`, `min`, `max`) that stream instead of building a list, so `sum(range(10**7))` works within a time budget.
 - Strings are UTF-16 internally, so `len('😀')` is 2 where CPython says 1. Making strings count code points is a possible later change.
 
 ## Standard library
@@ -25,7 +27,7 @@ Everything known to be missing, grouped by area. The order inside a group is rou
 Only `math` exists today, and only a part of it. Wanted, with games in mind:
 
 - `random`, seedable and saved by snapshots so a restored task continues the same sequence.
-- More of `math`: `factorial`, `gcd`, `isqrt`, `copysign` and the hyperbolic functions.
+- More of `math`: `isclose`, `comb`, `perm`, `factorial`, `gcd`, `isqrt`, `copysign` and the hyperbolic functions.
 - `collections` (`deque`, `Counter`, `defaultdict`, `namedtuple`), `itertools`, `functools`, `enum`, `dataclasses`, `string`, `json`.
 - Missing methods on built-in types, for example `str.partition`, `rpartition`, `rsplit`, `swapcase`, `removeprefix`, `removesuffix`, `casefold`, `expandtabs`, `isdecimal`, `translate` and `format_map`; `dict.fromkeys` and `popitem`; `int.bit_length`; `float.is_integer`.
 
@@ -47,7 +49,7 @@ Only `math` exists today, and only a part of it. Wanted, with games in mind:
 
 ## Performance and quality
 
-- A benchmark suite, then optimisation: generators allocate arrays on every yield.
+- Optimisation, guided by [the benchmarks](performance.md): generators allocate arrays on every yield, and method calls and object creation are the slowest paths.
 - Fuzzing of the lexer, parser, VM and snapshot reader, and property tests that compare against CPython.
 
 ## Not planned
