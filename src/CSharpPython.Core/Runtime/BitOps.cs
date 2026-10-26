@@ -30,9 +30,10 @@ namespace CSharpPython
                 return Value.FromSet(union);
             }
             if (TryViewSetOperation(a, b, kind, out Value viewResult)) return viewResult;
+            if (kind != 1 && IsCounter(a) && IsCounter(b)) return CounterArithmetic(a, b, kind == 0 ? '|' : '&');
             if (kind == 0 && a.Kind == ValueKind.Dict && b.Kind == ValueKind.Dict)
             {
-                var merged = new PyDict();
+                var merged = ((PyDict)a.RawObject).EmptyLike();
                 foreach (var kv in ((PyDict)a.RawObject).Pairs()) merged.Set(kv.Key, kv.Value);
                 foreach (var kv in ((PyDict)b.RawObject).Pairs()) merged.Set(kv.Key, kv.Value);
                 return Value.FromDict(merged);
@@ -100,7 +101,7 @@ namespace CSharpPython
         private static Value InPlaceBit(Value a, Value b, int kind, string method, string symbol)
         {
             if (SetInPlace(a, b, kind)) return a;
-            if (kind == 0 && a.Kind == ValueKind.Dict)
+            if (kind == 0 && a.Kind == ValueKind.Dict && !(IsCounter(a) && IsCounter(b)))
             {
                 Methods.UpdateDict((PyDict)a.RawObject, b);
                 return a;

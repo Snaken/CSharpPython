@@ -22,7 +22,10 @@ namespace CSharpPython
             Kind = kind;
         }
 
-        public override string ToString() => "<class '" + Name + "'>";
+        /// <summary>The module the type is shown with, such as <c>collections</c>, or null for a built-in.</summary>
+        internal string Module;
+
+        public override string ToString() => "<class '" + (Module == null ? Name : Module + "." + Name) + "'>";
     }
 
     /// <summary>The built-in types and the checks behind <c>type</c>, <c>isinstance</c> and <c>issubclass</c>.</summary>
@@ -40,6 +43,8 @@ namespace CSharpPython
         public static readonly PyType List = Define("list", ValueKind.List);
         public static readonly PyType Tuple = Define("tuple", ValueKind.Tuple);
         public static readonly PyType Dict = Define("dict", ValueKind.Dict);
+        public static readonly PyType DefaultDict = Define("defaultdict", ValueKind.Dict, "collections");
+        public static readonly PyType Counter = Define("Counter", ValueKind.Dict, "collections");
         public static readonly PyType Set = Define("set", ValueKind.Set);
         public static readonly PyType FrozenSet = Define("frozenset", ValueKind.Set);
         public static readonly PyType Range = Define("range", ValueKind.Range);
@@ -62,9 +67,9 @@ namespace CSharpPython
         /// <summary>The root of every class; only useful as a base class or in <c>isinstance</c>.</summary>
         public static readonly PyType Object = Define("object", null);
 
-        private static PyType Define(string name, ValueKind? kind)
+        private static PyType Define(string name, ValueKind? kind, string module = null)
         {
-            var t = new PyType(name, kind);
+            var t = new PyType(name, kind) { Module = module };
             ByName[name] = t;
             return t;
         }
@@ -81,6 +86,7 @@ namespace CSharpPython
                 case ValueKind.Iterator when v.RawObject is PyGenerator: return Value.FromType(Generator);
                 case ValueKind.Set: return Value.FromType(((PySet)v.RawObject).Frozen ? FrozenSet : Set);
                 case ValueKind.DictView: return Value.FromType(ViewType((PyDictView)v.RawObject));
+                case ValueKind.Dict: return Value.FromType(DictType((PyDict)v.RawObject));
                 case ValueKind.Descriptor:
                     switch (((PyDescriptor)v.RawObject).Kind)
                     {
@@ -98,6 +104,9 @@ namespace CSharpPython
                 if (t.Kind == kind) return Value.FromType(t);
             throw new PyError("TypeError", "type() cannot describe this value");
         }
+
+        private static PyType DictType(PyDict dict) =>
+            dict.Flavor == DictFlavor.Counter ? Counter : dict.Flavor == DictFlavor.Default ? DefaultDict : Dict;
 
         private static PyType ViewType(PyDictView view) =>
             view.Mode == DictViewKind.Keys ? DictKeys : view.Mode == DictViewKind.Values ? DictValues : DictItems;
@@ -121,6 +130,7 @@ namespace CSharpPython
                     if (t == Type) return IsClass(value);
                     if (t == Int && value.Kind == ValueKind.Bool) return true; // bool is a kind of int
                     if (t.Kind == ValueKind.Set && value.Kind == ValueKind.Set) return ((PySet)value.RawObject).Frozen == (t == FrozenSet);
+                    if (t.Kind == ValueKind.Dict && value.Kind == ValueKind.Dict) return t == Dict || DictType((PyDict)value.RawObject) == t;   // every kind of dictionary is a dict
                     if (t.Kind == ValueKind.DictView && value.Kind == ValueKind.DictView) return ViewType((PyDictView)value.RawObject) == t;
                     if (t.Kind == ValueKind.Descriptor && value.Kind == ValueKind.Descriptor) return TypeOf(value).RawObject == (object)t;
                     return t.Kind == KindOf(value);
@@ -154,7 +164,7 @@ namespace CSharpPython
                     if (b == Object) return true;
                     if (sub.Kind != ValueKind.Type) return false;
                     var a = (PyType)sub.RawObject;
-                    return a == b || (a == Bool && b == Int);
+                    return a == b || (a == Bool && b == Int) || (b == Dict && (a == DefaultDict || a == Counter));
                 }
                 case ValueKind.Class:
                     return sub.Kind == ValueKind.Class &&

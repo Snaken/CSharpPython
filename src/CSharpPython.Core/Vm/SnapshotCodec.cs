@@ -99,11 +99,15 @@ namespace CSharpPython
                     break;
                 case ValueKind.Dict:
                     if (AddContainer(v))
-                        foreach (var pair in ((PyDict)v.RawObject).Pairs())
+                    {
+                        var dict = (PyDict)v.RawObject;
+                        foreach (var pair in dict.Pairs())
                         {
                             Collect(pair.Key);
                             Collect(pair.Value);
                         }
+                        if (dict.Flavor == DictFlavor.Default) Collect(dict.Factory);
+                    }
                     break;
                 case ValueKind.Set:
                     if (AddContainer(v)) Collect(Value.FromDict(((PySet)v.RawObject).Items));
@@ -310,6 +314,8 @@ namespace CSharpPython
                             WriteValue(pw, pair.Key);
                             WriteValue(pw, pair.Value);
                         }
+                        pw.Write((byte)dict.Flavor);
+                        if (dict.Flavor == DictFlavor.Default) WriteValue(pw, dict.Factory);
                         break;
                     }
                 }
@@ -581,12 +587,15 @@ namespace CSharpPython
                     foreach (var member in module.Value.Members)
                         if (member.Value.Kind == ValueKind.Native && !_natives.ContainsKey((NativeFunction)member.Value.RawObject))
                             _natives[(NativeFunction)member.Value.RawObject] = "m:" + module.Key + ":" + member.Key;
-                foreach (var kind in new[] { ValueKind.Str, ValueKind.List, ValueKind.Dict, ValueKind.Tuple, ValueKind.Set, ValueKind.Iterator })
+                foreach (var kind in new[] { ValueKind.Str, ValueKind.List, ValueKind.Dict, ValueKind.Tuple, ValueKind.Set, ValueKind.Iterator, ValueKind.Int, ValueKind.Float })
                     foreach (var name in Methods.NamesOf(kind))
                     {
                         var method = Methods.Find(kind, name);
                         if (!_natives.ContainsKey(method)) _natives[method] = "t:" + (int)kind + ":" + name;
                     }
+                foreach (var name in Methods.CounterNames)
+                    _natives[Methods.FindCounter(name)] = "c:" + name;
+                _natives[Methods.DictFromKeysNative] = "s:dict.fromkeys";
                 foreach (var name in Methods.InstanceNames)
                 {
                     var method = Methods.Find(ValueKind.Instance, name);
@@ -746,6 +755,10 @@ namespace CSharpPython
                         Value key = ReadValue(r);
                         dict.RestoreEntry(key, ReadValue(r));
                     }
+                    byte flavor = r.ReadByte();
+                    if (flavor > (byte)DictFlavor.Counter) throw new SnapshotException("the snapshot is damaged");
+                    dict.Flavor = (DictFlavor)flavor;
+                    if (dict.Flavor == DictFlavor.Default) dict.Factory = ReadValue(r);
                     break;
                 }
             }
@@ -1091,6 +1104,12 @@ namespace CSharpPython
                         if (parts.Length == 3 && _vm.Modules.TryGetValue(parts[1], out var module) &&
                             module.Members.TryGetValue(parts[2], out var m) && m.Kind == ValueKind.Native)
                             return (NativeFunction)m.RawObject;
+                        break;
+                    case "c":
+                        if (parts.Length == 2 && Methods.FindCounter(parts[1]) is NativeFunction counterMethod) return counterMethod;
+                        break;
+                    case "s":
+                        if (parts[1] == "dict.fromkeys") return Methods.DictFromKeysNative;
                         break;
                     case "t":
                         if (parts.Length == 3 && int.TryParse(parts[1], out int kind))

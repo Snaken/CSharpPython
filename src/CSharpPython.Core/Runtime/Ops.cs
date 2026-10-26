@@ -37,7 +37,7 @@ namespace CSharpPython
                 case ValueKind.Str: return "str";
                 case ValueKind.List: return "list";
                 case ValueKind.Tuple: return "tuple";
-                case ValueKind.Dict: return "dict";
+                case ValueKind.Dict: return DictTypeName((PyDict)v.RawObject);
                 case ValueKind.Set: return ((PySet)v.RawObject).Frozen ? "frozenset" : "set";
                 case ValueKind.Range: return "range";
                 case ValueKind.DictView: return ((PyDictView)v.RawObject).TypeName;
@@ -81,6 +81,8 @@ namespace CSharpPython
 
         // ---- Equality and hashing -------------------------------------------------------------------------------
 
+        private static string DictTypeName(PyDict d) => d.Flavor == DictFlavor.Counter ? "Counter" : d.Flavor == DictFlavor.Default ? "defaultdict" : "dict";
+
         public static bool Equal(Value a, Value b) => Equal(a, b, 0);
 
         private static bool Equal(Value a, Value b, int depth)
@@ -105,6 +107,7 @@ namespace CSharpPython
                 case ValueKind.Tuple:
                     return SequenceEqual(((PyTuple)a.RawObject).Items, ((PyTuple)b.RawObject).Items, depth);
                 case ValueKind.Dict:
+                    if (IsCounter(a) && IsCounter(b)) return CounterEqual((PyDict)a.RawObject, (PyDict)b.RawObject, depth);
                     return DictEqual((PyDict)a.RawObject, (PyDict)b.RawObject, depth);
                 case ValueKind.Set: return SetEqual((PySet)a.RawObject, (PySet)b.RawObject);
                 case ValueKind.DictView:
@@ -244,6 +247,9 @@ namespace CSharpPython
                         result.AddRange(y);
                         return Value.FromList(new PyList(result));
                     }
+                    case ValueKind.Dict:
+                        if (IsCounter(a) && IsCounter(b)) return CounterArithmetic(a, b, '+');
+                        break;
                     case ValueKind.Tuple:
                     {
                         var x = ((PyTuple)a.RawObject).Items;
@@ -272,6 +278,7 @@ namespace CSharpPython
             if (a.IsInteger && b.IsInteger) return BigResult(ToBig(a) - ToBig(b));
             if (a.IsNumber && b.IsNumber) return Value.FromFloat(a.AsFloat() - b.AsFloat());
             if (TryViewSetOperation(a, b, 3, out Value viewResult)) return viewResult;
+            if (IsCounter(a) && IsCounter(b)) return CounterArithmetic(a, b, '-');
             if (a.Kind == ValueKind.Set && b.Kind == ValueKind.Set) return Value.FromSet(SetDifference((PySet)a.RawObject, (PySet)b.RawObject).LikeOf((PySet)a.RawObject));
             if (a.Kind == ValueKind.Instance || b.Kind == ValueKind.Instance) return InstanceBinary(a, b, "__sub__", "__rsub__", "-");
             throw BadOperands("-", a, b);
@@ -718,8 +725,9 @@ namespace CSharpPython
                 }
                 case ValueKind.Dict:
                 {
-                    if (((PyDict)target.RawObject).TryGetValue(index, out Value v)) return v;
-                    throw new PyError("KeyError", Repr(index));
+                    var dict = (PyDict)target.RawObject;
+                    if (dict.TryGetValue(index, out Value v)) return v;
+                    return MissingKey(dict, index);
                 }
                 default:
                     throw TypeError("'" + TypeName(target) + "' object is not subscriptable");
@@ -800,7 +808,7 @@ namespace CSharpPython
                     return;
                 }
                 case ValueKind.Dict:
-                    if (!((PyDict)target.RawObject).Remove(index)) throw new PyError("KeyError", Repr(index));
+                    if (!((PyDict)target.RawObject).Remove(index) && !IsCounter(target)) throw new PyError("KeyError", Repr(index));
                     return;
                 case ValueKind.Tuple:
                 case ValueKind.Str:

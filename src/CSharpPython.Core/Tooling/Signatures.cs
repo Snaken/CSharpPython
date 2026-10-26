@@ -87,6 +87,10 @@ namespace CSharpPython.Editor
             { "random.normalvariate", "mu=0.0, sigma=1.0" }, { "random.gauss", "mu=0.0, sigma=1.0" },
             { "random.lognormvariate", "mu, sigma" }, { "random.expovariate", "lambd=1.0" },
 
+            // collections.
+            { "Counter.most_common", "n=None" }, { "Counter.elements", "" }, { "Counter.total", "" },
+            { "Counter.update", "iterable=None, **kwds" }, { "Counter.subtract", "iterable=None, **kwds" },
+
             // str methods.
             { "str.upper", "" }, { "str.lower", "" }, { "str.strip", "chars=None" }, { "str.lstrip", "chars=None" },
             { "str.rstrip", "chars=None" }, { "str.split", "sep=None, maxsplit=-1" }, { "str.join", "iterable" },

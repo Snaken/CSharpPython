@@ -1,0 +1,29 @@
+defaultdict(<class 'list'>, {'a': ['apple', 'avocado'], 'b': ['banana', 'blueberry'], 'c': ['cherry']})
+{'a': ['apple', 'avocado'], 'b': ['banana', 'blueberry'], 'c': ['cherry']}
+3 ['a', 'b', 'c'] [('a', ['apple', 'avocado']), ('b', ['banana', 'blueberry']), ('c', ['cherry'])]
+defaultdict(<class 'int'>, {'m': 1, 'i': 4, 's': 4, 'p': 2})
+0 defaultdict(<class 'int'>, {'m': 1, 'i': 4, 's': 4, 'p': 2, 'z': 0})
+None False 5 9 9 False
+{'a': {'x': 2, 'y': 1}, 'b': {'x': 5}}
+defaultdict(<class 'set'>, {'k': {1}, 'j': {2}})
+defaultdict(<class 'str'>, {'a': 'x'}) defaultdict(<class 'int'>, {'a': 1}) defaultdict(<class 'float'>, {}) defaultdict(None, {})
+defaultdict(<class 'int'>, {'a': 1, 'b': 2})
+defaultdict True False True True False
+True False <class 'collections.defaultdict'>
+True None
+0 True
+defaultdict True False 1
+defaultdict True 1 0
+dict dict
+True True True
+False True
+TypeError
+list []
+KeyError
+KeyError
+TypeError
+TypeError
+ZeroDivisionError
+TypeError
+KeyError
+list [('i', 4), ('m', 1), ('p', 2), ('s', 4), ('z', 0)]

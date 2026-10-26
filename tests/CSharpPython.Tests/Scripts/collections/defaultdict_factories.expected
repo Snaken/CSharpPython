@@ -1,0 +1,11 @@
+{'a': [0, 1, 2], 'b': [0]} ['made', 'made']
+['made', 'made']
+[0, 7] 3
+{'x': [1, 2], 'y': []}
+None True {'a': None}
+defaultdict(<class 'int'>, {'b': 2}) ['b'] [2] 2
+defaultdict(<class 'int'>, {'b': 20})
+defaultdict(<class 'int'>, {'b': 20, 'c': 3, 'e': 4})
+[('b', 20), ('e', 4), ('c', 3)]
+('e', 4) defaultdict(<class 'int'>, {'b': 20, 'c': 3})
+{}

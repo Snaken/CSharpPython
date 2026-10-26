@@ -167,7 +167,7 @@ namespace CSharpPython
                     sb.Append('<').Append(((PyDescriptor)v.RawObject).TypeName).Append(" object at 0x")
                       .Append(System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(v.RawObject).ToString("x8")).Append('>');
                     return;
-                case ValueKind.Type: sb.Append("<class '").Append(((PyType)v.RawObject).Name).Append("'>"); return;
+                case ValueKind.Type: sb.Append(((PyType)v.RawObject).ToString()); return;
                 case ValueKind.ExceptionType: sb.Append("<class '").Append(((PyExceptionType)v.RawObject).Name).Append("'>"); return;
                 case ValueKind.Handle:
                     sb.Append("<handle ").Append(v.RawAux.ToString(CultureInfo.InvariantCulture)).Append('#')
@@ -199,13 +199,26 @@ namespace CSharpPython
         {
             if (seen.Contains(dict) || seen.Count >= MaxReprDepth)
             {
-                sb.Append("{...}");
+                sb.Append(dict.Flavor == DictFlavor.Counter ? "Counter(...)" : dict.Flavor == DictFlavor.Default ? "defaultdict(..., {...})" : "{...}");
                 return;
             }
             seen.Add(dict);
+            if (dict.Flavor == DictFlavor.Counter && dict.Count == 0)
+            {
+                sb.Append("Counter()");
+                seen.RemoveAt(seen.Count - 1);
+                return;
+            }
+            if (dict.Flavor == DictFlavor.Counter) sb.Append("Counter(");
+            else if (dict.Flavor == DictFlavor.Default)
+            {
+                sb.Append("defaultdict(");
+                WriteRepr(sb, dict.Factory, seen);
+                sb.Append(", ");
+            }
             sb.Append('{');
             bool first = true;
-            foreach (var kv in dict.Pairs())
+            foreach (var kv in dict.Flavor == DictFlavor.Counter ? MostCommon(dict) : dict.Pairs())
             {
                 if (!first) sb.Append(", ");
                 first = false;
@@ -214,6 +227,7 @@ namespace CSharpPython
                 WriteRepr(sb, kv.Value, seen);
             }
             sb.Append('}');
+            if (dict.Flavor != DictFlavor.Plain) sb.Append(')');
             seen.RemoveAt(seen.Count - 1);
         }
 

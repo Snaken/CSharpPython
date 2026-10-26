@@ -37,6 +37,7 @@ namespace CSharpPython
             into["Ellipsis"] = Value.Ellipsis;
             modules["math"] = MathModule();
             modules["random"] = RandomModule.Create();
+            modules["collections"] = CollectionsModule.Create();
         }
 
         private static string NameArg(Value v, string function)

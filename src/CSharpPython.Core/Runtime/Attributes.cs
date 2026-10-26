@@ -184,6 +184,8 @@ namespace CSharpPython
                     break;
                 }
             }
+            if (obj.Kind == ValueKind.Dict && name == "default_factory" && ((PyDict)obj.RawObject).Flavor == DictFlavor.Default)
+                return ((PyDict)obj.RawObject).Factory;
             if (Methods.FindFor(obj, name) is NativeFunction method)
                 return Value.FromBound(new BoundMethod(obj, method));
             throw NoAttribute(obj, name);
@@ -259,6 +261,11 @@ namespace CSharpPython
             }
             if (obj.Kind == ValueKind.Module)
                 throw new PyError("AttributeError", "module attributes are read-only");
+            if (obj.Kind == ValueKind.Dict && name == "default_factory" && ((PyDict)obj.RawObject).Flavor == DictFlavor.Default)
+            {
+                ((PyDict)obj.RawObject).Factory = value;
+                return;
+            }
             throw new PyError("AttributeError", "'" + TypeName(obj) + "' object has no attribute '" + name + "' and no __dict__ for setting new attributes");
         }
     }

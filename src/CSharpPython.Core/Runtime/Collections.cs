@@ -79,6 +79,9 @@ namespace CSharpPython
         }
     }
 
+    /// <summary>Which kind of dictionary a <see cref="PyDict"/> is: a plain one, or one of the <c>collections</c> types.</summary>
+    internal enum DictFlavor : byte { Plain, Default, Counter }
+
     /// <summary>A Python range. Lengths are computed, never materialised.</summary>
     public enum DictViewKind : byte { Keys, Values, Items }
 
@@ -168,6 +171,15 @@ namespace CSharpPython
 
         /// <summary>True when this dictionary holds the members of a set, which only changes error wording.</summary>
         internal bool ForSet;
+
+        /// <summary>Plain, or a <c>defaultdict</c> or <c>Counter</c>, which answer a missing key differently.</summary>
+        internal DictFlavor Flavor;
+
+        /// <summary>The <c>default_factory</c> of a <c>defaultdict</c> (None for none).</summary>
+        internal Value Factory;
+
+        /// <summary>An empty dictionary of the same flavour, with the same factory.</summary>
+        internal PyDict EmptyLike() => new PyDict { Flavor = Flavor, Factory = Factory };
 
         public int Count
         {

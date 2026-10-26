@@ -4,7 +4,8 @@
 
 - The documentation now gives the measured nesting limits for each Unity platform (about 90 to 140 nested brackets, depending on stack size).
 
-- `random` module, matching CPython's numbers for a given `int` seed: `seed`, `random`, `getrandbits`, `randrange`, `randint`, `choice`, `shuffle`, `sample`, `choices`, `uniform`, `triangular`, `normalvariate`, `gauss`, `lognormvariate` and `expovariate`. Each task has its own generator and snapshots save it (snapshot format version 12).
+- `collections` module with `defaultdict` and `Counter` (snapshot format version 13). `deque` and `namedtuple` follow.
+- `random` module, matching CPython's numbers for a given `int` seed: `seed`, `random`, `getrandbits`, `randrange`, `randint`, `choice`, `shuffle`, `sample`, `choices`, `uniform`, `triangular`, `normalvariate`, `gauss`, `lognormvariate` and `expovariate`. Each task has its own generator and snapshots save it (snapshot format version 12 for random, 13 with collections).
 - A damaged snapshot can no longer register exception types with empty or invalid names.
 - Positional-only parameters: `def f(a, b, /, c)`.
 - `math`: `isfinite`, `isclose`, `copysign`, `fmod`, `remainder`, `modf`, `frexp`, `ldexp`, `cbrt`, `exp2`, `expm1`, `log1p`, the hyperbolic functions, `factorial`, `gcd`, `lcm`, `isqrt`, `comb`, `perm`, `prod`, `fsum` and `dist`; `hypot` takes any number of arguments.

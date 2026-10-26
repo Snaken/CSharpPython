@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Numerics;
 using System.Text;
 
@@ -9,6 +10,14 @@ namespace CSharpPython
     // The less common methods of str, dict, int and float.
     internal static partial class Methods
     {
+        private static readonly Dictionary<string, NativeFunction> CounterMethods = new Dictionary<string, NativeFunction>();
+
+        public static IEnumerable<string> CounterNames => CounterMethods.Keys;
+
+        public static NativeFunction FindCounter(string name) => CounterMethods.TryGetValue(name, out var fn) ? fn : null;
+
+        public static NativeFunction DictFromKeysNative => DictFromKeys;
+
         private static readonly NativeFunction DictFromKeys =
             new NativeFunction("dict.fromkeys", (c, a) => FromKeys(a), 1, 2);
 
@@ -16,6 +25,7 @@ namespace CSharpPython
         public static NativeFunction FindOnType(PyType type, string name)
         {
             if (type == PyTypes.Dict && name == "fromkeys") return DictFromKeys;
+            if (type == PyTypes.Counter && CounterMethods.TryGetValue(name, out var counterMethod)) return counterMethod;
             if (type == PyTypes.FrozenSet && SetMutators.Contains(name)) return null;
             if (type == PyTypes.Generator || type == PyTypes.Iterator || type.Kind == null) return null;
             switch (type.Kind.Value)
@@ -40,6 +50,69 @@ namespace CSharpPython
             Value fill = a.Length > 1 ? a[1] : Value.None;
             foreach (var key in Ops.ToList(a[0])) result.Set(key, fill);
             return Value.FromDict(result);
+        }
+
+        // Adds (or, with a negative sign, subtracts) the counts of a mapping, or of each item of an iterable, into a counter.
+        internal static void CountInto(PyDict counts, Value source, bool subtract)
+        {
+            var one = Value.FromInt(1);
+            if (source.Kind == ValueKind.Dict)
+            {
+                foreach (var kv in ((PyDict)source.RawObject).Pairs().ToList())
+                    AddCount(counts, kv.Key, kv.Value, subtract);
+                return;
+            }
+            foreach (var item in Ops.ToList(source)) AddCount(counts, item, one, subtract);
+        }
+
+        private static void AddCount(PyDict counts, Value key, Value amount, bool subtract)
+        {
+            Value current = counts.TryGetValue(key, out Value existing) ? existing : Value.FromInt(0);
+            counts.Set(key, subtract ? Ops.Sub(current, amount) : Ops.Add(current, amount));
+        }
+
+        private static void InstallCounter()
+        {
+            var t = CounterMethods;
+            Add(t, "Counter", "most_common", 0, 1, (c, a) =>
+            {
+                var items = Ops.MostCommon(a[0].AsDict());
+                int count = items.Count;
+                if (a.Length > 1 && !a[1].IsNone) count = (int)Math.Max(0, Math.Min(a[1].AsInt(), items.Count));
+                var result = new List<Value>(count);
+                for (int i = 0; i < count; i++) result.Add(Value.Tuple(items[i].Key, items[i].Value));
+                return Value.FromList(new PyList(result));
+            });
+            Add(t, "Counter", "elements", 0, 0, (c, a) =>
+            {
+                var result = new List<Value>();
+                foreach (var kv in a[0].AsDict().Pairs())
+                {
+                    long n = kv.Value.IsInteger ? (kv.Value.Kind == ValueKind.BigInt ? Ops.MaxSequenceLength : kv.Value.RawInt) : 0;
+                    if (result.Count + Math.Max(0, n) > Ops.MaxSequenceLength) throw new PyError("MemoryError", "sequence too long");
+                    for (long i = 0; i < n; i++) result.Add(kv.Key);
+                }
+                return Value.FromIterator(new ListIterator(new PyList(result)));
+            });
+            Add(t, "Counter", "total", 0, 0, (c, a) =>
+            {
+                Value sum = Value.FromInt(0);
+                foreach (var kv in a[0].AsDict().Pairs()) sum = Ops.Add(sum, kv.Value);
+                return sum;
+            });
+            Add(t, "Counter", "update", 0, 1, (c, a) => CounterUpdate(c, a, false), true);
+            Add(t, "Counter", "subtract", 0, 1, (c, a) => CounterUpdate(c, a, true), true);
+            Add(t, "Counter", "fromkeys", 0, 2, (c, a) =>
+                throw new PyError("NotImplementedError", "Counter.fromkeys() is undefined.  Use Counter(iterable) instead."));
+        }
+
+        private static Value CounterUpdate(CallContext ctx, ReadOnlySpan<Value> a, bool subtract)
+        {
+            var counts = a[0].AsDict();
+            if (ctx.PositionalCount > 1 && !a[1].IsNone) CountInto(counts, a[1], subtract);
+            for (int i = 0; i < ctx.KeywordNames.Length; i++)
+                AddCount(counts, Value.FromString(ctx.KeywordNames[i]), a[ctx.PositionalCount + i], subtract);
+            return Value.None;
         }
 
         private static void InstallMoreDict()

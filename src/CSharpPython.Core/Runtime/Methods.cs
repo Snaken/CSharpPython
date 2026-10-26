@@ -33,6 +33,7 @@ namespace CSharpPython
         public static NativeFunction FindFor(Value obj, string name)
         {
             if (obj.Kind == ValueKind.Set && ((PySet)obj.RawObject).Frozen && SetMutators.Contains(name)) return null;
+            if (obj.Kind == ValueKind.Dict && ((PyDict)obj.RawObject).Flavor == DictFlavor.Counter && CounterMethods.TryGetValue(name, out var counterMethod)) return counterMethod;
             if (obj.Kind == ValueKind.Descriptor && ((PyDescriptor)obj.RawObject).Kind != DescriptorKind.Property) return null;
             return Find(obj.Kind, name);
         }
@@ -101,6 +102,7 @@ namespace CSharpPython
             InstallMoreStr();
             InstallNumbers();
             InstallMoreDict();
+            InstallCounter();
         }
 
         // property.getter / setter / deleter return a copy of the property with that function replaced.
@@ -718,7 +720,7 @@ namespace CSharpPython
             Add(t, "dict", "clear", 0, 0, (c, a) => { a[0].AsDict().Clear(); return Value.None; });
             Add(t, "dict", "copy", 0, 0, (c, a) =>
             {
-                var copy = new PyDict();
+                var copy = a[0].AsDict().EmptyLike();
                 foreach (var kv in a[0].AsDict().Pairs()) copy.Set(kv.Key, kv.Value);
                 return Value.FromDict(copy);
             });
