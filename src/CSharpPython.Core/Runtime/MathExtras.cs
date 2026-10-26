@@ -168,6 +168,9 @@ namespace CSharpPython
             });
         }
 
+        // The comparisons here are deliberately exact (NaN is never equal to anything, as with ==).
+        private static bool Exactly(double a, double b) => !double.IsNaN(a) && a.Equals(b);
+
         private static double CopySign(double magnitude, double sign) =>
             BitConverter.DoubleToInt64Bits(sign) < 0 == BitConverter.DoubleToInt64Bits(magnitude) < 0 ? magnitude : -magnitude;
 
@@ -183,16 +186,16 @@ namespace CSharpPython
         {
             double u = Math.Exp(x);
             if (double.IsInfinity(u)) return Checked(u, x);
-            if (u == 1.0) return x;
+            if (Exactly(u, 1.0)) return x;
             double um1 = u - 1.0;
-            return um1 == -1.0 ? -1.0 : um1 * x / Math.Log(u);
+            return Exactly(um1, -1.0) ? -1.0 : um1 * x / Math.Log(u);
         }
 
         private static double Log1p(double x)
         {
             if (x <= -1) throw DomainError();
             double u = 1.0 + x;
-            return u == 1.0 ? x : Math.Log(u) * x / (u - 1.0);
+            return Exactly(u, 1.0) ? x : Math.Log(u) * x / (u - 1.0);
         }
 
         private static double Checked(double r, double x = 0)
@@ -237,7 +240,7 @@ namespace CSharpPython
             if (ctx.TryGetKeyword(a, "abs_tol", out Value t)) abs = t.AsFloat();
             if (rel < 0 || abs < 0) throw Ops.ValueError("tolerances must be non-negative");
             double x = a[0].AsFloat(), y = a[1].AsFloat();
-            if (x == y) return Value.FromBool(true);
+            if (Exactly(x, y)) return Value.FromBool(true);
             if (double.IsInfinity(x) || double.IsInfinity(y)) return Value.FromBool(false);
             double diff = Math.Abs(y - x);
             return Value.FromBool(diff <= Math.Abs(rel * y) || diff <= Math.Abs(rel * x) || diff <= abs);
@@ -297,7 +300,7 @@ namespace CSharpPython
             {
                 double y = lastLo * 2;
                 double x = sum + y;
-                if (y == x - sum) sum = x;
+                if (Exactly(y, x - sum)) sum = x;
             }
             if (double.IsInfinity(sum)) throw new PyError("OverflowError", "intermediate overflow in fsum");
             return sum;
