@@ -14,6 +14,11 @@ namespace CSharpPython
                 long r = kind == 0 ? x | y : kind == 1 ? x ^ y : x & y;
                 return a.Kind == ValueKind.Bool && b.Kind == ValueKind.Bool ? Value.FromBool(r != 0) : Value.FromInt(r);
             }
+            if (a.IsInteger && b.IsInteger)
+            {
+                System.Numerics.BigInteger p = ToBig(a), q = ToBig(b);
+                return BigResult(kind == 0 ? p | q : kind == 1 ? p ^ q : p & q);
+            }
             if (a.Kind == ValueKind.Set && b.Kind == ValueKind.Set)
             {
                 var x = (PySet)a.RawObject;
@@ -47,11 +52,13 @@ namespace CSharpPython
                 long x = a.RawInt, n = b.RawInt;
                 if (n < 0) throw ValueError("negative shift count");
                 if (x == 0) return Value.FromInt(0);
-                if (n >= 64) throw OverflowError();
-                long r = x << (int)n;
-                if (r >> (int)n != x) throw OverflowError();
-                return Value.FromInt(r);
+                if (n < 63)
+                {
+                    long r = x << (int)n;
+                    if (r >> (int)n == x) return Value.FromInt(r);
+                }
             }
+            if (a.IsInteger && b.IsInteger) return BigLeftShift(a, b);
             if (a.Kind == ValueKind.Instance || b.Kind == ValueKind.Instance) return InstanceBinary(a, b, "__lshift__", "__rlshift__", "<<");
             throw BadOperands("<<", a, b);
         }
@@ -65,6 +72,7 @@ namespace CSharpPython
                 if (n >= 64) return Value.FromInt(x < 0 ? -1 : 0);
                 return Value.FromInt(x >> (int)n);
             }
+            if (a.IsInteger && b.IsInteger) return BigRightShift(a, b);
             if (a.Kind == ValueKind.Instance || b.Kind == ValueKind.Instance) return InstanceBinary(a, b, "__rshift__", "__rrshift__", ">>");
             throw BadOperands(">>", a, b);
         }
@@ -72,6 +80,7 @@ namespace CSharpPython
         public static Value Invert(Value v)
         {
             if (v.IsIntLike()) return Value.FromInt(~v.RawInt);
+            if (v.Kind == ValueKind.BigInt) return BigResult(-(System.Numerics.BigInteger)v.RawObject - System.Numerics.BigInteger.One);
             if (v.Kind == ValueKind.Instance && TryCallDunder(v, "__invert__", System.Array.Empty<Value>(), out Value inverted)) return inverted;
             throw TypeError("bad operand type for unary ~: '" + TypeName(v) + "'");
         }

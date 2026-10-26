@@ -47,7 +47,7 @@ namespace CSharpPython.Tests.Vm
             Assert.That(Eval("round(15, -1)"), Is.EqualTo("20"));
             Assert.That(Eval("round(7, 3)"), Is.EqualTo("7"));
             Assert.That(Eval("round(7, -30)"), Is.EqualTo("0"));
-            Assert.That(Fails("round(9223372036854775807, -1)").TypeName, Is.EqualTo("OverflowError"));
+            Assert.That(Eval("round(9223372036854775807, -1)"), Is.EqualTo("9223372036854775810"));
             Assert.That(Fails("round(5, 'a')").TypeName, Is.EqualTo("TypeError"));
         }
 
@@ -162,34 +162,34 @@ namespace CSharpPython.Tests.Vm
             Assert.That(Eval("'{:n}'.format(1234)"), Is.EqualTo("1234"));
         }
 
-        // ---- Deliberate differences from CPython (listed as unsupported in the README) ----
+        // ---- Deliberate differences from CPython (listed in the README) ----
 
-        [TestCase("2 ** 63")]
-        [TestCase("9223372036854775807 + 1")]
-        [TestCase("-9223372036854775807 - 2")]
-        [TestCase("9223372036854775807 * 2")]
-        [TestCase("10 ** 19")]
-        [TestCase("3 ** 40")]
-        [TestCase("int('9223372036854775808')")]
-        [TestCase("int('-9223372036854775809')")]
-        [TestCase("int(1e19)")]
-        [TestCase("int(float('1e30'))")]
-        [TestCase("round(1e20)")]
-        [TestCase("abs(-9223372036854775807 - 1)")]
-        [TestCase("-(-9223372036854775807 - 1)")]
-        [TestCase("(-9223372036854775807 - 1) // -1")]
-        public void IntegersAreSixtyFourBitAndOverflowRaises(string expr)
+        [TestCase("2 ** 63", "9223372036854775808")]
+        [TestCase("9223372036854775807 + 1", "9223372036854775808")]
+        [TestCase("-9223372036854775807 - 2", "-9223372036854775809")]
+        [TestCase("9223372036854775807 * 2", "18446744073709551614")]
+        [TestCase("10 ** 19", "10000000000000000000")]
+        [TestCase("3 ** 40", "12157665459056928801")]
+        [TestCase("int('9223372036854775808')", "9223372036854775808")]
+        [TestCase("int('-9223372036854775809')", "-9223372036854775809")]
+        [TestCase("int(1e19)", "10000000000000000000")]
+        [TestCase("int(float('1e30'))", "1000000000000000019884624838656")]
+        [TestCase("round(1e20)", "100000000000000000000")]
+        [TestCase("abs(-9223372036854775807 - 1)", "9223372036854775808")]
+        [TestCase("-(-9223372036854775807 - 1)", "9223372036854775808")]
+        [TestCase("(-9223372036854775807 - 1) // -1", "9223372036854775808")]
+        public void IntegersGrowPastSixtyFourBits(string expr, string expected)
         {
-            Assert.That(Fails("print(" + expr + ")").TypeName, Is.EqualTo("OverflowError"));
+            Assert.That(Eval(expr), Is.EqualTo(expected));
         }
 
         [TestCase("9223372036854775808")]
         [TestCase("99999999999999999999")]
         [TestCase("0xFFFFFFFFFFFFFFFFF")]
-        public void HugeLiteralsAreSyntaxErrors(string literal)
+        public void BigLiteralsCompile(string literal)
         {
             var vm = new PyVm();
-            Assert.Throws<CSharpPython.Syntax.PySyntaxError>(() => vm.Compile("x = " + literal));
+            Assert.DoesNotThrow(() => vm.Compile("x = " + literal));
         }
 
         [TestCase("(-8) ** 0.5")]

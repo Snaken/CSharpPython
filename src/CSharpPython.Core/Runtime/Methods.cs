@@ -147,12 +147,19 @@ namespace CSharpPython
         // Reads the optional start and end arguments (a[2], a[3]) of index(), with slice-style negatives and clamping.
         private static void Range(ReadOnlySpan<Value> a, int length, out int from, out int to)
         {
-            long start = a.Length > 2 ? a[2].AsInt() : 0;
-            long end = a.Length > 3 ? a[3].AsInt() : length;
+            long start = a.Length > 2 ? Clamped(a[2]) : 0;
+            long end = a.Length > 3 ? Clamped(a[3]) : length;
             if (start < 0) start = Math.Max(0, start + length);
             if (end < 0) end = Math.Max(0, end + length);
             from = (int)Math.Min(start, length);
             to = (int)Math.Min(end, length);
+        }
+
+        // An int argument that only bounds a search: a huge value counts as the nearest extreme.
+        private static long Clamped(Value v)
+        {
+            if (v.Kind == ValueKind.BigInt) return ((System.Numerics.BigInteger)v.RawObject).Sign < 0 ? long.MinValue / 2 : long.MaxValue / 2;
+            return v.AsInt();
         }
 
         private static string S(ReadOnlySpan<Value> a, int i) => a[i].AsString();
@@ -162,8 +169,8 @@ namespace CSharpPython
         private static long OptInt(ReadOnlySpan<Value> a, int i, long fallback)
         {
             if (!Has(a, i)) return fallback;
-            if (!a[i].IsIntLike()) throw Ops.TypeError("'" + a[i].TypeName + "' object cannot be interpreted as an integer");
-            return a[i].RawInt;
+            if (!a[i].IsInteger) throw Ops.TypeError("'" + a[i].TypeName + "' object cannot be interpreted as an integer");
+            return Clamped(a[i]);
         }
 
         private static void CheckSize(int current, int adding, string what)

@@ -61,7 +61,8 @@ namespace CSharpPython.Tests.Vm
                 Is.EqualTo("0b101 -0b101 0b0 0o10 -0o11 0xff -0xff 0x0 0x1"));
             Assert.That(Fails("hex(1.5)").TypeName, Is.EqualTo("TypeError"));
             Assert.That(Fails("bin('a')").TypeName, Is.EqualTo("TypeError"));
-            Assert.That(Fails("hex(-9223372036854775807 - 1)").TypeName, Is.EqualTo("ValueError"));
+            Assert.That(Out("print(hex(-9223372036854775807 - 1), hex(2 ** 64), bin(-2 ** 70), oct(2 ** 64))"),
+                Is.EqualTo("-0x8000000000000000 0x10000000000000000 -0b10000000000000000000000000000000000000000000000000000000000000000000000 0o2000000000000000000000"));
         }
 
         [Test]

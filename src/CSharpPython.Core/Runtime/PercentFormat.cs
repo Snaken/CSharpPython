@@ -123,6 +123,7 @@ namespace CSharpPython
         {
             if (next >= items.Length) throw TypeError("not enough arguments for format string");
             Value v = items[next++];
+            if (v.Kind == ValueKind.BigInt) throw new PyError("OverflowError", "Python int too large to convert to C ssize_t");
             if (v.Kind != ValueKind.Int && v.Kind != ValueKind.Bool) throw TypeError("* wants int");
             return v.RawInt;
         }
@@ -147,6 +148,7 @@ namespace CSharpPython
                         if (v.RawInt < 0 || v.RawInt > 0x10FFFF) throw new PyError("OverflowError", "%c arg not in range(0x110000)");
                         text = char.ConvertFromUtf32((int)v.RawInt);
                     }
+                    else if (v.Kind == ValueKind.BigInt) throw new PyError("OverflowError", "%c arg not in range(0x110000)");
                     else throw TypeError("%c requires an int or a unicode character, not " + TypeName(v));
                     return PercentPad(text, left, width, -1);
                 }
@@ -172,12 +174,7 @@ namespace CSharpPython
             if (isInt && v.Kind == ValueKind.Float)
             {
                 if (type != 'd' && type != 'i' && type != 'u') throw TypeError("%" + type + " format: an integer is required, not float");
-                double d = v.RawFloat;
-                if (double.IsNaN(d)) throw ValueError("cannot convert float NaN to integer");
-                if (double.IsInfinity(d)) throw new PyError("OverflowError", "cannot convert float infinity to integer");
-                d = Math.Truncate(d);
-                if (d >= 9.2233720368547758e18 || d < -9.2233720368547758e18) throw OverflowError();
-                v = Value.FromInt((long)d);
+                v = FloatToInt(v.RawFloat);
             }
 
             var spec = new StringBuilder();

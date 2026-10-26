@@ -19,6 +19,12 @@ namespace CSharpPython
         public int MaxQueuedEvents = 1000;
 
         /// <summary>
+        /// The most bits an integer result may have. Bigger results raise a catchable <c>OverflowError</c>, so a script
+        /// cannot stall the game with <c>2 ** 10 ** 9</c>. Python itself has no such limit.
+        /// </summary>
+        public int MaxIntBits = 16384;
+
+        /// <summary>
         /// Turns on <see cref="PyTask.Save"/> and <see cref="PyVm.Restore"/>. It is off by default so that a game
         /// that never saves script state does not depend on it; calling them while it is off throws.
         /// </summary>

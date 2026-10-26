@@ -168,7 +168,7 @@ Supported:
 
 | Area | Details |
 | --- | --- |
-| Types | `int` (64-bit, overflow raises `OverflowError`), `float`, `str`, `bool`, `None`, `list`, `tuple`, `dict`, `set`, `range`, host handles |
+| Types | `int` (any size, up to `MaxIntBits`), `float`, `str`, `bool`, `None`, `list`, `tuple`, `dict`, `set`, `range`, host handles |
 | Statements | assignment (chained, tuple unpacking including `a, *rest = xs`, augmented), `if/elif/else`, `while` and `for` (with an `else` block that a `break` skips), `break`, `continue`, `pass`, `return`, `global`, `nonlocal`, `del` (names, attributes, items and list slices), slice assignment (`xs[1:3] = [...]`, `xs[::2] = [...]` on lists, with CPython's size rules), type annotations (`x: int = 5`, `def f(a: int = 0, *args: str) -> bool:`; they are checked for syntax and then ignored, never evaluated or stored), `assert`, `with` (context managers, with `as` targets and several items), `yield` and `yield from` (generators), `import`/`from ... import`, `def` (including nested functions), `class`, `lambda`, list, dict and set comprehensions, set displays (`{1, 2}`), `*iterable` and `**mapping` unpacking inside list, tuple, set and dict displays (`[*a, 1]`, `{**d, 'k': v}`), generator expressions, `try/except/else/finally`, `raise` |
 | Expressions | arithmetic, bit operators (`&`, `\|`, `^`, `~`, `<<`, `>>`, on `int` and `bool`; `\|`, `&` and `^` also on sets; `\|` and `\|=` on dicts), comparison chains, `and/or/not`, `in`, `is`, conditional expressions, assignment expressions (`if (n := len(xs)) > 3:`, `while (line := next_line()):`, `[y for x in xs if (y := f(x))]`; in a comprehension the name is bound in the enclosing function or module, as in Python), subscripts and slices, f-strings, printf-style `"%d items" % n` (flags, width, precision, `*`, `%(name)s` with a dict, and `d i u o x X e E f F g G c r s a %`), keyword and default arguments |
 
@@ -192,7 +192,7 @@ Not supported yet: `async`/`await`, bytes/complex literals, nested format specs 
 
 ### Differences from CPython
 
-- Integers are 64-bit and checked; there are no big ints.
+- Integers have any size, but a result larger than `vm.Options.MaxIntBits` (16384 bits by default, about 4900 digits) raises a catchable `OverflowError`, so `2 ** 10 ** 9` cannot stall the game. Like CPython, converting an integer of more than 4300 digits to or from text raises `ValueError`, and an integer literal can't have more digits than that. `range()` can't take bounds beyond 64 bits, a host function that reads an argument as a `long` (`Value.AsInt()`) gets an `OverflowError` for a bigger one (`Value.AsBigInteger()`, `Value.ToString()` and `AsFloat()` work, and `Value.FromBigInteger` makes one), `hash()` is not CPython's, and `x is y` is only true for the very same object.
 - Built-in exceptions keep only a message string, so `ValueError(42).args` is `('42',)`. Exception classes you write keep their real `args`.
 - `dict.keys()/values()/items()` return live views (`dict_keys([...])`; `len`, `in`, iteration, `reversed`, and set operators and comparisons on keys and items, as in Python). Iterating `values()` or `items()` walks a copy, so adding a key in the loop doesn't raise as it does in CPython, and views have no methods (no `isdisjoint` or `.mapping`).
 - `sorted`, `list.sort`, `min` and `max` accept `key=` (and `min`/`max` accept `default=`), but a key function runs to completion and cannot wait.
@@ -201,7 +201,7 @@ Not supported yet: `async`/`await`, bytes/complex literals, nested format specs 
 
 ## Limits and safety
 
-`vm.Options`: `StepsPerSlice` (instructions per `Update`), `MaxSteps` (hard cap, uncatchable `StepLimitExceeded`), `MaxCallDepth` (catchable `RecursionError`), `MaxQueuedEvents`.
+`vm.Options`: `StepsPerSlice` (instructions per `Update`), `MaxSteps` (hard cap, uncatchable `StepLimitExceeded`), `MaxCallDepth` (catchable `RecursionError`), `MaxQueuedEvents`, `MaxIntBits` (largest integer result, in bits; bigger raises a catchable `OverflowError`).
 
 ## Install
 
@@ -237,7 +237,7 @@ The test suite is large and uses CPython 3 as an oracle for language semantics; 
 ## Roadmap
 
 - Blocks: more block kinds as they are needed.
-- Language: more special methods (`__trunc__`, `__floor__`, `__getattribute__`, ...), big ints.
+- Language: more special methods (`__trunc__`, `__floor__`, `__getattribute__`, ...).
 
 ## License
 

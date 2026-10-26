@@ -15,12 +15,9 @@ namespace CSharpPython.Tests.Vm
         }
 
         [Test]
-        public void LeftShiftsThatLeave64BitsOverflow()
+        public void LeftShiftsThatLeave64BitsBecomeBigInts()
         {
-            Assert.That(Fails("1 << 63").TypeName, Is.EqualTo("OverflowError"));
-            Assert.That(Fails("1 << 64").TypeName, Is.EqualTo("OverflowError"));
-            Assert.That(Fails("3 << 62").TypeName, Is.EqualTo("OverflowError"));
-            Assert.That(Fails("-3 << 62").TypeName, Is.EqualTo("OverflowError"));
+            Assert.That(Out("print(1 << 63, 1 << 64, 3 << 62, -3 << 62)"), Is.EqualTo("9223372036854775808 18446744073709551616 13835058055282163712 -13835058055282163712"));
             Assert.That(Out("print(0 << 100000, 1 << 62, -1 << 63, -2 << 62)"), Is.EqualTo("0 4611686018427387904 -9223372036854775808 -9223372036854775808"));
         }
 

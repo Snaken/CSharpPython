@@ -103,7 +103,8 @@ namespace CSharpPython
             view.Mode == DictViewKind.Keys ? DictKeys : view.Mode == DictViewKind.Values ? DictValues : DictItems;
 
         // Bound methods of script classes and of built-in types are both of type "method".
-        private static ValueKind KindOf(Value v) => v.Kind == ValueKind.ScriptMethod ? ValueKind.BoundMethod : v.Kind;
+        private static ValueKind KindOf(Value v) =>
+            v.Kind == ValueKind.ScriptMethod ? ValueKind.BoundMethod : v.Kind == ValueKind.BigInt ? ValueKind.Int : v.Kind;
 
         private static bool IsClass(Value v) =>
             v.Kind == ValueKind.Type || v.Kind == ValueKind.ExceptionType || v.Kind == ValueKind.Class;

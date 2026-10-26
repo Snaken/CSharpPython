@@ -44,5 +44,7 @@ namespace CSharpPython
         Ellipsis,
         /// <summary>The result of <c>keys()</c>, <c>values()</c> or <c>items()</c>, see <see cref="PyDictView"/>.</summary>
         DictView,
+        /// <summary>An <c>int</c> outside the range of 64 bits. Always outside it: values that fit are <see cref="Int"/>.</summary>
+        BigInt,
     }
 }

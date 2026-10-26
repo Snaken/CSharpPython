@@ -85,6 +85,7 @@ namespace CSharpPython
                 case ValueKind.Ellipsis: sb.Append("Ellipsis"); return;
                 case ValueKind.Bool: sb.Append(v.RawInt != 0 ? "True" : "False"); return;
                 case ValueKind.Int: sb.Append(v.RawInt.ToString(CultureInfo.InvariantCulture)); return;
+                case ValueKind.BigInt: sb.Append(BigToString((System.Numerics.BigInteger)v.RawObject)); return;
                 case ValueKind.Float: sb.Append(FloatRepr(v.RawFloat)); return;
                 case ValueKind.Str: WriteStringRepr(sb, (string)v.RawObject); return;
                 case ValueKind.List:
@@ -385,38 +386,42 @@ namespace CSharpPython
 
         private static string FormatNumber(Value v, char type, int precision, char sign, bool alternate, char grouping, out string signText)
         {
-            bool isInt = v.IsIntLike();
+            bool isInt = v.IsInteger;
             if (type == '\0') type = isInt ? 'd' : (precision >= 0 ? 'g' : 'r');
 
             if (isInt && (type == 'f' || type == 'F' || type == 'e' || type == 'E' || type == 'g' || type == 'G' || type == '%'))
             {
-                v = Value.FromFloat(v.RawInt);
+                v = Value.FromFloat(v.AsFloat());
                 isInt = false;
             }
 
             if (isInt)
             {
                 if (precision >= 0) throw ValueError("Precision not allowed in integer format specifier");
-                long n = v.RawInt;
-                bool neg = n < 0;
-                ulong mag = neg ? (ulong)(-(n + 1)) + 1 : (ulong)n;
+                System.Numerics.BigInteger n = ToBig(v);
+                bool neg = n.Sign < 0;
+                System.Numerics.BigInteger mag = System.Numerics.BigInteger.Abs(n);
                 string digits;
                 string prefix = "";
                 switch (type)
                 {
                     case 'd':
-                    case 'n': digits = mag.ToString(CultureInfo.InvariantCulture); break;
-                    case 'x': digits = mag.ToString("x", CultureInfo.InvariantCulture); prefix = alternate ? "0x" : ""; break;
-                    case 'X': digits = mag.ToString("X", CultureInfo.InvariantCulture); prefix = alternate ? "0X" : ""; break;
-                    case 'o': digits = Convert.ToString((long)mag, 8); prefix = alternate ? "0o" : ""; break;
-                    case 'b': digits = Convert.ToString((long)mag, 2); prefix = alternate ? "0b" : ""; break;
+                    case 'n': digits = BigDigits(mag, 10); break;
+                    case 'x': digits = BigDigits(mag, 16); prefix = alternate ? "0x" : ""; break;
+                    case 'X': digits = BigDigits(mag, 16).ToUpperInvariant(); prefix = alternate ? "0X" : ""; break;
+                    case 'o': digits = BigDigits(mag, 8); prefix = alternate ? "0o" : ""; break;
+                    case 'b': digits = BigDigits(mag, 2); prefix = alternate ? "0b" : ""; break;
                     case 'c':
-                        if (n < 0 || n > 0x10FFFF) throw new PyError("OverflowError", "%c arg not in range(0x110000)");
+                        if (n.Sign < 0 || n > 0x10FFFF) throw new PyError("OverflowError", "%c arg not in range(0x110000)");
                         signText = "";
                         return char.ConvertFromUtf32((int)n);
                     default: throw ValueError("Unknown format code '" + type + "' for object of type 'int'");
                 }
-                if (grouping != '\0') digits = Group(digits, grouping);
+                if (grouping != '\0')
+                {
+                    if (type == 'n' || (grouping == ',' && type != 'd')) throw ValueError("Cannot specify '" + grouping + "' with '" + type + "'.");
+                    digits = Group(digits, grouping, type == 'd' ? 3 : 4);
+                }
                 signText = neg ? "-" : sign == '+' ? "+" : sign == ' ' ? " " : "";
                 return prefix + digits;
             }
@@ -466,12 +471,12 @@ namespace CSharpPython
             return text;
         }
 
-        private static string Group(string digits, char separator)
+        private static string Group(string digits, char separator, int size = 3)
         {
             var sb = new StringBuilder();
             for (int i = 0; i < digits.Length; i++)
             {
-                if (i > 0 && (digits.Length - i) % 3 == 0) sb.Append(separator);
+                if (i > 0 && (digits.Length - i) % size == 0) sb.Append(separator);
                 sb.Append(digits[i]);
             }
             return sb.ToString();

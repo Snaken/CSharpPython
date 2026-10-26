@@ -70,6 +70,7 @@ namespace CSharpPython.Tests.Vm
 
         private static readonly string[] Scripts =
         {
+            "import game\nf = 1\nfor i in range(1, 26):\n    f *= i\n    if i % 8 == 0:\n        game.wait(1)\nbig = [2 ** 70, -2 ** 64, f]\nd = {2 ** 80: 'x', f: 'y'}\ngame.wait(1)\nprint(f, big, d[2.0 ** 80], d[f], f // 10 ** 20, sorted(big), f > 2 ** 83, float(f), -f % 1000007)",
             "import game\nd = {'a': 1}\nk, v, i = d.keys(), d.values(), d.items()\nit = iter(i)\ngame.wait(1)\nd['b'] = 2\ngame.wait(1)\nprint(k, v, i, next(it), type(k).__name__, k | {'z'} == {'a', 'b', 'z'}, ('b', 2) in i, k == d.keys())",
             "import game\nclass R:\n    def __init__(self, n): self.n = n\n    def __enter__(self):\n        game.wait(1)\n        return self.n\n    def __exit__(self, *a):\n        print('exit', self.n)\n        return False\nbase = {'a': 1}\nwith (R(1) as x,\n      R(2) as y):\n    base |= {'b': x + y}\n    game.wait(1)\nprint(base | {'a': 9}, base)",
             "import game\nfmt = '%-6s|%05.1f|%(k)s'\nname = 'ab'\ngame.wait(1)\nprint('%-6s|%05.1f|%x' % (name, 3.14159, 255))\nprint('%(k)s-%(j)d' % {'k': name, 'j': 7})\ngame.wait(1)\nprint(fmt[:6] % name)",
@@ -193,6 +194,21 @@ namespace CSharpPython.Tests.Vm
 
         [TestCaseSource(nameof(Scripts))]
         public void ScriptsSurviveASnapshotAfterEveryInstruction(string source) => RoundTrips(source);
+
+        [Test]
+        public void BigIntegersOverTheRestoringVmsLimitAreRejected()
+        {
+            var sb = new StringBuilder();
+            var vm = NewVm(sb);
+            var script = vm.Compile("import game\nx = 2 ** 200\ngame.wait(5)");
+            var task = vm.Start(script);
+            for (int i = 0; i < 20; i++) task.Update();
+            byte[] bytes = task.Save();
+            var small = new PyVm(new VmOptions { EnableSnapshots = true, MaxIntBits = 100 });
+            small.RegisterModule("game", m => m.Native("wait", (ctx, a) => { ctx.Wait((int)a[0].AsInt()); return Value.None; }, 1, 1));
+            Assert.Throws<SnapshotException>(() => small.Restore(small.Compile("import game\nx = 2 ** 200\ngame.wait(5)"), bytes));
+            Assert.That(vm.Restore(script, bytes).Globals["x"].ToString(), Is.EqualTo("1606938044258990275541962092341162602522202993782792835301376"));
+        }
 
         [Test]
         public void StateSurvivesLoadingTwiceFromTheSameBytes()

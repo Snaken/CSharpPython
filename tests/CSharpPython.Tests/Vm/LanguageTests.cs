@@ -386,10 +386,9 @@ print(xs, len(calls))"), Is.EqualTo("[15] 1"));
         }
 
         [Test]
-        public void IntegerOverflowRaises()
+        public void IntegerOverflowPromotesToBigInt()
         {
-            var e = Fails("x = 9223372036854775807\nx + 1");
-            Assert.That(e.TypeName, Is.EqualTo("OverflowError"));
+            Assert.That(Out("x = 9223372036854775807\nprint(x + 1, type(x + 1).__name__)"), Is.EqualTo("9223372036854775808 int"));
         }
 
         [Test]

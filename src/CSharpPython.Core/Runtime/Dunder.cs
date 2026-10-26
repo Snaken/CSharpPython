@@ -88,8 +88,8 @@ namespace CSharpPython
                 {
                     if (hash.Kind != ValueKind.Function) throw TypeError("unhashable type: '" + instance.Class.Name + "'");
                     if (!TryCallDunder(v, "__hash__", Array.Empty<Value>(), out Value result)) break;
-                    if (!result.IsIntLike()) throw TypeError("__hash__ method should return an integer");
-                    return HashInt(result.RawInt);
+                    if (!result.IsInteger) throw TypeError("__hash__ method should return an integer");
+                    return Hash(result);
                 }
                 if (c.Namespace.ContainsKey(Value.FromString("__eq__"))) throw TypeError("unhashable type: '" + instance.Class.Name + "'");
             }
@@ -231,7 +231,8 @@ namespace CSharpPython
         {
             if (!TryCallDunder(v, "__len__", Array.Empty<Value>(), out Value n))
                 throw TypeError("object of type '" + TypeName(v) + "' has no len()");
-            if (!n.IsIntLike()) throw TypeError("'" + TypeName(n) + "' object cannot be interpreted as an integer");
+            if (!n.IsInteger) throw TypeError("'" + TypeName(n) + "' object cannot be interpreted as an integer");
+            if (n.Kind == ValueKind.BigInt) throw IndexTooLarge();
             if (n.RawInt < 0) throw ValueError("__len__() should return >= 0");
             return n.RawInt;
         }

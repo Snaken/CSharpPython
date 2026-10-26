@@ -302,6 +302,10 @@ namespace CSharpPython.Syntax
             else Add(TokenKind.Name, word, start, word.Length);
         }
 
+        // The longest integer literal, in decimal digits (the same limit CPython puts on int/str conversions).
+        private const int MaxLiteralDigits = 4300;
+        private const int MaxLiteralBits = 16384;
+
         private void ScanNumber()
         {
             int start = _pos;
@@ -312,7 +316,8 @@ namespace CSharpPython.Syntax
             {
                 int radix = char.ToLowerInvariant(Peek(1)) == 'x' ? 16 : char.ToLowerInvariant(Peek(1)) == 'b' ? 2 : 8;
                 _pos += 2;
-                long value = 0;
+                int bitsPerDigit = radix == 16 ? 4 : radix == 8 ? 3 : 1;
+                System.Numerics.BigInteger value = System.Numerics.BigInteger.Zero;
                 int digits = 0;
                 bool overflow = false;
                 while (!AtEnd)
@@ -321,14 +326,14 @@ namespace CSharpPython.Syntax
                     if (d == '_') { _pos++; continue; }
                     int dv = DigitValue(d);
                     if (dv < 0 || dv >= radix) break;
-                    try { value = checked(value * radix + dv); }
-                    catch (OverflowException) { overflow = true; }
+                    if ((digits + 1) * bitsPerDigit > MaxLiteralBits) overflow = true;
+                    else value = value * radix + dv;
                     digits++;
                     _pos++;
                 }
                 if (digits == 0) { ErrorToken("invalid number literal", start, _pos - start); return; }
                 if (!AtEnd && IsIdentPart(_src[_pos])) { SkipIdent(); ErrorToken("invalid number literal", start, _pos - start); return; }
-                if (overflow) { ErrorToken("integer literal is too large (big integers are not supported yet)", start, _pos - start); return; }
+                if (overflow) { ErrorToken("integer literal is too large", start, _pos - start); return; }
                 AddAt(TokenKind.Int, value.ToString(CultureInfo.InvariantCulture), start, _pos - start, _line, col);
                 return;
             }
@@ -375,9 +380,9 @@ namespace CSharpPython.Syntax
             }
             else
             {
-                if (!long.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out long _))
+                if (text.Length > MaxLiteralDigits)
                 {
-                    ErrorToken("integer literal is too large (big integers are not supported yet)", start, _pos - start);
+                    ErrorToken("integer literal is too large", start, _pos - start);
                     return;
                 }
                 AddAt(TokenKind.Int, text, start, _pos - start, _line, col);

@@ -150,6 +150,7 @@ namespace CSharpPython.Compilation
                 case ValueKind.None: key = "n"; break;
                 case ValueKind.Bool: key = "b" + v.RawInt; break;
                 case ValueKind.Int: key = "i" + v.RawInt.ToString(CultureInfo.InvariantCulture); break;
+                case ValueKind.BigInt: key = "i" + ((System.Numerics.BigInteger)v.RawObject).ToString(CultureInfo.InvariantCulture); break;
                 case ValueKind.Float: key = "f" + System.BitConverter.DoubleToInt64Bits(v.RawFloat).ToString(CultureInfo.InvariantCulture); break;
                 case ValueKind.Str: key = "s" + (string)v.RawObject; break;
                 default: key = null; break;
@@ -839,6 +840,7 @@ namespace CSharpPython.Compilation
                 case EllipsisConstant _: return Value.Ellipsis;
                 case bool b: return Value.FromBool(b);
                 case long l: return Value.FromInt(l);
+                case System.Numerics.BigInteger big: return Value.FromBig(big);
                 case double d: return Value.FromFloat(d);
                 default: return Value.FromString((string)o);
             }

@@ -139,7 +139,7 @@ print(len(d), keys[0], keys[-1], d[199], d['new'])"), Is.EqualTo("51 150 new 199
             Assert.That(Eval("float('nan') <= 1"), Is.EqualTo("False"));
             Assert.That(Eval("5 // -1"), Is.EqualTo("-5"));
             Assert.That(Eval("5 % -1"), Is.EqualTo("0"));
-            Assert.That(Fails("(-9223372036854775807 - 1) // -1").TypeName, Is.EqualTo("OverflowError"));
+            Assert.That(Eval("(-9223372036854775807 - 1) // -1"), Is.EqualTo("9223372036854775808"));
         }
 
         [TestCase("'{:8}'.format(1.5) + '|'", "     1.5|")]
@@ -275,7 +275,7 @@ print(len(d), keys[0], keys[-1], d[199], d['new'])"), Is.EqualTo("51 150 new 199
 
         [Test]
         public void HugeIntegerLiteral() =>
-            Assert.That(FirstProblem("x = 123456789012345678901234567890"), Does.Contain("too large"));
+            Assert.That(FirstProblem("x = " + new string('1', 4301)), Does.Contain("too large"));
     }
 
     public class ParserErrorPathTests

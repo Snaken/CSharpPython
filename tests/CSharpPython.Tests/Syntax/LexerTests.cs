@@ -271,15 +271,28 @@ namespace CSharpPython.Tests.Syntax
         }
 
         [Test]
-        public void IntegerTooLargeIsAnError()
+        public void BigIntegerLiteralsAreAccepted()
         {
-            Assert.That(Fails("9223372036854775808").Problem, Does.Contain("too large"));
+            Assert.That(Vm.Py.Out("print(9223372036854775808, 123456789012345678901234567890)"), Is.EqualTo("9223372036854775808 123456789012345678901234567890"));
         }
 
         [Test]
-        public void HexIntegerTooLargeIsAnError()
+        public void IntegerLiteralWithTooManyDigitsIsAnError()
         {
-            Assert.That(Fails("0xFFFFFFFFFFFFFFFFFF").Problem, Does.Contain("too large"));
+            Assert.That(Fails(new string('9', 4301)).Problem, Does.Contain("too large"));
+            Assert.That(Vm.Py.Out("print(len(str(" + new string('9', 4300) + ")))"), Is.EqualTo("4300"));
+        }
+
+        [Test]
+        public void HexIntegerLiteralsMayBeBig()
+        {
+            Assert.That(Vm.Py.Out("print(0xFFFFFFFFFFFFFFFFFF, 0b1" + new string('0', 70) + ", 0o7777777777777777777777777)"), Is.EqualTo("4722366482869645213695 1180591620717411303424 37778931862957161709567"));
+        }
+
+        [Test]
+        public void HexIntegerLiteralWithTooManyDigitsIsAnError()
+        {
+            Assert.That(Fails("0x" + new string('f', 4097)).Problem, Does.Contain("too large"));
         }
 
         [TestCase("0x")]

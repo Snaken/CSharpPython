@@ -501,6 +501,13 @@ namespace CSharpPython
                 case ValueKind.Float:
                     w.Write(v.RawInt);
                     break;
+                case ValueKind.BigInt:
+                {
+                    byte[] bytes = ((System.Numerics.BigInteger)v.RawObject).ToByteArray();
+                    w.Write(bytes.Length);
+                    w.Write(bytes);
+                    break;
+                }
                 case ValueKind.Str:
                     SnapshotIo.WriteString(w, (string)v.RawObject);
                     break;
@@ -969,6 +976,15 @@ namespace CSharpPython
                 case ValueKind.Unbound: return Value.Unbound;
                 case ValueKind.Bool: return Value.FromBool(r.ReadBoolean());
                 case ValueKind.Int: return Value.FromInt(r.ReadInt64());
+                case ValueKind.BigInt:
+                {
+                    int length = SnapshotIo.ReadCount(r, 1);
+                    if (length < 9 || length > _vm.Options.MaxIntBits / 8 + 2) throw new SnapshotException("the snapshot is damaged");
+                    var big = new System.Numerics.BigInteger(r.ReadBytes(length));
+                    if ((big >= long.MinValue && big <= long.MaxValue) || Ops.BitLength(big) > _vm.Options.MaxIntBits)
+                        throw new SnapshotException("the snapshot is damaged");
+                    return Value.FromBig(big);
+                }
                 case ValueKind.Float: return Value.FromFloat(BitConverter.Int64BitsToDouble(r.ReadInt64()));
                 case ValueKind.Str: return Value.FromString(SnapshotIo.ReadString(r));
                 case ValueKind.Range:

@@ -153,6 +153,7 @@ namespace CSharpPython
             yield return F("all", 1, 1, (c, a) => Value.FromBool(Ops.ToList(a[0]).All(v => v.IsTruthy)));
             yield return F("chr", 1, 1, (c, a) =>
             {
+                if (a[0].Kind == ValueKind.BigInt) throw Ops.ValueError("chr() arg not in range(0x110000)");
                 long n = a[0].AsInt();
                 if (n < 0 || n > 0x10FFFF || (n >= 0xD800 && n <= 0xDFFF)) throw Ops.ValueError("chr() arg not in range(0x110000)");
                 return Value.FromString(char.ConvertFromUtf32((int)n));
@@ -228,6 +229,7 @@ namespace CSharpPython
         {
             v = Ops.IndexValue(v);
             if (v.IsIntLike()) return v.RawInt;
+            if (v.Kind == ValueKind.BigInt) throw Ops.IndexTooLarge();
             throw Ops.TypeError("'" + v.TypeName + "' object cannot be interpreted as an integer");
         }
 
@@ -242,25 +244,19 @@ namespace CSharpPython
             }
             switch (v.Kind)
             {
-                case ValueKind.Int: return v;
+                case ValueKind.Int:
+                case ValueKind.BigInt: return v;
                 case ValueKind.Bool: return Value.FromInt(v.RawInt);
-                case ValueKind.Float:
-                {
-                    double d = v.RawFloat;
-                    if (double.IsNaN(d)) throw Ops.ValueError("cannot convert float NaN to integer");
-                    if (double.IsInfinity(d)) throw new PyError("OverflowError", "cannot convert float infinity to integer");
-                    d = Math.Truncate(d);
-                    if (d >= 9.2233720368547758e18 || d < -9.2233720368547758e18) throw Ops.OverflowError();
-                    return Value.FromInt((long)d);
-                }
+                case ValueKind.Float: return Ops.FloatToInt(v.RawFloat);
                 case ValueKind.Str: return ParseInt(v.AsString(), 10);
                 case ValueKind.Instance:
                     if (Ops.TryCallDunder(v, "__int__", Array.Empty<Value>(), out Value converted))
                     {
-                        if (converted.Kind != ValueKind.Int) throw Ops.TypeError("__int__ returned non-int (type " + converted.TypeName + ")");
+                        if (converted.Kind != ValueKind.Int && converted.Kind != ValueKind.BigInt) throw Ops.TypeError("__int__ returned non-int (type " + converted.TypeName + ")");
                         return converted;
                     }
                     Value index = Ops.IndexValue(v);
+                    if (index.Kind == ValueKind.BigInt) return index;
                     if (index.Kind != ValueKind.Instance) return Value.FromInt(index.RawInt);
                     throw Ops.TypeError("int() argument must be a string or a number, not '" + v.TypeName + "'");
                 default:
@@ -296,10 +292,10 @@ namespace CSharpPython
             {
                 int d = ch >= '0' && ch <= '9' ? ch - '0' : ch >= 'a' && ch <= 'z' ? ch - 'a' + 10 : ch >= 'A' && ch <= 'Z' ? ch - 'A' + 10 : -1;
                 if (d < 0 || d >= radix) throw bad;
-                try { result = checked(result * radix + (negative ? -d : d)); }
-                catch (OverflowException) { throw Ops.OverflowError(); }
+                if (text.Length <= 12) result = result * radix + d;
             }
-            return Value.FromInt(result);
+            if (text.Length <= 12) return Value.FromInt(negative ? -result : result);
+            return Ops.ParseDigits(text, radix, negative);
         }
 
         private static Value ToFloat(CallContext ctx, ReadOnlySpan<Value> a)
@@ -329,9 +325,10 @@ namespace CSharpPython
         private static Value Abs(CallContext ctx, ReadOnlySpan<Value> a)
         {
             Value v = a[0];
+            if (v.Kind == ValueKind.BigInt) return Ops.BigResult(BigInteger.Abs((BigInteger)v.RawObject));
             if (v.IsIntLike())
             {
-                if (v.RawInt == long.MinValue) throw Ops.OverflowError();
+                if (v.RawInt == long.MinValue) return Ops.BigResult(-new BigInteger(v.RawInt));
                 return Value.FromInt(Math.Abs(v.RawInt));
             }
             if (v.Kind == ValueKind.Float) return Value.FromFloat(Math.Abs(v.RawFloat));
@@ -383,21 +380,17 @@ namespace CSharpPython
                 if (Ops.TryCallDunder(v, "__round__", args, out Value rounded)) return rounded;
                 throw Ops.TypeError("type " + v.TypeName + " doesn't define __round__ method");
             }
-            if (v.IsIntLike())
+            if (v.IsInteger)
             {
-                if (hasDigits && a[1].AsInt() < 0) return RoundInt(v.RawInt, a[1].AsInt());
+                if (hasDigits && a[1].AsInt() < 0) return RoundInt(v, a[1].AsInt());
                 if (hasDigits) a[1].AsInt();
-                return Value.FromInt(v.RawInt);
+                return v.Kind == ValueKind.Bool ? Value.FromInt(v.RawInt) : v;
             }
             if (v.Kind != ValueKind.Float) throw Ops.TypeError("type " + v.TypeName + " doesn't define __round__ method");
             double d = v.RawFloat;
             if (!hasDigits)
             {
-                if (double.IsNaN(d)) throw Ops.ValueError("cannot convert float NaN to integer");
-                if (double.IsInfinity(d)) throw new PyError("OverflowError", "cannot convert float infinity to integer");
-                double r = Math.Round(d, MidpointRounding.ToEven);
-                if (r >= 9.2233720368547758e18 || r < -9.2233720368547758e18) throw Ops.OverflowError();
-                return Value.FromInt((long)r);
+                return Ops.FloatToInt(Math.Round(d, MidpointRounding.ToEven));
             }
             long digits = a[1].AsInt();
             if (double.IsNaN(d) || double.IsInfinity(d) || digits > 330) return v;
@@ -434,30 +427,31 @@ namespace CSharpPython
             return negative ? -result : result;
         }
 
-        private static Value RoundInt(long n, long digits)
+        private static Value RoundInt(Value value, long digits)
         {
-            if (digits < -19) return Value.FromInt(0);
+            BigInteger n = Ops.ToBig(value);
+            if (-digits > Ops.BitLength(n) / 3 + 2) return Value.FromInt(0); // 10 ** -digits is far above |n|
             BigInteger p = BigInteger.Pow(10, (int)-digits);
             BigInteger q = BigInteger.DivRem(BigInteger.Abs(n), p, out BigInteger r);
             int cmp = (r * 2).CompareTo(p);
             if (cmp > 0 || (cmp == 0 && !q.IsEven)) q += 1;
             BigInteger result = q * p;
-            if (n < 0) result = -result;
-            if (result > long.MaxValue || result < long.MinValue) throw Ops.OverflowError();
-            return Value.FromInt((long)result);
+            if (n.Sign < 0) result = -result;
+            return Ops.BigResult(result);
         }
 
         private static Value ModPow(Value b, Value e, Value m)
         {
-            if (!b.IsIntLike() || !e.IsIntLike() || !m.IsIntLike())
+            if (!b.IsInteger || !e.IsInteger || !m.IsInteger)
                 throw Ops.TypeError("pow() 3rd argument not allowed unless all arguments are integers");
-            if (e.RawInt < 0) throw Ops.ValueError("pow() 2nd argument cannot be negative when 3rd argument specified");
-            if (m.RawInt == 0) throw Ops.ValueError("pow() 3rd argument cannot be 0");
-            BigInteger mod = BigInteger.Abs(m.RawInt);
-            BigInteger r = BigInteger.ModPow(b.RawInt, e.RawInt, mod);
+            BigInteger exponent = Ops.ToBig(e), modulus = Ops.ToBig(m);
+            if (exponent.Sign < 0) throw Ops.ValueError("pow() 2nd argument cannot be negative when 3rd argument specified");
+            if (modulus.IsZero) throw Ops.ValueError("pow() 3rd argument cannot be 0");
+            BigInteger mod = BigInteger.Abs(modulus);
+            BigInteger r = BigInteger.ModPow(Ops.ToBig(b), exponent, mod);
             if (r.Sign < 0) r += mod;
-            if (m.RawInt < 0 && !r.IsZero) r -= mod;
-            return Value.FromInt((long)r);
+            if (modulus.Sign < 0 && !r.IsZero) r -= mod;
+            return Ops.BigResult(r);
         }
 
         private static Value Sorted(CallContext ctx, ReadOnlySpan<Value> a)
@@ -547,14 +541,10 @@ namespace CSharpPython
         private static string Radix(Value v, int radix, string prefix, string function)
         {
             v = Ops.IndexValue(v);
-            if (v.Kind != ValueKind.Int && v.Kind != ValueKind.Bool)
+            if (!v.IsInteger)
                 throw Ops.TypeError("'" + v.TypeName + "' object cannot be interpreted as an integer");
-            long n = v.AsInt();
-            if (n == long.MinValue) throw Ops.ValueError(function + "() argument is out of range");
-            string digits = "";
-            ulong m = (ulong)Math.Abs(n);
-            do { digits = "0123456789abcdef"[(int)(m % (ulong)radix)] + digits; m /= (ulong)radix; } while (m > 0);
-            return (n < 0 ? "-" : "") + prefix + digits;
+            BigInteger n = Ops.ToBig(v);
+            return (n.Sign < 0 ? "-" : "") + prefix + Ops.BigDigits(BigInteger.Abs(n), radix);
         }
 
         internal static string Ascii(string text)
@@ -625,13 +615,10 @@ namespace CSharpPython
             }
             Value Int(string name, Func<double, double> f, ReadOnlySpan<Value> a)
             {
-                if (a[0].IsIntLike()) return Value.FromInt(a[0].RawInt);
+                if (a[0].IsInteger) return a[0].Kind == ValueKind.Bool ? Value.FromInt(a[0].RawInt) : a[0];
                 double d = a[0].AsFloat();
                 if (double.IsNaN(d)) throw Ops.ValueError("cannot convert float NaN to integer");
-                if (double.IsInfinity(d)) throw new PyError("OverflowError", "cannot convert float infinity to integer");
-                double r = f(d);
-                if (r >= 9.2233720368547758e18 || r < -9.2233720368547758e18) throw Ops.OverflowError();
-                return Value.FromInt((long)r);
+                return Ops.FloatToInt(f(d));
             }
 
             m.Members["pi"] = Value.FromFloat(Math.PI);

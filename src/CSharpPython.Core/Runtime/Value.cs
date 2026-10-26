@@ -49,6 +49,9 @@ namespace CSharpPython
 
         public static Value FromSet(PySet set) => new Value(ValueKind.Set, 0, set);
 
+        internal static Value FromBig(System.Numerics.BigInteger b) =>
+            b >= long.MinValue && b <= long.MaxValue ? FromInt((long)b) : new Value(ValueKind.BigInt, 0, b);
+
         public static Value FromDictView(PyDictView view) => new Value(ValueKind.DictView, 0, view);
 
         public static Value FromRange(PyRange range) => new Value(ValueKind.Range, 0, range);
@@ -105,8 +108,11 @@ namespace CSharpPython
         public bool IsSet => Kind == ValueKind.Set;
         public bool IsHandle => Kind == ValueKind.Handle;
 
-        /// <summary>True for bool, int and float.</summary>
-        public bool IsNumber => Kind == ValueKind.Bool || Kind == ValueKind.Int || Kind == ValueKind.Float;
+        /// <summary>True for bool, int (of any size) and float.</summary>
+        public bool IsNumber => Kind == ValueKind.Bool || Kind == ValueKind.Int || Kind == ValueKind.Float || Kind == ValueKind.BigInt;
+
+        /// <summary>True for bool and int (of any size).</summary>
+        internal bool IsInteger => Kind == ValueKind.Bool || Kind == ValueKind.Int || Kind == ValueKind.BigInt;
 
         /// <summary>The Python type name, as reported by <c>type(x).__name__</c>.</summary>
         public string TypeName => Ops.TypeName(this);
@@ -123,14 +129,26 @@ namespace CSharpPython
         public long AsInt()
         {
             if (Kind == ValueKind.Int || Kind == ValueKind.Bool) return _bits;
+            if (Kind == ValueKind.BigInt) throw new PyError("OverflowError", "Python int too large to convert to C ssize_t");
             throw new PyError("TypeError", "expected an int, got " + TypeName);
         }
+
+        /// <summary>The value of an int or bool of any size. Raises a Python TypeError otherwise.</summary>
+        public System.Numerics.BigInteger AsBigInteger()
+        {
+            if (!IsInteger) throw new PyError("TypeError", "expected an int, got " + TypeName);
+            return Ops.ToBig(this);
+        }
+
+        /// <summary>An int of any size (it becomes an ordinary int when it fits in 64 bits).</summary>
+        public static Value FromBigInteger(System.Numerics.BigInteger value) => FromBig(value);
 
         /// <summary>The numeric value as a double. Accepts int, float and bool.</summary>
         public double AsFloat()
         {
             if (Kind == ValueKind.Float) return RawFloat;
             if (Kind == ValueKind.Int || Kind == ValueKind.Bool) return _bits;
+            if (Kind == ValueKind.BigInt) return Ops.BigToDouble((System.Numerics.BigInteger)_obj);
             throw new PyError("TypeError", "expected a number, got " + TypeName);
         }
 

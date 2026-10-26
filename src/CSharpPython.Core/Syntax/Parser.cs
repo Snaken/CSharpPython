@@ -438,6 +438,13 @@ namespace CSharpPython.Syntax
             into.AddRange(body);
         }
 
+        // A decimal integer literal: a long when it fits, otherwise a BigInteger.
+        private static object ParseIntegerLiteral(string text)
+        {
+            if (long.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out long small)) return small;
+            return System.Numerics.BigInteger.Parse(text, NumberStyles.None, CultureInfo.InvariantCulture);
+        }
+
         private void ParseWithItems(List<(Token tok, Expr context, Expr target)> items, bool parenthesized)
         {
             do
@@ -1167,7 +1174,7 @@ namespace CSharpPython.Syntax
                     return At(new NameExpr { Name = tok.Text }, tok);
                 case TokenKind.Int:
                     Advance();
-                    return At(new ConstantExpr { Value = long.Parse(tok.Text, CultureInfo.InvariantCulture) }, tok);
+                    return At(new ConstantExpr { Value = ParseIntegerLiteral(tok.Text) }, tok);
                 case TokenKind.Float:
                     Advance();
                     return At(new ConstantExpr { Value = double.Parse(tok.Text, NumberStyles.Float, CultureInfo.InvariantCulture) }, tok);

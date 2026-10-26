@@ -18,9 +18,6 @@ namespace CSharpPython
 
         public static PyError ValueError(string message) => new PyError("ValueError", message);
 
-        public static PyError OverflowError() =>
-            new PyError("OverflowError", "integer overflow (big integers are not supported yet)");
-
         private static PyError BadOperands(string op, Value a, Value b) =>
             TypeError("unsupported operand type(s) for " + op + ": '" + TypeName(a) + "' and '" + TypeName(b) + "'");
 
@@ -34,7 +31,8 @@ namespace CSharpPython
                 case ValueKind.NotImplemented: return "NotImplementedType";
                 case ValueKind.Ellipsis: return "ellipsis";
                 case ValueKind.Bool: return "bool";
-                case ValueKind.Int: return "int";
+                case ValueKind.Int:
+                case ValueKind.BigInt: return "int";
                 case ValueKind.Float: return "float";
                 case ValueKind.Str: return "str";
                 case ValueKind.List: return "list";
@@ -89,8 +87,8 @@ namespace CSharpPython
         {
             if (a.IsNumber && b.IsNumber)
             {
-                if (a.Kind != ValueKind.Float && b.Kind != ValueKind.Float) return a.RawInt == b.RawInt;
-                return a.AsFloat() == b.AsFloat();
+                if (a.Kind != ValueKind.Float && b.Kind != ValueKind.Float && a.Kind != ValueKind.BigInt && b.Kind != ValueKind.BigInt) return a.RawInt == b.RawInt;
+                return CompareNumbers(a, b, out bool unordered) == 0 && !unordered;
             }
             if (a.Kind == ValueKind.Instance || b.Kind == ValueKind.Instance) return InstanceEqual(a, b);
             if (a.Kind != b.Kind)
@@ -161,10 +159,16 @@ namespace CSharpPython
                 case ValueKind.None: return 0;
                 case ValueKind.Bool:
                 case ValueKind.Int: return HashInt(v.RawInt);
+                case ValueKind.BigInt: return ((System.Numerics.BigInteger)v.RawObject).GetHashCode();
                 case ValueKind.Float:
                 {
                     double d = v.RawFloat;
-                    if (d == Math.Floor(d) && d >= -9.2e18 && d <= 9.2e18) return HashInt((long)d);
+                    if (d == Math.Floor(d) && !double.IsInfinity(d))
+                    {
+                        // An integral float hashes like the integer of the same value, whatever its size.
+                        if (d >= -9.2233720368547758e18 && d < 9.2233720368547758e18) return HashInt((long)d);
+                        return new System.Numerics.BigInteger(d).GetHashCode();
+                    }
                     return d.GetHashCode();
                 }
                 case ValueKind.Str: return ((string)v.RawObject).GetHashCode();
@@ -212,9 +216,10 @@ namespace CSharpPython
             {
                 long x = a.RawInt, y = b.RawInt;
                 long r = unchecked(x + y);
-                if (((x ^ r) & (y ^ r)) < 0) throw OverflowError();
+                if (((x ^ r) & (y ^ r)) < 0) return BigResult(new System.Numerics.BigInteger(x) + y);
                 return Value.FromInt(r);
             }
+            if (a.IsInteger && b.IsInteger) return BigResult(ToBig(a) + ToBig(b));
             if (a.IsNumber && b.IsNumber) return Value.FromFloat(a.AsFloat() + b.AsFloat());
             if (a.Kind == b.Kind)
             {
@@ -258,9 +263,10 @@ namespace CSharpPython
             {
                 long x = a.RawInt, y = b.RawInt;
                 long r = unchecked(x - y);
-                if (((x ^ y) & (x ^ r)) < 0) throw OverflowError();
+                if (((x ^ y) & (x ^ r)) < 0) return BigResult(new System.Numerics.BigInteger(x) - y);
                 return Value.FromInt(r);
             }
+            if (a.IsInteger && b.IsInteger) return BigResult(ToBig(a) - ToBig(b));
             if (a.IsNumber && b.IsNumber) return Value.FromFloat(a.AsFloat() - b.AsFloat());
             if (TryViewSetOperation(a, b, 3, out Value viewResult)) return viewResult;
             if (a.Kind == ValueKind.Set && b.Kind == ValueKind.Set) return Value.FromSet(SetDifference((PySet)a.RawObject, (PySet)b.RawObject).LikeOf((PySet)a.RawObject));
@@ -268,20 +274,25 @@ namespace CSharpPython
             throw BadOperands("-", a, b);
         }
 
-        private static long MulChecked(long x, long y)
-        {
-            try { return checked(x * y); }
-            catch (OverflowException) { throw OverflowError(); }
-        }
-
         public static Value Mul(Value a, Value b)
         {
-            if (a.IsIntLike() && b.IsIntLike()) return Value.FromInt(MulChecked(a.RawInt, b.RawInt));
+            if (a.IsIntLike() && b.IsIntLike())
+            {
+                return TryMul(a.RawInt, b.RawInt, out long product) ? Value.FromInt(product) : BigMul(a, b);
+            }
+            if (a.IsInteger && b.IsInteger) return BigMul(a, b);
             if (a.IsNumber && b.IsNumber) return Value.FromFloat(a.AsFloat() * b.AsFloat());
-            if (b.IsIntLike() && IsRepeatable(a)) return Repeat(a, b.RawInt);
-            if (a.IsIntLike() && IsRepeatable(b)) return Repeat(b, a.RawInt);
+            if (b.IsInteger && IsRepeatable(a)) return Repeat(a, RepeatCount(b));
+            if (a.IsInteger && IsRepeatable(b)) return Repeat(b, RepeatCount(a));
             if (a.Kind == ValueKind.Instance || b.Kind == ValueKind.Instance) return InstanceBinary(a, b, "__mul__", "__rmul__", "*");
             throw BadOperands("*", a, b);
+        }
+
+        // A repeat count: 0 for a negative count, and an OverflowError for one that cannot be an index.
+        private static long RepeatCount(Value n)
+        {
+            if (n.Kind == ValueKind.BigInt) throw IndexTooLarge();
+            return n.RawInt;
         }
 
         private static bool IsRepeatable(Value v) =>
@@ -327,6 +338,8 @@ namespace CSharpPython
                 if (a.Kind == ValueKind.Instance || b.Kind == ValueKind.Instance) return InstanceBinary(a, b, "__truediv__", "__rtruediv__", "/");
                 throw BadOperands("/", a, b);
             }
+            if (a.IsInteger && b.IsInteger && (a.Kind == ValueKind.BigInt || b.Kind == ValueKind.BigInt || BitLength(a) > 53 || BitLength(b) > 53))
+                return BigTrueDivide(a, b);
             double y = b.AsFloat();
             if (y == 0.0) throw new PyError("ZeroDivisionError", "division by zero");
             return Value.FromFloat(a.AsFloat() / y);
@@ -345,13 +358,14 @@ namespace CSharpPython
                 if (y == 0) throw new PyError("ZeroDivisionError", "integer division or modulo by zero");
                 if (y == -1)
                 {
-                    if (x == long.MinValue) throw OverflowError();
+                    if (x == long.MinValue) return BigResult(-new System.Numerics.BigInteger(x));
                     return Value.FromInt(-x);
                 }
                 long q = x / y;
                 if ((x % y != 0) && ((x ^ y) < 0)) q--;
                 return Value.FromInt(q);
             }
+            if (a.IsInteger && b.IsInteger) return BigFloorDiv(a, b);
             double fy = b.AsFloat();
             if (fy == 0.0) throw new PyError("ZeroDivisionError", "float floor division by zero");
             return Value.FromFloat(Math.Floor(a.AsFloat() / fy));
@@ -374,10 +388,12 @@ namespace CSharpPython
                 if (r != 0 && ((r ^ y) < 0)) r += y;
                 return Value.FromInt(r);
             }
+            if (a.IsInteger && b.IsInteger) return BigMod(a, b);
             double fx = a.AsFloat(), fy = b.AsFloat();
             if (fy == 0.0) throw new PyError("ZeroDivisionError", "float modulo by zero");
             double m = fx % fy; // C# '%' on doubles is fmod
-            if (m != 0.0 && (m < 0) != (fy < 0)) m += fy;
+            if (m == 0.0) m = fy < 0 ? -0.0 : 0.0; // a zero result takes the sign of the divisor
+            else if ((m < 0) != (fy < 0)) m += fy;
             return Value.FromFloat(m);
         }
 
@@ -388,16 +404,21 @@ namespace CSharpPython
                 if (a.Kind == ValueKind.Instance || b.Kind == ValueKind.Instance) return InstanceBinary(a, b, "__pow__", "__rpow__", "** or pow()");
                 throw BadOperands("** or pow()", a, b);
             }
-            if (a.IsIntLike() && b.IsIntLike() && b.RawInt >= 0)
+            if (a.IsInteger && b.IsInteger && (b.Kind == ValueKind.BigInt ? ((System.Numerics.BigInteger)b.RawObject).Sign >= 0 : b.RawInt >= 0))
             {
-                long result = 1, bas = a.RawInt, e = b.RawInt;
-                while (e > 0)
+                if (a.IsIntLike() && b.IsIntLike())
                 {
-                    if ((e & 1) != 0) result = MulChecked(result, bas);
-                    e >>= 1;
-                    if (e > 0) bas = MulChecked(bas, bas);
+                    long result = 1, bas = a.RawInt, e = b.RawInt;
+                    bool overflow = false;
+                    while (e > 0 && !overflow)
+                    {
+                        if ((e & 1) != 0) overflow = !TryMul(result, bas, out result);
+                        e >>= 1;
+                        if (e > 0 && !overflow) overflow = !TryMul(bas, bas, out bas);
+                    }
+                    if (!overflow) return Value.FromInt(result);
                 }
-                return Value.FromInt(result);
+                return BigPow(a, b);
             }
             double x = a.AsFloat(), y = b.AsFloat();
             if (x == 0.0 && y < 0) throw new PyError("ZeroDivisionError", "0.0 cannot be raised to a negative power");
@@ -409,13 +430,28 @@ namespace CSharpPython
             return Value.FromFloat(p);
         }
 
+        private static bool TryMul(long x, long y, out long product)
+        {
+            try
+            {
+                product = checked(x * y);
+                return true;
+            }
+            catch (OverflowException)
+            {
+                product = 0;
+                return false;
+            }
+        }
+
         public static Value Negate(Value v)
         {
             if (v.IsIntLike())
             {
-                if (v.RawInt == long.MinValue) throw OverflowError();
+                if (v.RawInt == long.MinValue) return BigResult(-new System.Numerics.BigInteger(v.RawInt));
                 return Value.FromInt(-v.RawInt);
             }
+            if (v.Kind == ValueKind.BigInt) return BigResult(-(System.Numerics.BigInteger)v.RawObject);
             if (v.Kind == ValueKind.Float) return Value.FromFloat(-v.RawFloat);
             if (v.Kind == ValueKind.Instance && TryCallDunder(v, "__neg__", Array.Empty<Value>(), out Value negated)) return negated;
             throw TypeError("bad operand type for unary -: '" + TypeName(v) + "'");
@@ -424,7 +460,7 @@ namespace CSharpPython
         public static Value Plus(Value v)
         {
             if (v.IsIntLike()) return Value.FromInt(v.RawInt);
-            if (v.Kind == ValueKind.Float) return v;
+            if (v.Kind == ValueKind.Float || v.Kind == ValueKind.BigInt) return v;
             if (v.Kind == ValueKind.Instance && TryCallDunder(v, "__pos__", Array.Empty<Value>(), out Value positive)) return positive;
             throw TypeError("bad operand type for unary +: '" + TypeName(v) + "'");
         }
@@ -461,16 +497,8 @@ namespace CSharpPython
         {
             if (a.IsNumber && b.IsNumber)
             {
-                if (a.Kind != ValueKind.Float && b.Kind != ValueKind.Float)
-                    return Apply(o, a.RawInt.CompareTo(b.RawInt));
-                double x = a.AsFloat(), y = b.AsFloat();
-                switch (o)
-                {
-                    case Order.Lt: return x < y;
-                    case Order.Le: return x <= y;
-                    case Order.Gt: return x > y;
-                    default: return x >= y;
-                }
+                int cmp = CompareNumbers(a, b, out bool unordered);
+                return !unordered && Apply(o, cmp);
             }
             if (a.Kind == ValueKind.Str && b.Kind == ValueKind.Str)
                 return Apply(o, string.CompareOrdinal((string)a.RawObject, (string)b.RawObject));
@@ -595,11 +623,11 @@ namespace CSharpPython
                 case ValueKind.Range:
                 {
                     var r = (PyRange)container.RawObject;
-                    if (!item.IsNumber) return false;
+                    if (!item.IsNumber || item.Kind == ValueKind.BigInt) return false;
                     if (item.Kind == ValueKind.Float)
                     {
                         double d = item.RawFloat;
-                        if (d != Math.Floor(d) || double.IsInfinity(d)) return false;
+                        if (d != Math.Floor(d) || double.IsInfinity(d) || d >= 9.2233720368547758e18 || d < -9.2233720368547758e18) return false;
                         item = Value.FromInt((long)d);
                     }
                     long n = item.RawInt;
@@ -638,7 +666,7 @@ namespace CSharpPython
         public static Value IndexValue(Value v)
         {
             if (v.Kind != ValueKind.Instance || !TryCallDunder(v, "__index__", Array.Empty<Value>(), out Value result)) return v;
-            if (result.Kind != ValueKind.Int && result.Kind != ValueKind.Bool)
+            if (!result.IsInteger)
                 throw TypeError("__index__ returned non-int (type " + TypeName(result) + ")");
             return result;
         }
@@ -647,6 +675,7 @@ namespace CSharpPython
         {
             v = IndexValue(v);
             if (v.IsIntLike()) return v.RawInt;
+            if (v.Kind == ValueKind.BigInt) throw new PyError("IndexError", "cannot fit 'int' into an index-sized integer");
             throw TypeError(what + " must be integers or slices, not " + TypeName(v));
         }
 
@@ -800,6 +829,7 @@ namespace CSharpPython
         {
             v = IndexValue(v);
             if (v.IsIntLike()) return v.RawInt;
+            if (v.Kind == ValueKind.BigInt) return ((System.Numerics.BigInteger)v.RawObject).Sign < 0 ? long.MinValue / 2 : long.MaxValue / 2;
             throw TypeError("slice indices must be integers or None");
         }
 
