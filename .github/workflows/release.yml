@@ -1,0 +1,39 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: The tag matches the package version
+        run: |
+          cs=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' src/CSharpPython.Core/CSharpPython.Core.csproj)
+          test "v$cs" = "${GITHUB_REF_NAME}"
+      - name: Build (warnings are errors)
+        run: dotnet build -c Release -warnaserror
+      - name: Test
+        run: dotnet test -c Release --no-build
+      - name: Unity .meta files are up to date
+        run: python3 scripts/generate-unity-meta.py --check
+      - name: Pack
+        run: dotnet pack src/CSharpPython.Core -c Release -o artifacts/nupkg
+      - name: Unity package tarball
+        run: |
+          mkdir -p artifacts/upm artifacts/upm-stage
+          rsync -a --exclude='*.csproj' --exclude='*.csproj.meta' --exclude='bin' --exclude='obj' src/CSharpPython.Core/ artifacts/upm-stage/package/
+          tar -czf "artifacts/upm/com.rachlh.csharppython-${GITHUB_REF_NAME#v}.tgz" -C artifacts/upm-stage package
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes artifacts/nupkg/*.nupkg artifacts/upm/*.tgz
