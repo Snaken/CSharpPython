@@ -74,8 +74,12 @@ Or build `CSharpPython.dll` (`dotnet build -c Release`, output under `artifacts/
 
 ## Roadmap
 
-Next up: a first release after testing in a real Unity project, then `match`, exception chaining, a small standard library (`random`, more `math`, `collections`) and special methods that can wait. The [full roadmap](https://github.com/Snaken/CSharpPython/blob/main/docs/roadmap.md) lists everything known to be missing, and what is not planned.
+Next up: checks in a WebGL build and the Unity Editor, then `match`, exception chaining, a small standard library (`random`, `collections`, more of `math`) and special methods that can wait. The [full roadmap](https://github.com/Snaken/CSharpPython/blob/main/docs/roadmap.md) lists everything known to be missing, and what is not planned.
 
 ## License
 
 MIT. If you use this library in a project, a credit is appreciated (see `LICENSE`).
+
+## Acknowledgments
+
+Built with the assistance of Claude Code.

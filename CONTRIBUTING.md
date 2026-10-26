@@ -32,3 +32,7 @@ The test suite is large and uses CPython 3 as an oracle for language semantics (
 - Plain C# that is safe for IL2CPP and WebGL: no `Reflection.Emit`, `dynamic`, threads or runtime code generation, and no `UnityEngine` in the core.
 - Keep `README.md` and `src/CSharpPython.Core/README.md` identical (CI checks it); links in them must be absolute because the package README is shown outside the repository.
 - A snapshot format change bumps the version in `PyTaskSnapshot.cs`.
+
+## Using AI tools
+
+Using AI tools to help with a contribution is fine, and you do not need to say so in the pull request. You are responsible for what you submit: read it, run the tests, and make sure you understand it and that it follows the rules above. Changes that were not checked, or that the author cannot explain when asked, may be declined.
