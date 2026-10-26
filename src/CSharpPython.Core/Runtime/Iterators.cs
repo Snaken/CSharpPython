@@ -254,12 +254,19 @@ namespace CSharpPython
 
         public override bool Next(out Value value)
         {
+            var task = PyTask.Current;
+            if (_sources.Length == 1)
+            {
+                if (!_sources[0].Next(out Value single)) { value = default; return false; }
+                if (task == null) throw new PyError("RuntimeError", "map() can only be consumed while a script is running");
+                value = task.CallSync(_function, single);
+                return true;
+            }
             var args = new Value[_sources.Length];
             for (int i = 0; i < _sources.Length; i++)
             {
                 if (!_sources[i].Next(out args[i])) { value = default; return false; }
             }
-            var task = PyTask.Current;
             if (task == null) throw new PyError("RuntimeError", "map() can only be consumed while a script is running");
             value = task.CallSync(_function, args);
             return true;
@@ -292,7 +299,7 @@ namespace CSharpPython
                 }
                 var task = PyTask.Current;
                 if (task == null) throw new PyError("RuntimeError", "filter() can only be consumed while a script is running");
-                if (task.CallSync(_function, new[] { value }).IsTruthy) return true;
+                if (task.CallSync(_function, value).IsTruthy) return true;
             }
             return false;
         }

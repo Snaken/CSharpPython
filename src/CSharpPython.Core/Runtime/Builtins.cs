@@ -360,7 +360,10 @@ namespace CSharpPython
             {
                 Tick(ctx, ref count);
                 Value itemKey = key.IsNone ? item : ctx.Call(key, item);
-                if (Ops.Compare(itemKey, bestKey, max ? Ops.Order.Gt : Ops.Order.Lt)) { best = item; bestKey = itemKey; }
+                bool better = itemKey.Kind == ValueKind.Int && bestKey.Kind == ValueKind.Int
+                    ? (max ? itemKey.RawInt > bestKey.RawInt : itemKey.RawInt < bestKey.RawInt)
+                    : Ops.Compare(itemKey, bestKey, max ? Ops.Order.Gt : Ops.Order.Lt);
+                if (better) { best = item; bestKey = itemKey; }
             }
             ctx.Charge(count);
             return best;
@@ -428,7 +431,9 @@ namespace CSharpPython
             }
             while (more)
             {
-                total = Ops.Add(total, item);
+                long x = total.RawInt, y = item.RawInt, r = unchecked(x + y);
+                if (total.Kind == ValueKind.Int && item.Kind == ValueKind.Int && ((x ^ r) & (y ^ r)) >= 0) total = Value.FromInt(r);
+                else total = Ops.Add(total, item);
                 more = it.Next(out item);
                 Tick(ctx, ref count);
             }

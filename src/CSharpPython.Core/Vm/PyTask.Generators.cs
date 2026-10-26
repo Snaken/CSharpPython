@@ -46,8 +46,8 @@ namespace CSharpPython
             Array.Copy(_stack, f.Base, g.Saved, 0, g.Saved.Length);
             g.Pc = f.Pc;
             g.ExcInfo = f.ExcInfo;
-            g.HandlerAddresses = new int[f.HandlerCount];
-            g.HandlerHeights = new int[f.HandlerCount];
+            g.HandlerAddresses = f.HandlerCount == 0 ? Array.Empty<int>() : new int[f.HandlerCount];
+            g.HandlerHeights = f.HandlerCount == 0 ? Array.Empty<int>() : new int[f.HandlerCount];
             for (int i = 0; i < f.HandlerCount; i++)
             {
                 g.HandlerAddresses[i] = f.Handlers[i].Address;

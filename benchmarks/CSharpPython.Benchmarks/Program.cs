@@ -4,13 +4,14 @@ using System.IO;
 using System.Linq;
 using CSharpPython;
 
-// Times each script in scripts/ on the CSharpPython VM and prints "name<TAB>milliseconds" (best of several runs).
+// Times each script in scripts/ on the CSharpPython VM and prints "name<TAB>milliseconds" (best of several runs after a warm-up).
 // Compile time is measured separately from run time. See run.py for the comparison with CPython.
 namespace CSharpPython.Benchmarks
 {
     internal static class Program
     {
         private const int Runs = 7;
+        private const int WarmUpMilliseconds = 1000;
 
         private static int Main(string[] args)
         {
@@ -21,23 +22,33 @@ namespace CSharpPython.Benchmarks
                 var vm = new PyVm();
                 vm.Options.StepsPerSlice = 100000;
 
+                // Warm up for a second first, so the JIT has promoted the interpreter loop to fully optimised code, as it
+                // would be in a game that runs scripts for a while. Then keep the best of several runs.
+                var warmUp = Stopwatch.StartNew();
+                while (warmUp.ElapsedMilliseconds < WarmUpMilliseconds)
+                    if (Run(vm, source, file) < 0) return 1;
                 double best = double.MaxValue;
-                for (int i = 0; i < Runs + 1; i++)   // the first run warms up the JIT and is dropped
+                for (int i = 0; i < Runs; i++)
                 {
-                    var watch = Stopwatch.StartNew();
-                    PyTask task = vm.Start(source);
-                    while (task.Update() == TaskState.Running) { }
-                    watch.Stop();
-                    if (task.State == TaskState.Error)
-                    {
-                        Console.Error.WriteLine($"{Path.GetFileName(file)}: {task.Error}");
-                        return 1;
-                    }
-                    if (i > 0) best = Math.Min(best, watch.Elapsed.TotalMilliseconds);
+                    double ms = Run(vm, source, file);
+                    if (ms < 0) return 1;
+                    best = Math.Min(best, ms);
                 }
                 Console.WriteLine($"{Path.GetFileNameWithoutExtension(file)}\t{best:F3}");
             }
             return 0;
+        }
+
+        // One run of the script in milliseconds, or -1 after printing the error it ended with.
+        private static double Run(PyVm vm, string source, string file)
+        {
+            var watch = Stopwatch.StartNew();
+            PyTask task = vm.Start(source);
+            while (task.Update() == TaskState.Running) { }
+            watch.Stop();
+            if (task.State != TaskState.Error) return watch.Elapsed.TotalMilliseconds;
+            Console.Error.WriteLine($"{Path.GetFileName(file)}: {task.Error}");
+            return -1;
         }
     }
 }

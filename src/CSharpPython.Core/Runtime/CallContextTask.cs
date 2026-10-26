@@ -16,6 +16,13 @@ namespace CSharpPython
         /// result. The call runs to completion before this returns, so it cannot wait. If it raises, the exception
         /// continues up through the calling script as usual. Use this for callbacks such as sort keys.
         /// </summary>
+        public Value Call(Value callee, Value arg)
+        {
+            if (Task == null) throw new System.InvalidOperationException("There is no running task to make the call.");
+            return Task.CallSync(callee, arg);
+        }
+
+        /// <summary>The same with any number of arguments.</summary>
         public Value Call(Value callee, params Value[] args)
         {
             if (Task == null) throw new System.InvalidOperationException("There is no running task to make the call.");

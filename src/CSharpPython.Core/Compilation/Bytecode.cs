@@ -157,6 +157,10 @@ namespace CSharpPython.Compilation
         public Value[] Constants;
         public string[] Names;
 
+        /// <summary>The native method a <see cref="Op.LoadMethod"/> instruction found last time, by instruction index.</summary>
+        public NativeFunction[] MethodCache;
+        public ValueKind[] MethodCacheKind;
+
         /// <summary>The functions defined directly inside this code, referenced by <see cref="Op.MakeFunction"/>.</summary>
         public Code[] Functions;
         public int NumLocals;

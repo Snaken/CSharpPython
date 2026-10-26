@@ -1,23 +1,23 @@
 # Performance
 
-CSharpPython is a bytecode interpreter written in plain C#, built to be safe and predictable inside a game rather than to be fast. As a rough guide it runs **about 2 to 6 times slower than CPython**, which is itself a slow-ish language. Scripts that do game logic once per tick are nowhere near this limit; heavy number crunching belongs in C#, exposed as a [native function](https://github.com/Snaken/CSharpPython/blob/main/docs/host-api.md).
+CSharpPython is a bytecode interpreter written in plain C#, built to be safe and predictable inside a game rather than to be fast. As a rough guide it runs **about 1.3 to 4 times slower than CPython**, which is itself a slow-ish language. Scripts that do game logic once per tick are nowhere near this limit; heavy number crunching belongs in C#, exposed as a [native function](https://github.com/Snaken/CSharpPython/blob/main/docs/host-api.md).
 
 ## Results
 
-CPython 3.14.7, .NET 10.0.402, macOS arm64 (Apple M5 Pro), best of 7 runs after a warm-up run:
+CPython 3.14.7, .NET 10.0.402, macOS arm64 (Apple M5 Pro), best of 7 runs after a one-second warm-up (so the .NET JIT has optimised the interpreter, as it would in a game that has been running for a while):
 
 | Script | CSharpPython | CPython | Slower by |
 | --- | ---: | ---: | ---: |
-| builtins_stream | 260.6 ms | 60.9 ms | 4.3x |
-| classes | 32.0 ms | 5.4 ms | 5.9x |
-| collections_ops | 37.0 ms | 10.7 ms | 3.5x |
-| dict_ops | 8.8 ms | 3.0 ms | 3.0x |
+| builtins_stream | 215.5 ms | 60.9 ms | 3.5x |
+| classes | 17.3 ms | 5.6 ms | 3.1x |
+| collections_ops | 25.9 ms | 11.0 ms | 2.4x |
+| dict_ops | 7.1 ms | 3.0 ms | 2.4x |
 | fib | 6.9 ms | 1.8 ms | 3.8x |
-| generators | 9.7 ms | 3.2 ms | 3.0x |
-| list_ops | 23.5 ms | 4.8 ms | 4.9x |
-| loop_sum | 28.9 ms | 16.2 ms | 1.8x |
-| random_math | 25.1 ms | 11.2 ms | 2.2x |
-| strings | 6.1 ms | 1.9 ms | 3.2x |
+| generators | 8.9 ms | 3.2 ms | 2.7x |
+| list_ops | 12.8 ms | 4.8 ms | 2.7x |
+| loop_sum | 29.4 ms | 16.5 ms | 1.8x |
+| random_math | 14.8 ms | 11.3 ms | 1.3x |
+| strings | 5.0 ms | 1.9 ms | 2.7x |
 
 What each script does:
 

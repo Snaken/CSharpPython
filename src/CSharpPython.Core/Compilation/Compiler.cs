@@ -933,6 +933,17 @@ namespace CSharpPython.Compilation
         private void CompileCall(CallExpr c)
         {
             if (IsSuperCall(c)) throw Error("super() is only supported as super().name", c);
+            if (c.Func is AttributeExpr add && add.Target is NameExpr result && result.Name == ".r" && c.Args.Count == 1
+                && c.KeywordNames.Count == 0 && !(c.Args[0] is StarExpr) && (add.Name == "append" || add.Name == "add"))
+            {
+                // The element of a list or set comprehension (see Parser.ParseComprehension): the result is known to be a
+                // list or a set, so it is added to directly. Like the other display ops this leaves the container on the stack.
+                CompileExpr(result);
+                CompileExpr(c.Args[0]);
+                SetLine(c);
+                Emit(add.Name == "append" ? Op.ListAppend : Op.SetAdd);
+                return;
+            }
             bool method = c.Func is AttributeExpr && !IsSuperCall(((AttributeExpr)c.Func).Target);
             if (c.Func is AttributeExpr sup && IsSuperCall(sup.Target))
             {

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Faster: small dictionaries and object attributes are searched in place instead of through a hash table (creating an object and setting attributes take about 40% less time), `sort`/`sorted` of ints, floats and strings, `sum` over ints, list and set comprehensions, calls of list, str, deque and dict methods, `str.split` on one character, and f-strings. Measured against CPython, scripts run 1.3 to 3.8 times slower than it, where before it was up to 5 times. (`benchmarks/` now warms up for a second before timing.)
+
 ## 0.2.0
 
 Found by testing 0.1.1 in a Unity 6.3 player: this release fixes what that turned up (positional-only parameters, missing `math` and `str` functions, `sum(range(10**7))`) and adds the first standard library modules.

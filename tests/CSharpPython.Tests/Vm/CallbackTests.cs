@@ -130,6 +130,7 @@ namespace CSharpPython.Tests.Vm
         {
             var ctx = new CallContext();
             Assert.Throws<System.InvalidOperationException>(() => ctx.Call(Value.None));
+            Assert.Throws<System.InvalidOperationException>(() => ctx.Call(Value.None, Value.None));
         }
 
         [Test]

@@ -54,5 +54,11 @@ namespace CSharpPython.Tests.Vm
             Assert.That(task.RunUntilDone(), Is.EqualTo(TaskState.Error));
             Assert.That(task.Error.TypeName, Is.EqualTo("StepLimitExceeded"));
         }
+
+        [Test]
+        public void SortingFloatsWithNanStillReturnsEveryItem()
+        {
+            Assert.That(Out("xs = sorted([2.5, float('nan'), 0.5, 1.5])\nprint(len(xs), 0.5 in xs, 2.5 in xs)"), Is.EqualTo("4 True True"));
+        }
     }
 }

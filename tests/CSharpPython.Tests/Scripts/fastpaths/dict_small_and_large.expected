@@ -1,0 +1,58 @@
+1 k0 0
+4 k3 3
+8 k7 7
+9 k8 8
+10 k9 9
+16 k15 15
+13 ['k1', 'k2', 'k4', 'k5', 'k7', 'k8', 'k10', 'k11', 'k13', 'k14', 'k16', 'k17', 'k19']
+[('k19', 19), ('k0', 'again'), ('k3', 'back')] True True False
+{'a': 1, 'b': 2, 1: 'so does this', None: 'none', ('t', 1): 'tuple'} so does this 5
+True True True True True True
+TypeError
+TypeError in
+TypeError set
+TypeError
+TypeError in
+TypeError set
+TypeError
+TypeError in
+TypeError set
+TypeError
+TypeError in
+TypeError set
+TypeError
+TypeError in
+TypeError set
+TypeError
+TypeError in
+TypeError set
+TypeError
+TypeError in
+TypeError set
+TypeError
+TypeError in
+TypeError set
+TypeError
+TypeError in
+TypeError set
+TypeError
+TypeError in
+TypeError set
+TypeError
+TypeError in
+TypeError set
+TypeError
+TypeError in
+TypeError set
+['z', 'x', 'y', 'w'] [0, 0, 1, 2]
+{'x': 0, 'y': 1, 'w': 2} 9 ('v', 8) {'x': 0, 'y': 1, 'w': 2}
+16 15 False True
+{'one': 1, 'two': 2, 'three': 3} ['one', 'two', 'three']
+{} 0 False
+{'again': 1}
+RuntimeError
+RuntimeError
+12 ['f0', 'f1', 'f2'] ['f10', 'f11'] 11 False
+['f11', 'f5'] last
+{'b': 2, 'a': 3, 'c': 4} 3 2 4
+AttributeError

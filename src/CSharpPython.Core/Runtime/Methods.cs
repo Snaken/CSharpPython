@@ -300,7 +300,8 @@ namespace CSharpPython
             int pos = 0;
             while (true)
             {
-                int idx = max >= 0 && parts.Count >= max ? -1 : s.IndexOf(sep, pos, StringComparison.Ordinal);
+                int idx = max >= 0 && parts.Count >= max ? -1
+                    : sep.Length == 1 ? s.IndexOf(sep[0], pos) : s.IndexOf(sep, pos, StringComparison.Ordinal);
                 if (idx < 0)
                 {
                     parts.Add(Value.FromString(s.Substring(pos)));
@@ -671,6 +672,8 @@ namespace CSharpPython
             var list = items.ToList();
             if (list.Count < 2) return list;
             if (keys == null) keys = list.ToArray();
+            List<Value> simple = SortSimple(list, keys, reverse);
+            if (simple != null) return simple;
             var comparer = Comparer<int>.Create((x, y) =>
                 Ops.Compare(keys[x], keys[y], Ops.Order.Lt) ? -1 : Ops.Compare(keys[y], keys[x], Ops.Order.Lt) ? 1 : 0);
             var order = Enumerable.Range(0, list.Count).ToList();
@@ -683,6 +686,73 @@ namespace CSharpPython
             }
             else order = order.OrderBy(v => v, comparer).ToList();
             return order.Select(i => list[i]).ToList();
+        }
+
+        // Sorting by keys that are all ints, all floats (none NaN) or all strings, which have one fixed order, needs no
+        // callbacks: the keys are sorted as arrays and then each run of equal keys is put back in its original order
+        // (or, for reverse=True, also in its original order, as Python does). Returns null for any other keys.
+        private static List<Value> SortSimple(List<Value> list, Value[] keys, bool reverse)
+        {
+            int n = keys.Length;
+            ValueKind kind = keys[0].Kind;
+            var order = new int[n];
+            for (int i = 0; i < n; i++)
+            {
+                if (keys[i].Kind != kind) return null;
+                order[i] = i;
+            }
+            switch (kind)
+            {
+                case ValueKind.Int:
+                {
+                    var k = new long[n];
+                    for (int i = 0; i < n; i++) k[i] = keys[i].RawInt;
+                    Array.Sort(k, order);
+                    FinishSort(k, order, reverse);
+                    break;
+                }
+                case ValueKind.Float:
+                {
+                    var k = new double[n];
+                    for (int i = 0; i < n; i++)
+                    {
+                        k[i] = keys[i].RawFloat;
+                        if (double.IsNaN(k[i])) return null;
+                    }
+                    Array.Sort(k, order);
+                    FinishSort(k, order, reverse);
+                    break;
+                }
+                case ValueKind.Str:
+                {
+                    var k = new string[n];
+                    for (int i = 0; i < n; i++) k[i] = (string)keys[i].RawObject;
+                    Array.Sort(k, order, StringComparer.Ordinal);
+                    FinishSort(k, order, reverse);
+                    break;
+                }
+                default:
+                    return null;
+            }
+            var result = new List<Value>(n);
+            foreach (int i in order) result.Add(list[i]);
+            return result;
+        }
+
+        private static void FinishSort<T>(T[] sortedKeys, int[] order, bool reverse) where T : IEquatable<T>
+        {
+            if (reverse)
+            {
+                Array.Reverse(sortedKeys);
+                Array.Reverse(order);
+            }
+            for (int start = 0; start < sortedKeys.Length;)
+            {
+                int end = start + 1;
+                while (end < sortedKeys.Length && sortedKeys[end].Equals(sortedKeys[start])) end++;
+                if (end - start > 1) Array.Sort(order, start, end - start);
+                start = end;
+            }
         }
 
         // ---- dict -----------------------------------------------------------------------------------------------

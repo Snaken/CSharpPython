@@ -61,7 +61,7 @@ namespace CSharpPython
         }
 
         /// <summary>
-        /// True for an AttributeError, whether a native function raised it or script code run by <see cref="CallSync"/>
+        /// True for an AttributeError, whether a native function raised it or script code run by <see cref="CallSync(Value, Value[])"/>
         /// (a property getter) did, so that <c>hasattr</c> and <c>getattr(x, name, default)</c> can swallow it.
         /// </summary>
         internal static bool IsAttributeError(Exception e) =>
@@ -326,6 +326,26 @@ namespace CSharpPython
             }
         }
 
+        // The method of a list, str, deque or plain dict that a LoadMethod instruction finds is remembered at the
+        // instruction (the method tables never change), so the next call skips the lookup by name.
+        private static bool FindNativeMethod(Code code, int site, Value obj, string name, out NativeFunction method)
+        {
+            bool cacheable = obj.Kind == ValueKind.List || obj.Kind == ValueKind.Str || obj.Kind == ValueKind.Deque
+                || obj.Kind == ValueKind.Dict && ((PyDict)obj.RawObject).Flavor == DictFlavor.Plain;
+            if (!cacheable) return Ops.TryGetMethod(obj, name, out method);
+            NativeFunction[] cache = code.MethodCache;
+            if (cache != null && code.MethodCacheKind[site] == obj.Kind && (method = cache[site]) != null) return true;
+            if (!Ops.TryGetMethod(obj, name, out method)) return false;
+            if (cache == null)
+            {
+                code.MethodCacheKind = new ValueKind[code.Instructions.Length];
+                cache = code.MethodCache = new NativeFunction[code.Instructions.Length];
+            }
+            cache[site] = method;
+            code.MethodCacheKind[site] = obj.Kind;
+            return true;
+        }
+
         private TaskState Loop()
         {
             Frame frame = _frames[_frameCount - 1];
@@ -492,7 +512,7 @@ namespace CSharpPython
                             Push(Value.FromFunction(scriptMethod));
                             Push(obj);
                         }
-                        else if (obj.Kind != ValueKind.Module && Ops.TryGetMethod(obj, name, out NativeFunction method))
+                        else if (obj.Kind != ValueKind.Module && FindNativeMethod(code, pc - 1, obj, name, out NativeFunction method))
                         {
                             Push(Value.FromNative(method));
                             Push(obj);
@@ -643,10 +663,18 @@ namespace CSharpPython
                         long length = 0;
                         for (int k = 0; k < ins.Arg; k++) length += ((string)_stack[start + k].RawObject).Length;
                         if (length > Ops.MaxSequenceLength) throw new PyError("MemoryError", "string too long");
-                        var sb = new StringBuilder((int)length);
-                        for (int k = 0; k < ins.Arg; k++) sb.Append((string)_stack[start + k].RawObject);
+                        string joined;
+                        if (ins.Arg == 2) joined = string.Concat((string)_stack[start].RawObject, (string)_stack[start + 1].RawObject);
+                        else if (ins.Arg == 3) joined = string.Concat((string)_stack[start].RawObject, (string)_stack[start + 1].RawObject, (string)_stack[start + 2].RawObject);
+                        else if (ins.Arg == 4) joined = string.Concat((string)_stack[start].RawObject, (string)_stack[start + 1].RawObject, (string)_stack[start + 2].RawObject, (string)_stack[start + 3].RawObject);
+                        else
+                        {
+                            var sb = new StringBuilder((int)length);
+                            for (int k = 0; k < ins.Arg; k++) sb.Append((string)_stack[start + k].RawObject);
+                            joined = sb.ToString();
+                        }
                         _sp = start;
-                        Push(Value.FromString(sb.ToString()));
+                        Push(Value.FromString(joined));
                         break;
                     }
                     case Op.FormatValue:
@@ -1714,14 +1742,30 @@ namespace CSharpPython
         internal Value CallSync(Value callee, Value[] args)
         {
             if (_nested >= MaxNestedCalls) throw new PyError("RecursionError", "maximum recursion depth exceeded");
-            int savedPositional = _ctx.PositionalCount;
-            string[] savedKeywords = _ctx.KeywordNames;
             int calleeIndex = _sp;
-            int argc = args.Length;
-            int argStart = calleeIndex + 1;
-            EnsureStack(argStart + argc + 8);
+            EnsureStack(calleeIndex + args.Length + 9);
             Push(callee);
             foreach (var a in args) Push(a);
+            return CallPushed(callee, calleeIndex, args.Length);
+        }
+
+        /// <summary>The same for a single argument, which saves allocating an array for each call of a key function.</summary>
+        internal Value CallSync(Value callee, Value arg)
+        {
+            if (_nested >= MaxNestedCalls) throw new PyError("RecursionError", "maximum recursion depth exceeded");
+            int calleeIndex = _sp;
+            EnsureStack(calleeIndex + 10);
+            Push(callee);
+            Push(arg);
+            return CallPushed(callee, calleeIndex, 1);
+        }
+
+        // Makes the call of CallSync once the callee and its arguments are on the stack.
+        private Value CallPushed(Value callee, int calleeIndex, int argc)
+        {
+            int savedPositional = _ctx.PositionalCount;
+            string[] savedKeywords = _ctx.KeywordNames;
+            int argStart = calleeIndex + 1;
 
             _nested++;
             try
