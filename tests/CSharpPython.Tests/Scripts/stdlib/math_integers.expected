@@ -1,0 +1,70 @@
+int 1
+int 1
+int 120
+int 2432902008176640000
+int 51090942171709440000
+int 15511210043330985984000000
+ValueError
+TypeError
+int 1
+int 0
+int 0
+int 6
+int 6
+int 0
+int 3
+int 36893488147419103232
+TypeError
+int 7
+int 1
+int 12
+int 0
+int 12
+int 60
+int 3298534883328
+int 0
+int 1
+int 3
+int 4
+int 10000000000
+int 100000000000000000000
+int 4294967296
+ValueError
+int 1
+int 1
+int 2
+int 4
+int 5
+int 999999999
+int 2147483648
+int 3037000499
+int 1267650600228229401496703205375
+int 1267650600228229401496703205376
+int 9
+int 10
+int 67108864
+int 999999999999999
+TypeError
+int 10
+int 1
+int 1
+int 0
+int 1
+int 120
+int 126410606437752
+int 100891344545564193334812497256
+ValueError
+ValueError
+TypeError
+int 1000
+int 120
+int 20
+int 1
+int 120
+int 0
+int 1
+int 720
+int 670442572800
+ValueError
+ValueError
+int 120

@@ -1,0 +1,23 @@
+def t(f):
+    try:
+        r = f()
+        print(type(r).__name__, repr(r))
+    except Exception as e:
+        print(type(e).__name__)
+t(lambda: 'a\tb'.expandtabs())
+t(lambda: 'a\tb'.expandtabs(4))
+t(lambda: 'abcdefgh\tb'.expandtabs())
+t(lambda: '\t'.expandtabs(0))
+t(lambda: 'a\tb'.expandtabs(0))
+t(lambda: 'a\tb'.expandtabs(-1))
+t(lambda: 'a\nb\tc'.expandtabs(4))
+t(lambda: 'a\tb\tc'.expandtabs(tabsize=2))
+t(lambda: 'a\tb'.expandtabs(1))
+t(lambda: ''.expandtabs())
+t(lambda: 'a\rb\tc'.expandtabs(4))
+t(lambda: 'abcabc'.rindex('b'))
+t(lambda: 'abcabc'.rindex('b', 0, 3))
+t(lambda: 'abcabc'.rindex('z'))
+t(lambda: 'abcabc'.rindex('c', 2))
+t(lambda: 'abcabc'.rindex(''))
+t(lambda: 'abcabc'.rindex('a', -3))

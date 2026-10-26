@@ -1,0 +1,16 @@
+bool True
+bool True
+bool False
+bool False
+bool True
+bool False
+bool True
+bool True
+bool False
+bool False
+bool True
+ValueError
+ValueError
+TypeError
+bool False
+bool True

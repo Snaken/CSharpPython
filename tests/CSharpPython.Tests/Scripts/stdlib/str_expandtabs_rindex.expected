@@ -1,0 +1,17 @@
+str 'a       b'
+str 'a   b'
+str 'abcdefgh        b'
+str ''
+str 'ab'
+str 'ab'
+str 'a\nb   c'
+str 'a b c'
+str 'a b'
+str ''
+str 'a\rb   c'
+int 4
+int 1
+ValueError
+int 5
+int 6
+int 3

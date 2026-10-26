@@ -1,0 +1,53 @@
+float 0.0
+float 1.17520119
+float -1.17520119
+float 1.11699738e+308
+OverflowError
+float inf
+float 1.0
+float 1.54308063
+float 3.76219569
+OverflowError
+float inf
+float 0.0
+float 0.761594156
+float -0.761594156
+float 1.0
+float 1.0
+float 0.0
+float 0.881373587
+float -0.881373587
+float 23.7189981
+float 0.0
+float 1.3169579
+ValueError
+float 23.7189981
+float 0.0
+float 0.549306144
+float -0.549306144
+ValueError
+ValueError
+ValueError
+float 3.0
+float -2.0
+float 0.0
+float 1.25992105
+float 1e+100
+float 1.0
+float 1024.0
+float 0.5
+float 1.41421356
+OverflowError
+float 0.0
+float 0.0
+float 1.71828183
+float 1e-10
+float -0.632120559
+OverflowError
+float -1.0
+float 0.0
+float 0.693147181
+float 1e-10
+float -0.693147181
+ValueError
+ValueError

@@ -1,0 +1,21 @@
+str 'ABC'
+str 'abc'
+list ['A', 'B']
+list ['A', 'b', 'c']
+list ['a', 'bb', 'ccc']
+str 'a,b'
+list ['a', 'b']
+NoneType None
+int 2
+dict_keys dict_keys([1])
+int 8
+bool True
+AttributeError
+list ['a', 'b']
+skip
+int 2
+TypeError
+AttributeError
+AttributeError
+NoneType None
+int 1

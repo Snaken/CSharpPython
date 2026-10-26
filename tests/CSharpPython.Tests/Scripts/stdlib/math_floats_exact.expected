@@ -1,0 +1,95 @@
+float -3.0
+float 3.0
+float -0.0
+float -1.0
+float -inf
+float 2.0
+float 1.0
+float -1.0
+float 1.0
+float 1.5
+ValueError
+ValueError
+float 1.0
+float 0.0
+float -0.0
+float 1.0
+float -1.0
+float 1.0
+float -1.0
+float -1.0
+ValueError
+ValueError
+float 1.0
+tuple (0.75, 3.0)
+tuple (-0.75, -3.0)
+tuple (0.0, 0.0)
+tuple (0.0, 5.0)
+tuple (0.0, inf)
+tuple (-0.0, -inf)
+tuple (-0.5, -0.0)
+tuple (0.5, 4)
+tuple (0.0, 0)
+tuple (0.5, 1)
+tuple (-0.75, 2)
+tuple (0.8, -3)
+tuple (0.5752618031559393, -1029)
+tuple (0.7466108948025751, 997)
+tuple (inf, 0)
+tuple (0.5, 0)
+tuple (0.75, 0)
+float 8.0
+float 0.25
+OverflowError
+float 5e-324
+float 0.0
+float 12.0
+TypeError
+float inf
+float 0.0
+OverflowError
+int 1
+int 24
+float 3.0
+int 60
+int 120
+int 1
+str 'a'
+int 1208925819614629174706176
+int 6
+float 1.0
+float 0.0
+float 6.0
+float 1.0
+float inf
+ValueError
+float nan
+float 0.6
+float 0.6
+float 1.0000000000000002
+TypeError
+float 1.0000000000000002
+float 1.0
+float 1.0
+float 0.9999999999999999
+float -1.0000000000000002
+OverflowError
+float 1.0000000000000002
+float 1.0000000000000002
+float 0.0
+float 3.0
+float 3.0
+float 5.0
+float 13.0
+float 2.0
+float inf
+float nan
+float 0.0
+float 13.0
+float 17.0
+float 5.0
+float 5.0
+float 5.0
+ValueError
+float 0.0
+float 7.0

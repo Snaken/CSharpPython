@@ -1,0 +1,27 @@
+list ['a', 'b', 'c']
+list ['a b', 'c']
+list ['a', 'b', 'c']
+list ['  a b', 'c']
+list ['a b', 'c', 'd']
+list ['a b c']
+list ['  a b']
+list ['a', 'b', 'c']
+list ['a,b', 'c']
+list ['a,b,c']
+list ['a', 'b', 'c']
+list ['a', '', 'b']
+list []
+list ['']
+list ['', '']
+list ['a--b', 'c']
+ValueError
+list ['a,b', 'c']
+list ['a,b,c']
+list ['a b', 'c']
+TypeError
+TypeError
+list ['', 'a', '']
+list ['a', '']
+list ['a', 'b', 'c']
+TypeError
+list ['a', 'b', 'c']

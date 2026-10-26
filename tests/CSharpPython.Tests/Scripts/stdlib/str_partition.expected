@@ -1,0 +1,18 @@
+tuple ('a', '-', 'b-c')
+tuple ('a-b', '-', 'c')
+tuple ('abc', '', '')
+tuple ('', '', 'abc')
+tuple ('', '', '')
+tuple ('', '', '')
+tuple ('a', '--', 'b')
+tuple ('', '-', 'abc')
+tuple ('abc', '-', '')
+ValueError
+ValueError
+TypeError
+TypeError
+tuple ('aXb', 'X', 'c')
+tuple ('', 'abc', '')
+tuple ('abc', '', '')
+tuple ('', 'ab', 'abab')
+tuple ('abab', 'ab', '')

@@ -1,0 +1,23 @@
+def t(f):
+    try:
+        r = f()
+        print(type(r).__name__, repr(r))
+    except Exception as e:
+        print(type(e).__name__)
+t(lambda: 'prefix_name'.removeprefix('prefix_'))
+t(lambda: 'name'.removeprefix('x'))
+t(lambda: 'name'.removeprefix(''))
+t(lambda: 'name'.removeprefix('name'))
+t(lambda: 'name'.removeprefix('names'))
+t(lambda: 'aaa'.removeprefix('a'))
+t(lambda: 'name.py'.removesuffix('.py'))
+t(lambda: 'name'.removesuffix('x'))
+t(lambda: 'name'.removesuffix(''))
+t(lambda: 'name'.removesuffix('name'))
+t(lambda: 'name'.removesuffix('xname'))
+t(lambda: 'aaa'.removesuffix('a'))
+t(lambda: 'name'.removeprefix(1))
+t(lambda: 'name'.removesuffix(None))
+t(lambda: 'name'.removeprefix(('n',)))
+t(lambda: ''.removeprefix('a'))
+t(lambda: ''.removesuffix('a'))

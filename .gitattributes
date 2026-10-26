@@ -1,0 +1,2 @@
+# The script tests compare exact output, so line endings must not change on checkout.
+tests/CSharpPython.Tests/Scripts/** text eol=lf

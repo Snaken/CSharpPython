@@ -1,0 +1,17 @@
+str 'name'
+str 'name'
+str 'name'
+str ''
+str 'name'
+str 'aa'
+str 'name'
+str 'name'
+str 'name'
+str ''
+str 'name'
+str 'aa'
+TypeError
+TypeError
+TypeError
+str ''
+str ''
