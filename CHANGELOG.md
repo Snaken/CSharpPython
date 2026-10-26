@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The documentation now gives the measured nesting limits for each Unity platform (about 90 to 140 nested brackets, depending on stack size).
+
 - `random` module, matching CPython's numbers for a given `int` seed: `seed`, `random`, `getrandbits`, `randrange`, `randint`, `choice`, `shuffle`, `sample`, `choices`, `uniform`, `triangular`, `normalvariate`, `gauss`, `lognormvariate` and `expovariate`. Each task has its own generator and snapshots save it (snapshot format version 12).
 - A damaged snapshot can no longer register exception types with empty or invalid names.
 - Positional-only parameters: `def f(a, b, /, c)`.
