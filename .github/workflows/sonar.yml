@@ -38,6 +38,7 @@ jobs:
           /d:sonar.host.url="https://sonarcloud.io"
           /d:sonar.cs.opencover.reportsPaths="TestResults/**/coverage.opencover.xml"
           /d:sonar.coverage.exclusions="tests/**,benchmarks/**"
+          /d:sonar.exclusions="tests/**/*.py,benchmarks/**/*.py"
       - name: Build
         run: dotnet build -c Release
       - name: Test with coverage
