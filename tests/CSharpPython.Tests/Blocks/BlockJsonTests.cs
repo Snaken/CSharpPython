@@ -152,15 +152,20 @@ namespace CSharpPython.Tests.Blocks
         {
             var rng = new System.Random(7);
             string text = Sample().ToJson(false);
-            for (int i = 0; i < 3000; i++)
+            int rejected = 0;
+            Assert.DoesNotThrow(() =>
             {
-                var chars = text.ToCharArray();
-                for (int k = rng.Next(1, 4); k > 0; k--) chars[rng.Next(chars.Length)] = "{}[]\",:\\u1 x"[rng.Next(12)];
-                string s = new string(chars);
-                if (rng.Next(4) == 0) s = s.Substring(0, rng.Next(s.Length));
-                try { BlockGraph.FromJson(s); }
-                catch (BlockGraphFormatException) { }
-            }
+                for (int i = 0; i < 3000; i++)
+                {
+                    var chars = text.ToCharArray();
+                    for (int k = rng.Next(1, 4); k > 0; k--) chars[rng.Next(chars.Length)] = "{}[]\",:\\u1 x"[rng.Next(12)];
+                    string s = new string(chars);
+                    if (rng.Next(4) == 0) s = s.Substring(0, rng.Next(s.Length));
+                    try { BlockGraph.FromJson(s); }
+                    catch (BlockGraphFormatException) { rejected++; }
+                }
+            });
+            Assert.That(rejected, Is.GreaterThan(0));
         }
     }
 }

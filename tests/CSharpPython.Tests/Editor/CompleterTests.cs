@@ -304,13 +304,20 @@ namespace CSharpPython.Tests.Editor
             var random = new Random(99);
             var samples = HighlighterTests.Samples().ToArray();
             var vm = Vm();
-            for (int i = 0; i < 1500; i++)
+            Assert.DoesNotThrow(() =>
             {
-                var chars = samples[random.Next(samples.Length)].ToCharArray();
-                for (int e = 0; e < 1 + random.Next(4); e++) chars[random.Next(chars.Length)] = HighlighterTests.Noise[random.Next(HighlighterTests.Noise.Length)];
-                string text = new string(chars);
-                for (int k = 0; k < 6; k++) Completer.Complete(text, random.Next(text.Length + 1), vm);
-            }
+                for (int i = 0; i < 1500; i++)
+                {
+                    var chars = samples[random.Next(samples.Length)].ToCharArray();
+                    for (int e = 0; e < 1 + random.Next(4); e++) chars[random.Next(chars.Length)] = HighlighterTests.Noise[random.Next(HighlighterTests.Noise.Length)];
+                    string text = new string(chars);
+                    for (int k = 0; k < 6; k++)
+                    {
+                        var list = Completer.Complete(text, random.Next(text.Length + 1), vm);
+                        if (list.ReplaceStart < 0 || list.ReplaceStart + list.ReplaceLength > text.Length) throw new InvalidOperationException("range outside the text");
+                    }
+                }
+            });
         }
 
         [Test]
