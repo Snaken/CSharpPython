@@ -7,7 +7,7 @@ namespace CSharpPython
 {
     public sealed partial class PyTask
     {
-        private const ushort SnapshotVersion = 11;
+        private const ushort SnapshotVersion = 12;
         private static readonly byte[] SnapshotMagic = { (byte)'C', (byte)'S', (byte)'P', (byte)'Y' };
 
         // The deepest value stack a restored snapshot may claim, so that damaged data cannot ask for gigabytes.
@@ -119,6 +119,9 @@ namespace CSharpPython
                 writer.WriteValue(w, f.GenDefault);
             }
             writer.WriteValue(w, _lastReturn);
+
+            w.Write(Random != null);
+            Random?.Write(w);
 
             w.Flush();
             return stream.ToArray();
@@ -260,6 +263,7 @@ namespace CSharpPython
             }
             task._frameCount = frames;
             task._lastReturn = reader.ReadValue(r);
+            if (r.ReadBoolean()) task.Random = RandomState.Read(r);
 
             if (task._state != TaskState.Finished && task._state != TaskState.Error && frames == 0)
                 throw new SnapshotException("the snapshot is damaged");

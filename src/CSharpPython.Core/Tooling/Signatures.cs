@@ -78,6 +78,15 @@ namespace CSharpPython.Editor
             { "math.isqrt", "n" }, { "math.comb", "n, k" }, { "math.perm", "n, k=None" },
             { "math.prod", "iterable, *, start=1" }, { "math.fsum", "iterable" }, { "math.dist", "p, q" },
 
+            // random module.
+            { "random.seed", "a=None, version=2" }, { "random.random", "" }, { "random.getrandbits", "k" },
+            { "random.randrange", "start, stop=None, step=1" }, { "random.randint", "a, b" }, { "random.choice", "seq" },
+            { "random.shuffle", "x" }, { "random.sample", "population, k, *, counts=None" },
+            { "random.choices", "population, weights=None, *, cum_weights=None, k=1" },
+            { "random.uniform", "a, b" }, { "random.triangular", "low=0.0, high=1.0, mode=None" },
+            { "random.normalvariate", "mu=0.0, sigma=1.0" }, { "random.gauss", "mu=0.0, sigma=1.0" },
+            { "random.lognormvariate", "mu, sigma" }, { "random.expovariate", "lambd=1.0" },
+
             // str methods.
             { "str.upper", "" }, { "str.lower", "" }, { "str.strip", "chars=None" }, { "str.lstrip", "chars=None" },
             { "str.rstrip", "chars=None" }, { "str.split", "sep=None, maxsplit=-1" }, { "str.join", "iterable" },

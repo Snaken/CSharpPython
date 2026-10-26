@@ -36,6 +36,7 @@ namespace CSharpPython
             into["NotImplemented"] = Value.NotImplemented;
             into["Ellipsis"] = Value.Ellipsis;
             modules["math"] = MathModule();
+            modules["random"] = RandomModule.Create();
         }
 
         private static string NameArg(Value v, string function)

@@ -11,7 +11,7 @@ namespace CSharpPython
 
         private static PyError RangeError() => new PyError("OverflowError", "math range error");
 
-        private static BigInteger IntArg(Value v)
+        internal static BigInteger IntArg(Value v)
         {
             v = Ops.IndexValue(v);
             if (!v.IsInteger) throw Ops.TypeError("'" + v.TypeName + "' object cannot be interpreted as an integer");

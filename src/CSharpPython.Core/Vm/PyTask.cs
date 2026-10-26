@@ -104,6 +104,7 @@ namespace CSharpPython
         private bool _boundaryHit;
         private Value _boundaryResult;
         private bool _boundaryDone;            // the boundary frame was a generator that finished rather than yielded
+        internal RandomState Random;           // made the first time the script uses the random module
         private Value _lastReturn;             // what the generator that most recently finished returned, for 'yield from'
         private long _totalSteps;
         private Value _result;

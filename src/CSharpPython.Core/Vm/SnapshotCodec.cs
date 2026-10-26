@@ -43,6 +43,18 @@ namespace CSharpPython
             return new string(chars);
         }
 
+        // Reads the name of an exception type. Restoring registers unknown names globally, so a damaged snapshot must not
+        // be able to add empty or absurd ones.
+        public static string ReadTypeName(BinaryReader r) => CheckTypeName(ReadString(r));
+
+        public static string CheckTypeName(string name)
+        {
+            if (name.Length == 0 || name.Length > 100) throw new SnapshotException("the snapshot is damaged");
+            foreach (char c in name)
+                if (!(char.IsLetterOrDigit(c) || c == '_')) throw new SnapshotException("the snapshot is damaged");
+            return name;
+        }
+
         // Reads a count and rejects it if the rest of the data could not possibly hold that many items.
         public static int ReadCount(BinaryReader r, int minBytesPerItem)
         {
@@ -705,7 +717,7 @@ namespace CSharpPython
                     if (b.Kind == ValueKind.Class) cls.Base = (PyClass)b.RawObject;
                     else if (b.Kind != ValueKind.None) throw new SnapshotException("the snapshot is damaged");
                     string root = SnapshotIo.ReadString(r);
-                    if (root.Length > 0) cls.RootType = ExceptionTypes.GetOrCreate(root);
+                    if (root.Length > 0) cls.RootType = ExceptionTypes.GetOrCreate(SnapshotIo.CheckTypeName(root));
                     ReadPairs(r, cls.Namespace);
                     cls.NoteHooks();
                     break;
@@ -820,7 +832,7 @@ namespace CSharpPython
                 }
                 case ValueKind.Exception:
                 {
-                    string type = SnapshotIo.ReadString(r);
+                    string type = SnapshotIo.ReadTypeName(r);
                     string message = SnapshotIo.ReadString(r);
                     var exc = new PyExceptionValue(ExceptionTypes.GetOrCreate(type), message);
                     int n = SnapshotIo.ReadCount(r, 8);
@@ -1007,7 +1019,7 @@ namespace CSharpPython
                     return Value.FromModule(module);
                 }
                 case ValueKind.ExceptionType:
-                    return Value.FromExceptionType(ExceptionTypes.GetOrCreate(SnapshotIo.ReadString(r)));
+                    return Value.FromExceptionType(ExceptionTypes.GetOrCreate(SnapshotIo.ReadTypeName(r)));
                 case ValueKind.Type:
                 {
                     string name = SnapshotIo.ReadString(r);

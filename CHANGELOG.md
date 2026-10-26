@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `random` module, matching CPython's numbers for a given `int` seed: `seed`, `random`, `getrandbits`, `randrange`, `randint`, `choice`, `shuffle`, `sample`, `choices`, `uniform`, `triangular`, `normalvariate`, `gauss`, `lognormvariate` and `expovariate`. Each task has its own generator and snapshots save it (snapshot format version 12).
+- A damaged snapshot can no longer register exception types with empty or invalid names.
 - Positional-only parameters: `def f(a, b, /, c)`.
 - `math`: `isfinite`, `isclose`, `copysign`, `fmod`, `remainder`, `modf`, `frexp`, `ldexp`, `cbrt`, `exp2`, `expm1`, `log1p`, the hyperbolic functions, `factorial`, `gcd`, `lcm`, `isqrt`, `comb`, `perm`, `prod`, `fsum` and `dist`; `hypot` takes any number of arguments.
 - `str`: `partition`, `rpartition`, `rsplit`, `rindex`, `removeprefix`, `removesuffix`, `swapcase`, `casefold`, `expandtabs`, `isascii`, `isdecimal`, `isnumeric`, `isidentifier`, `isprintable` and `istitle`.

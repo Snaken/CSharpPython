@@ -189,14 +189,14 @@ namespace CSharpPython.Tests.Editor
         [Test]
         public void ImportStatementsCompleteModuleAndMemberNames()
         {
-            Assert.That(Names("import |"), Is.EquivalentTo(new[] { "game", "math" }));
+            Assert.That(Names("import |"), Is.EquivalentTo(new[] { "game", "math", "random" }));
             Assert.That(Names("import ga|"), Is.EqualTo(new[] { "game" }));
-            Assert.That(Names("from |"), Is.EquivalentTo(new[] { "game", "math" }));
+            Assert.That(Names("from |"), Is.EquivalentTo(new[] { "game", "math", "random" }));
             Assert.That(Names("from game |"), Is.EqualTo(new[] { "import" }));
             Assert.That(Names("from game import |"), Is.EquivalentTo(new[] { "spawn", "player", "MAX_HP", "NAME" }));
             Assert.That(Names("from game import spawn, pl|"), Is.EqualTo(new[] { "player" }));
             Assert.That(Names("from nosuch import |"), Is.Empty);
-            Assert.That(Names("import game, |"), Is.EquivalentTo(new[] { "game", "math" }));
+            Assert.That(Names("import game, |"), Is.EquivalentTo(new[] { "game", "math", "random" }));
             Assert.That(Names("from game import spawn\nspa|"), Does.Contain("spawn"));
             var imported = At("from game import spawn, MAX_HP\nsp|").Items.Single(i => i.Text == "spawn");
             Assert.That(imported.Kind, Is.EqualTo(CompletionKind.Function));

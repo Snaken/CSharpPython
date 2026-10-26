@@ -25,7 +25,7 @@ Everything known to be missing, grouped by area. The order inside a group is rou
 
 Only `math` exists today, and only a part of it. Wanted, with games in mind:
 
-- `random`, seedable and saved by snapshots so a restored task continues the same sequence.
+- More of `random`: `float`, `str` and `bytes` seeds, `sample(counts=)`, `Random` objects with `getstate` and `setstate`, `randbytes`, `binomialvariate` and the gamma, beta, pareto, weibull and von Mises distributions.
 - More of `math`: `erf`, `gamma`, `lgamma`, `fma`, `nextafter`, `ulp` and `sumprod`.
 - `collections` (`deque`, `Counter`, `defaultdict`, `namedtuple`), `itertools`, `functools`, `enum`, `dataclasses`, `string`, `json`.
 - Missing methods on built-in types, for example `str.translate`, `maketrans`, `format_map` and `encode`; `int.to_bytes`, `from_bytes` and `as_integer_ratio`; `float.hex` and `fromhex`. `str.casefold` does not fold `İ`, and `isnumeric` misses CJK numerals.

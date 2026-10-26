@@ -15,5 +15,6 @@ task2.FastForward(ticksSinceSave);                // skips quickly over waits to
 - The snapshot records a fingerprint of the compiled script, so it only restores against identical code. Changed scripts raise `SnapshotException`.
 - Host objects are never saved: scripts hold handles (type id + object id), which are plain data. The host saves and restores its own objects and re-creates the same handles.
 - Host functions are saved by name, so every function a script can reach must be a built-in or a module member. A function the VM cannot find again makes `Save` throw.
+- The state of `random` is saved with the task, so a restored task carries on with the same sequence of numbers (about 2.5 KB, and only for a task that used the module).
 - `Owner` is not saved; reattach it after restoring.
 - Damaged or foreign data always raises `SnapshotException`; it never crashes the host. The format is versioned.

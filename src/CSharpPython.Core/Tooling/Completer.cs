@@ -364,7 +364,7 @@ namespace CSharpPython.Editor
 
             foreach (var kv in vm.Builtins)
             {
-                if (kv.Key[0] == '.' || !seen.Add(kv.Key)) continue; // the names a 'with' statement is rewritten with
+                if (kv.Key.StartsWith(".", StringComparison.Ordinal) || !seen.Add(kv.Key)) continue; // the names a 'with' statement is rewritten with
                 switch (kv.Value.Kind)
                 {
                     case ValueKind.Native:
