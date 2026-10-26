@@ -7,7 +7,7 @@ A Python-style language parser, compiler and bytecode VM written in plain C#, de
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=Snaken_CSharpPython&metric=coverage)](https://sonarcloud.io/summary/new_code?id=Snaken_CSharpPython)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/Snaken/CSharpPython/blob/main/LICENSE)
 
-> Status: early development (0.1.0).
+> Status: early development (0.1.1).
 
 ## Why
 
