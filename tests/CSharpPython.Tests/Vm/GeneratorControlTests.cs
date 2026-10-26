@@ -88,10 +88,42 @@ namespace CSharpPython.Tests.Vm
         }
 
         [Test]
-        public void ThrowAndCloseAreNotForwardedIntoTheInnerGenerator()
+        public void CloseIsForwardedIntoTheInnerGenerator()
         {
             const string src = "def inner():\n    try:\n        yield 1\n    finally:\n        print('inner finally')\ndef outer():\n    try:\n        yield from inner()\n    finally:\n        print('outer finally')\nit = outer()\nnext(it)\nit.close()\nprint('closed')";
-            Assert.That(Out(src), Is.EqualTo("outer finally\nclosed"));
+            Assert.That(Out(src), Is.EqualTo("inner finally\nouter finally\nclosed"));
+        }
+
+        [Test]
+        public void ForwardedCloseCanWaitInTheInnerFinally()
+        {
+            var (task, sb) = Start("import game\ndef inner():\n    try:\n        yield 1\n    finally:\n        print('inner cleanup')\n        game.wait(2)\n        print('inner done')\ndef outer():\n    try:\n        yield from inner()\n    finally:\n        print('outer cleanup')\nit = outer()\nnext(it)\nit.close()\nprint('closed')");
+            Assert.That(task.Update(), Is.EqualTo(TaskState.Waiting));
+            Assert.That(sb.ToString(), Is.EqualTo("inner cleanup\n"));
+            task.Update();
+            Assert.That(task.Update(), Is.EqualTo(TaskState.Finished));
+            Assert.That(sb.ToString(), Is.EqualTo("inner cleanup\ninner done\nouter cleanup\nclosed\n"));
+        }
+
+        [Test]
+        public void ForwardedThrowCanWaitInTheInnerHandler()
+        {
+            var (task, sb) = Start("import game\ndef inner():\n    try:\n        yield 1\n    except ValueError:\n        game.wait(1)\n        yield 'recovered'\ndef outer():\n    yield from inner()\nit = outer()\nnext(it)\nprint(it.throw(ValueError))");
+            Assert.That(task.Update(), Is.EqualTo(TaskState.Waiting));
+            Assert.That(task.Update(), Is.EqualTo(TaskState.Finished));
+            Assert.That(sb.ToString(), Is.EqualTo("recovered\n"));
+        }
+
+        [Test]
+        public void ThrowingAnObjectIntoADelegatingGeneratorKeepsItsIdentity()
+        {
+            Assert.That(Out("class E(Exception):\n    pass\nboom = E('x')\ndef inner():\n    try:\n        yield 1\n    except E as e:\n        print(e is boom)\n        yield 2\ndef outer():\n    yield from inner()\nit = outer()\nnext(it)\nprint(it.throw(boom))"), Is.EqualTo("True\n2"));
+        }
+
+        [Test]
+        public void ThrowingStopIterationIntoADelegateBecomesARuntimeError()
+        {
+            Assert.That(Out("def inner():\n    yield 1\ndef outer():\n    yield from inner()\nit = outer()\nnext(it)\ntry:\n    it.throw(StopIteration)\nexcept RuntimeError as e:\n    print('RuntimeError')"), Is.EqualTo("RuntimeError"));
         }
 
         [Test]

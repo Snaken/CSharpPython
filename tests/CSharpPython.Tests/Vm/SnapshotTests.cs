@@ -70,6 +70,7 @@ namespace CSharpPython.Tests.Vm
 
         private static readonly string[] Scripts =
         {
+            "import game\ndef a():\n    try:\n        yield 'a1'\n    except ValueError:\n        game.wait(1)\n        yield 'a2'\n    finally:\n        print('a finally')\n        game.wait(1)\ndef b():\n    try:\n        r = yield from a()\n    finally:\n        print('b finally')\ndef c():\n    try:\n        yield from b()\n    finally:\n        print('c finally')\ng = c()\nprint(next(g))\nprint(g.throw(ValueError))\ng.close()\nprint('closed')\nh = c()\nnext(h)\nh.close()\nprint('closed 2')",
             "import game\nf = 1\nfor i in range(1, 26):\n    f *= i\n    if i % 8 == 0:\n        game.wait(1)\nbig = [2 ** 70, -2 ** 64, f]\nd = {2 ** 80: 'x', f: 'y'}\ngame.wait(1)\nprint(f, big, d[2.0 ** 80], d[f], f // 10 ** 20, sorted(big), f > 2 ** 83, float(f), -f % 1000007)",
             "import game\nd = {'a': 1}\nk, v, i = d.keys(), d.values(), d.items()\nit = iter(i)\ngame.wait(1)\nd['b'] = 2\ngame.wait(1)\nprint(k, v, i, next(it), type(k).__name__, k | {'z'} == {'a', 'b', 'z'}, ('b', 2) in i, k == d.keys())",
             "import game\nclass R:\n    def __init__(self, n): self.n = n\n    def __enter__(self):\n        game.wait(1)\n        return self.n\n    def __exit__(self, *a):\n        print('exit', self.n)\n        return False\nbase = {'a': 1}\nwith (R(1) as x,\n      R(2) as y):\n    base |= {'b': x + y}\n    game.wait(1)\nprint(base | {'a': 9}, base)",

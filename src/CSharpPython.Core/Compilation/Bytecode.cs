@@ -124,8 +124,10 @@ namespace CSharpPython.Compilation
         DeleteIndex,  // obj index ->
         LoadSuper,    // -> super().names[arg], bound to the first argument of the running method
         LoadSuper2,   // class obj -> super(class, obj).names[arg]
-        Yield,        // value -> sent; suspends the generator, giving value to whoever resumed it
+        Yield,        // value -> sent; suspends the generator, giving value to whoever resumed it; arg = the ForIterThrow address inside 'yield from'
         ForIterSend,  // iterator sent -> iterator value, or pops the iterator and jumps to arg when exhausted; 'yield from'
+        ForIterThrow, // iterator exception -> iterator value, or raises the exception inside the iterator; 'yield from' under throw() or close()
+        AfterThrow,   // after ForIterThrow: under close(), the delegate is closed, so GeneratorExit is raised here
         GenReturn,    // -> the value the last exhausted generator returned (None for other iterators); ends 'yield from'
     }
 

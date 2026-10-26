@@ -1,4 +1,5 @@
 using System;
+using CSharpPython.Compilation;
 
 namespace CSharpPython
 {
@@ -111,9 +112,25 @@ namespace CSharpPython
                 Push(Value.None);
                 return CallDone;
             }
-            ResumeGenerator(g, Value.None, calleeIndex, close ? GenMode.Close : GenMode.Call, Value.Unbound);
+            ResumeWithException(g, raised, calleeIndex, close ? GenMode.Close : GenMode.Call);
+            return CallFrame;
+        }
+
+        // Resumes a suspended generator with an exception raised at its last yield. A generator that is inside
+        // 'yield from' carries on at ForIterThrow instead, which hands the exception down to the generator it delegates
+        // to; so the exception reaches the innermost one first, however deep the chain.
+        private void ResumeWithException(PyGenerator g, PyExceptionValue exc, int calleeIndex, GenMode mode)
+        {
+            Instruction suspendedAt = g.Code.Instructions[g.Pc - 1];
+            if (suspendedAt.Op == Op.Yield && suspendedAt.Arg != 0)
+            {
+                ResumeGenerator(g, ValueOf(exc), calleeIndex, mode, Value.Unbound);
+                _frames[_frameCount - 1].Pc = suspendedAt.Arg;
+                return;
+            }
+            ResumeGenerator(g, Value.None, calleeIndex, mode, Value.Unbound);
             _sp--; // the value a resumed yield would have received
-            throw new ScriptRaise(raised);
+            throw new ScriptRaise(exc);
         }
 
         // The exception g.throw(type, value) raises: an exception instance as it is, or a class called with the value.

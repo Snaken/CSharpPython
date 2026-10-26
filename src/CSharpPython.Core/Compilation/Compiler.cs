@@ -462,9 +462,15 @@ namespace CSharpPython.Compilation
             Emit(Op.LoadConst, Constant(Value.None)); // what send() delivered; None before the first item
             int top = Here;
             int forIter = Emit(Op.ForIterSend);
-            Emit(Op.Yield);
+            int yieldAt = Emit(Op.Yield);
             Emit(Op.Jump, top);
+            // throw() and close() resume here instead, so the exception can go into the generator being delegated to.
+            _unit.Instructions[yieldAt] = new Instruction(Op.Yield, Here);
+            int forThrow = Emit(Op.ForIterThrow);
+            Emit(Op.AfterThrow);
+            Emit(Op.Jump, yieldAt);
             Patch(forIter);
+            Patch(forThrow);
             Emit(Op.GenReturn);
         }
 

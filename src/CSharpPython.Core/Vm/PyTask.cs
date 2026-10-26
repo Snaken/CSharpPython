@@ -884,6 +884,30 @@ namespace CSharpPython
                         }
                         break;
                     }
+                    case Op.ForIterThrow:
+                    {
+                        // throw() or close() reached a generator that is inside 'yield from': the exception goes into the
+                        // generator it delegates to (an iterator of any other kind has no way to take it, so it arises here).
+                        PyExceptionValue thrown = AsException(_stack[--_sp]);
+                        if (_stack[_sp - 1].RawObject is PyGenerator throwGen && throwGen.State == GeneratorState.Suspended)
+                        {
+                            ResumeWithException(throwGen, thrown, _sp, frame.GenMode == GenMode.Close ? GenMode.Close : GenMode.For);
+                            frame = _frames[_frameCount - 1];
+                            code = frame.Code;
+                            instructions = code.Instructions;
+                            pc = frame.Pc;
+                            bas = frame.Base;
+                            break;
+                        }
+                        throw new ScriptRaise(thrown);
+                    }
+                    case Op.AfterThrow:
+                        if (frame.GenMode == GenMode.Close)
+                        {
+                            _sp--; // the None the closed generator delivered
+                            throw new ScriptRaise(new PyExceptionValue(ExceptionTypes.GeneratorExit, ""));
+                        }
+                        break;
                     case Op.GenReturn:
                         Push(_lastReturn);
                         _lastReturn = Value.None;
