@@ -36,7 +36,7 @@ namespace CSharpPython
                 case ValueKind.Float: return "float";
                 case ValueKind.Str: return "str";
                 case ValueKind.List: return "list";
-                case ValueKind.Tuple: return "tuple";
+                case ValueKind.Tuple: return ((PyTuple)v.RawObject).Named?.Name ?? "tuple";
                 case ValueKind.Dict: return DictTypeName((PyDict)v.RawObject);
                 case ValueKind.Deque: return "deque";
                 case ValueKind.Set: return ((PySet)v.RawObject).Frozen ? "frozenset" : "set";

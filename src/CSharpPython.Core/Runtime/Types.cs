@@ -16,6 +16,14 @@ namespace CSharpPython
         /// <summary>What calling the type does, or null when scripts cannot create instances.</summary>
         internal NativeFunction Constructor;
 
+        /// <summary>For a <c>namedtuple</c> type, its field names; null for every other type.</summary>
+        internal string[] Fields;
+
+        /// <summary>For a <c>namedtuple</c> type, the defaults of its last fields.</summary>
+        internal Value[] FieldDefaults;
+
+        internal bool IsNamedTuple => Fields != null;
+
         internal PyType(string name, ValueKind? kind)
         {
             Name = name;
@@ -88,6 +96,7 @@ namespace CSharpPython
                 case ValueKind.Set: return Value.FromType(((PySet)v.RawObject).Frozen ? FrozenSet : Set);
                 case ValueKind.DictView: return Value.FromType(ViewType((PyDictView)v.RawObject));
                 case ValueKind.Dict: return Value.FromType(DictType((PyDict)v.RawObject));
+                case ValueKind.Tuple when ((PyTuple)v.RawObject).Named != null: return Value.FromType(((PyTuple)v.RawObject).Named);
                 case ValueKind.Descriptor:
                     switch (((PyDescriptor)v.RawObject).Kind)
                     {
@@ -131,6 +140,7 @@ namespace CSharpPython
                     if (t == Type) return IsClass(value);
                     if (t == Int && value.Kind == ValueKind.Bool) return true; // bool is a kind of int
                     if (t.Kind == ValueKind.Set && value.Kind == ValueKind.Set) return ((PySet)value.RawObject).Frozen == (t == FrozenSet);
+                    if (t.IsNamedTuple) return value.Kind == ValueKind.Tuple && ((PyTuple)value.RawObject).Named == t;
                     if (t.Kind == ValueKind.Dict && value.Kind == ValueKind.Dict) return t == Dict || DictType((PyDict)value.RawObject) == t;   // every kind of dictionary is a dict
                     if (t.Kind == ValueKind.DictView && value.Kind == ValueKind.DictView) return ViewType((PyDictView)value.RawObject) == t;
                     if (t.Kind == ValueKind.Descriptor && value.Kind == ValueKind.Descriptor) return TypeOf(value).RawObject == (object)t;
@@ -165,7 +175,7 @@ namespace CSharpPython
                     if (b == Object) return true;
                     if (sub.Kind != ValueKind.Type) return false;
                     var a = (PyType)sub.RawObject;
-                    return a == b || (a == Bool && b == Int) || (b == Dict && (a == DefaultDict || a == Counter));
+                    return a == b || (a == Bool && b == Int) || (b == Dict && (a == DefaultDict || a == Counter)) || (b == Tuple && a.IsNamedTuple);
                 }
                 case ValueKind.Class:
                     return sub.Kind == ValueKind.Class &&

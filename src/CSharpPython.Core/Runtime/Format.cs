@@ -91,6 +91,22 @@ namespace CSharpPython
                 case ValueKind.List:
                     WriteSequence(sb, ((PyList)v.RawObject).Items, v.RawObject, "[", "]", seen);
                     return;
+                case ValueKind.Tuple when ((PyTuple)v.RawObject).Named != null:
+                {
+                    var tuple = (PyTuple)v.RawObject;
+                    if (seen.Contains(tuple) || seen.Count >= MaxReprDepth) { sb.Append(tuple.Named.Name).Append("(...)"); return; }
+                    seen.Add(tuple);
+                    sb.Append(tuple.Named.Name).Append('(');
+                    for (int i = 0; i < tuple.Items.Length; i++)
+                    {
+                        if (i > 0) sb.Append(", ");
+                        sb.Append(tuple.Named.Fields[i]).Append('=');
+                        WriteRepr(sb, tuple.Items[i], seen);
+                    }
+                    sb.Append(')');
+                    seen.RemoveAt(seen.Count - 1);
+                    return;
+                }
                 case ValueKind.Tuple:
                 {
                     var items = ((PyTuple)v.RawObject).Items;

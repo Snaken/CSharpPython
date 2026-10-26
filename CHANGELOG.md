@@ -4,7 +4,8 @@
 
 - The documentation now gives the measured nesting limits for each Unity platform (about 90 to 140 nested brackets, depending on stack size).
 
-- `collections` module with `defaultdict` and `Counter` (snapshot format version 13). `deque` (a ring buffer, with `maxlen`) is there too; `namedtuple` follows.
+- `collections` module with `defaultdict` and `Counter` (snapshot format version 13). `deque` (a ring buffer, with `maxlen`) and `namedtuple` (instances are real tuples that point to their type; types and instances are saved by snapshots) are there too.
+- A bound method of a `Counter`, a frozenset or a named tuple is restored to the right method (it used to be looked up on the plain type).
 - `random` module, matching CPython's numbers for a given `int` seed: `seed`, `random`, `getrandbits`, `randrange`, `randint`, `choice`, `shuffle`, `sample`, `choices`, `uniform`, `triangular`, `normalvariate`, `gauss`, `lognormvariate` and `expovariate`. Each task has its own generator and snapshots save it (snapshot format version 12 for random, 13 with collections).
 - A damaged snapshot can no longer register exception types with empty or invalid names.
 - Positional-only parameters: `def f(a, b, /, c)`.

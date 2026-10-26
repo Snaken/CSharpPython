@@ -141,6 +141,19 @@ namespace CSharpPython
                 }
                 case ValueKind.Type:
                     if (name == "__name__") return Value.FromString(((PyType)obj.RawObject).Name);
+                    if (((PyType)obj.RawObject).IsNamedTuple)
+                    {
+                        var named = (PyType)obj.RawObject;
+                        if (name == "_fields") return Value.FromTuple(new PyTuple(Array.ConvertAll(named.Fields, f => Value.FromString(f))));
+                        if (name == "_make") return Value.FromBound(new BoundMethod(obj, NamedTuples.MakeMethod));
+                        if (name == "_field_defaults")
+                        {
+                            var defaults = new PyDict();
+                            int first = named.Fields.Length - named.FieldDefaults.Length;
+                            for (int i = 0; i < named.FieldDefaults.Length; i++) defaults.Set(Value.FromString(named.Fields[first + i]), named.FieldDefaults[i]);
+                            return Value.FromDict(defaults);
+                        }
+                    }
                     // object.__setattr__(self, name, value) and the like, for a class's own hooks to call.
                     if ((PyType)obj.RawObject == PyTypes.Object && Methods.Find(ValueKind.Instance, name) is NativeFunction objectMethod)
                         return Value.FromNative(objectMethod);
@@ -186,6 +199,14 @@ namespace CSharpPython
             }
             if (obj.Kind == ValueKind.Dict && name == "default_factory" && ((PyDict)obj.RawObject).Flavor == DictFlavor.Default)
                 return ((PyDict)obj.RawObject).Factory;
+            if (obj.Kind == ValueKind.Tuple && ((PyTuple)obj.RawObject).Named != null)
+            {
+                var tuple = (PyTuple)obj.RawObject;
+                int field = Array.IndexOf(tuple.Named.Fields, name);
+                if (field >= 0) return tuple.Items[field];
+                if (name == "_fields") return GetAttrCore(Value.FromType(tuple.Named), name);
+                if (name == "_field_defaults") return GetAttrCore(Value.FromType(tuple.Named), name);
+            }
             if (obj.Kind == ValueKind.Deque && name == "maxlen")
                 return ((PyDeque)obj.RawObject).MaxLen < 0 ? Value.None : Value.FromInt(((PyDeque)obj.RawObject).MaxLen);
             if (Methods.FindFor(obj, name) is NativeFunction method)

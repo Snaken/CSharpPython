@@ -67,7 +67,7 @@ namespace CSharpPython
 
     internal sealed class SnapshotWriter
     {
-        private const byte ContainerList = 0, ContainerTuple = 1, ContainerDict = 2, ContainerCell = 3, ContainerClass = 4, ContainerInstance = 5, ContainerSet = 6, ContainerFrozenSet = 7, ContainerDeque = 8;
+        private const byte ContainerList = 0, ContainerTuple = 1, ContainerDict = 2, ContainerCell = 3, ContainerClass = 4, ContainerInstance = 5, ContainerSet = 6, ContainerFrozenSet = 7, ContainerDeque = 8, ContainerNamedType = 9;
 
         private readonly PyVm _vm;
         private readonly Script _script;
@@ -95,7 +95,15 @@ namespace CSharpPython
                     break;
                 case ValueKind.Tuple:
                     if (AddContainer(v))
-                        foreach (var item in ((PyTuple)v.RawObject).Items) Collect(item);
+                    {
+                        var tuple = (PyTuple)v.RawObject;
+                        if (tuple.Named != null) Collect(Value.FromType(tuple.Named));
+                        foreach (var item in tuple.Items) Collect(item);
+                    }
+                    break;
+                case ValueKind.Type:
+                    if (((PyType)v.RawObject).IsNamedTuple && AddContainer(v))
+                        foreach (var item in ((PyType)v.RawObject).FieldDefaults) Collect(item);
                     break;
                 case ValueKind.Deque:
                     if (AddContainer(v))
@@ -283,9 +291,22 @@ namespace CSharpPython
                     case ValueKind.Tuple:
                     {
                         w.Write(ContainerTuple);
-                        var items = ((PyTuple)c.RawObject).Items;
-                        w.Write(items.Length);
-                        foreach (var item in items) WriteValue(pw, item);
+                        var tuple = (PyTuple)c.RawObject;
+                        w.Write(tuple.Items.Length);
+                        pw.Write(tuple.Named != null);
+                        if (tuple.Named != null) WriteValue(pw, Value.FromType(tuple.Named));
+                        foreach (var item in tuple.Items) WriteValue(pw, item);
+                        break;
+                    }
+                    case ValueKind.Type:
+                    {
+                        w.Write(ContainerNamedType);
+                        var type = (PyType)c.RawObject;
+                        SnapshotIo.WriteString(w, type.Name);
+                        w.Write(type.Fields.Length);
+                        foreach (var field in type.Fields) SnapshotIo.WriteString(w, field);
+                        pw.Write(type.FieldDefaults.Length);
+                        foreach (var item in type.FieldDefaults) WriteValue(pw, item);
                         break;
                     }
                     case ValueKind.Set:
@@ -570,7 +591,9 @@ namespace CSharpPython
                     SnapshotIo.WriteString(w, ((PyExceptionType)v.RawObject).Name);
                     break;
                 case ValueKind.Type:
-                    SnapshotIo.WriteString(w, ((PyType)v.RawObject).Name);
+                    w.Write(((PyType)v.RawObject).IsNamedTuple);
+                    if (((PyType)v.RawObject).IsNamedTuple) w.Write(Id(_containerIds, v));
+                    else SnapshotIo.WriteString(w, ((PyType)v.RawObject).Name);
                     break;
                 case ValueKind.List:
                 case ValueKind.Deque:
@@ -616,6 +639,8 @@ namespace CSharpPython
                 foreach (var name in Methods.CounterNames)
                     _natives[Methods.FindCounter(name)] = "c:" + name;
                 _natives[Methods.DictFromKeysNative] = "s:dict.fromkeys";
+                foreach (var name in NamedTuples.MethodNames) _natives[NamedTuples.FindMethod(name)] = "n:" + name;
+                _natives[NamedTuples.MakeMethod] = "n:_make";
                 foreach (var name in Methods.InstanceNames)
                 {
                     var method = Methods.Find(ValueKind.Instance, name);
@@ -673,6 +698,17 @@ namespace CSharpPython
                     case 5: shells[i] = new PyInstance(null); break;
                     case 6: shells[i] = new PySet(); break;
                     case 7: shells[i] = new PySet { Frozen = true }; break;
+                    case 9:
+                    {
+                        string typeName = SnapshotIo.ReadTypeName(r);
+                        int fieldCount = SnapshotIo.ReadCount(r, 4);
+                        var fields = new string[fieldCount];
+                        for (int f = 0; f < fieldCount; f++) fields[f] = SnapshotIo.ReadTypeName(r);
+                        var type = new PyType(typeName, ValueKind.Tuple) { Module = "__main__", Fields = fields, FieldDefaults = new Value[0] };
+                        NamedTuples.AttachConstructor(type);
+                        shells[i] = type;
+                        break;
+                    }
                     case 8:
                     {
                         long maxLen = r.ReadInt64();
@@ -708,9 +744,9 @@ namespace CSharpPython
             }
 
             // Fill containers: tuples, then lists, then dicts.
-            for (byte pass = 1; pass <= 8; pass++)
+            for (byte pass = 1; pass <= 9; pass++)
             {
-                int kind = pass == 1 ? 1 : pass == 2 ? 3 : pass == 3 ? 0 : pass == 4 ? 2 : pass == 5 ? 4 : pass == 6 ? 5 : pass == 7 ? 6 : 8;
+                int kind = pass == 1 ? 1 : pass == 2 ? 3 : pass == 3 ? 0 : pass == 4 ? 2 : pass == 5 ? 4 : pass == 6 ? 5 : pass == 7 ? 6 : pass == 8 ? 8 : 9;
                 for (int i = 0; i < containers; i++)
                     if (kinds[i] == kind || (kind == 6 && kinds[i] == 7)) FillContainer(i);
             }
@@ -743,8 +779,24 @@ namespace CSharpPython
                     break;
                 }
                 case PyTuple tuple:
+                    if (r.ReadBoolean())
+                    {
+                        Value type = ReadValue(r);
+                        if (type.Kind != ValueKind.Type || !((PyType)type.RawObject).IsNamedTuple || ((PyType)type.RawObject).Fields.Length != tuple.Items.Length)
+                            throw new SnapshotException("the snapshot is damaged");
+                        tuple.Named = (PyType)type.RawObject;
+                    }
                     for (int i = 0; i < tuple.Items.Length; i++) tuple.Items[i] = ReadValue(r);
                     break;
+                case PyType namedType:
+                {
+                    int n = SnapshotIo.ReadCount(r, 1);
+                    if (n > namedType.Fields.Length) throw new SnapshotException("the snapshot is damaged");
+                    var defaults = new Value[n];
+                    for (int i = 0; i < n; i++) defaults[i] = ReadValue(r);
+                    namedType.FieldDefaults = defaults;
+                    break;
+                }
                 case PyDeque deque:
                 {
                     int n = SnapshotIo.ReadCount(r, 1);
@@ -843,7 +895,10 @@ namespace CSharpPython
                 {
                     Value self = ReadValue(r);
                     string name = SnapshotIo.ReadString(r);
-                    var method = Methods.Find(self.Kind, name);
+                    // FindFor knows the methods that depend on the object itself: a Counter's, a frozenset's, a named tuple's.
+                    var method = self.Kind == ValueKind.Type && name == "_make" && ((PyType)self.RawObject).IsNamedTuple
+                        ? NamedTuples.MakeMethod
+                        : Methods.FindFor(self, name);
                     if (method == null) throw new SnapshotException("unknown method '" + name + "'");
                     _objects[id] = new BoundMethod(self, method);
                     break;
@@ -1079,6 +1134,7 @@ namespace CSharpPython
                     return Value.FromExceptionType(ExceptionTypes.GetOrCreate(SnapshotIo.ReadTypeName(r)));
                 case ValueKind.Type:
                 {
+                    if (r.ReadBoolean()) return Value.FromType((PyType)ContainerAs(r.ReadInt32(), typeof(PyType)));
                     string name = SnapshotIo.ReadString(r);
                     if (!PyTypes.TryGet(name, out var type)) throw new SnapshotException("the snapshot is damaged");
                     return Value.FromType(type);
@@ -1155,6 +1211,10 @@ namespace CSharpPython
                         break;
                     case "s":
                         if (parts[1] == "dict.fromkeys") return Methods.DictFromKeysNative;
+                        break;
+                    case "n":
+                        if (parts[1] == "_make") return NamedTuples.MakeMethod;
+                        if (NamedTuples.FindMethod(parts[1]) is NativeFunction namedMethod) return namedMethod;
                         break;
                     case "t":
                         if (parts.Length == 3 && int.TryParse(parts[1], out int kind))

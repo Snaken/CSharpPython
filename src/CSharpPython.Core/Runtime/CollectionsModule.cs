@@ -14,6 +14,7 @@ namespace CSharpPython
             PyTypes.Deque.Constructor = new NativeFunction("deque", MakeDeque, 0, 2, true);
             m.Members["Counter"] = Value.FromType(PyTypes.Counter);
             m.Members["deque"] = Value.FromType(PyTypes.Deque);
+            m.Members["namedtuple"] = Value.FromNative(new NativeFunction("namedtuple", NamedTuples.Make, 0, 2, true));
             return m;
         }
 

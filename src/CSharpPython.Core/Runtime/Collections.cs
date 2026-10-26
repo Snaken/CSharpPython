@@ -20,6 +20,9 @@ namespace CSharpPython
     {
         public readonly Value[] Items;
 
+        /// <summary>The <c>namedtuple</c> type this tuple is an instance of, or null for a plain tuple.</summary>
+        internal PyType Named;
+
         public PyTuple(Value[] items) { Items = items; }
 
         public int Count => Items.Length;

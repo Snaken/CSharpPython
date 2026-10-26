@@ -1,0 +1,55 @@
+Point(x=1, y=2) Point(x=1, y=2) Point(x=1, y=2) 1 2 1 2 2 2
+Point(x=3, y=4) Point(x=5, y=6) Point(x=7, y=8)
+1 2 [1, 2] (1, 2) [1, 2] {'a': 1, 'b': 2}
+True True True True True True [Point(x=1, y=2), Point(x=1, y=5), Point(x=2, y=1)]
+True a b True True True False
+1 1 (1,) (2, 1) tuple (1, 2, 3) (1, 2, 1, 2)
+Point True True True False True False <class '__main__.Point'>
+Point ('x', 'y') ('x', 'y') {}
+{'x': 1, 'y': 2} Point(x=10, y=2) Point(x=1, y=2) Point(x=7, y=8) Point(x=9, y=10) Point(x=1, y=2)
+2 1 3 True True ['1', '2'] [(0, 1), (1, 2)]
+2 True True
+Point(x=1, y=[2]) Point(x='a', y=None) Point(x=Point(x=1, y=2), y=3) (Point(x=1, y=2),)
+Person(name='Bob', age=30) Bob 30
+Three(a=1, b=2, c=3) ('a', 'b', 'c')
+Many(a=1, b=2)
+Empty() 0 () True
+One(v=5) True One(v=1)
+True False False False
+D(a=1, b=10, c=20) D(a=1, b=2, c=20) D(a=1, b=2, c=3) D(a=0, b=10, c=5) {'b': 10, 'c': 20}
+E2(a=1, b=5) {'b': 5}
+F(a=1, b=2)
+G(a=1)
+('a', '_1', '_2', '_3', 'ok', '_5') R(a=1, _1=2, _2=3, _3=4, ok=5, _5=6)
+TypeError
+TypeError
+TypeError
+TypeError
+TypeError
+TypeError
+TypeError
+TypeError
+TypeError
+TypeError
+TypeError
+AttributeError
+AttributeError
+AttributeError
+IndexError
+AttributeError
+ValueError
+ValueError
+ValueError
+ValueError
+ValueError
+ValueError
+ValueError
+ValueError
+TypeError
+TypeError
+TypeError
+TypeError
+ValueError
+AttributeError
+TypeError
+K(a=1, b=2) K2(q=3)

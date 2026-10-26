@@ -34,6 +34,7 @@ namespace CSharpPython
         public static NativeFunction FindFor(Value obj, string name)
         {
             if (obj.Kind == ValueKind.Set && ((PySet)obj.RawObject).Frozen && SetMutators.Contains(name)) return null;
+            if (obj.Kind == ValueKind.Tuple && ((PyTuple)obj.RawObject).Named != null && NamedTuples.FindMethod(name) is NativeFunction namedMethod) return namedMethod;
             if (obj.Kind == ValueKind.Dict && ((PyDict)obj.RawObject).Flavor == DictFlavor.Counter && CounterMethods.TryGetValue(name, out var counterMethod)) return counterMethod;
             if (obj.Kind == ValueKind.Descriptor && ((PyDescriptor)obj.RawObject).Kind != DescriptorKind.Property) return null;
             return Find(obj.Kind, name);

@@ -124,6 +124,41 @@ namespace CSharpPython.Tests.Vm
         }
 
         [Test]
+        public void ANamedTupleTypeKeepsOneIdentityAfterARestore()
+        {
+            const string source = "import game\nfrom collections import namedtuple\nPoint = namedtuple('Point', 'x y')\na = Point(1, 2)\nb = [Point(3, 4)]\ngame.wait(5)\nsame = type(a) is Point and type(b[0]) is Point and isinstance(a, Point)\nother = Point(x=9, y=8)\n";
+            var vm = NewVm(new StringBuilder(), true);
+            var script = vm.Compile(source);
+            var task = vm.Start(script);
+            for (int i = 0; i < 30 && task.State != TaskState.Waiting; i++) task.Update();
+            var restored = NewVm(new StringBuilder(), true).Restore(script, task.Save());
+            Run(restored);
+            Assert.That(restored.Globals["same"].Repr(), Is.EqualTo("True"));
+            Assert.That(restored.Globals["other"].Repr(), Is.EqualTo("Point(x=9, y=8)"));
+        }
+
+        [Test]
+        public void ANamedTupleTypeWithADamagedFieldNameIsRejectedWhenRestoring()
+        {
+            var vm = NewVm(new StringBuilder(), true);
+            var script = vm.Compile("import game\nfrom collections import namedtuple\nPoint = namedtuple('Point', 'xaxis')\np = Point(1)\ngame.wait(5)");
+            var task = vm.Start(script);
+            for (int i = 0; i < 30 && task.State != TaskState.Waiting; i++) task.Update();
+            byte[] bytes = task.Save();
+            byte[] needle = Encoding.Unicode.GetBytes("xaxis");
+            int at = -1;
+            for (int i = 0; i + needle.Length <= bytes.Length && at < 0; i++)
+            {
+                bool match = true;
+                for (int k = 0; k < needle.Length && match; k++) match = bytes[i + k] == needle[k];
+                if (match) at = i;
+            }
+            Assert.That(at, Is.GreaterThan(0));
+            bytes[at] = (byte)'!';
+            Assert.Throws<SnapshotException>(() => NewVm(new StringBuilder(), true).Restore(script, bytes));
+        }
+
+        [Test]
         public void AnExceptionTypeWithADamagedNameIsRejectedWhenRestoring()
         {
             var vm = NewVm(new StringBuilder(), true);

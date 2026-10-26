@@ -96,6 +96,9 @@ namespace CSharpPython.Editor
             { "deque.count", "x" }, { "deque.index", "x, start=0, stop=None" }, { "deque.insert", "i, x" },
             { "deque.remove", "value" }, { "deque.reverse", "" }, { "deque.rotate", "n=1" },
 
+            { "namedtuple._asdict", "" }, { "namedtuple._replace", "**kwargs" }, { "namedtuple._make", "iterable" },
+            { "collections.namedtuple", "typename, field_names, *, rename=False, defaults=None, module=None" },
+
             // str methods.
             { "str.upper", "" }, { "str.lower", "" }, { "str.strip", "chars=None" }, { "str.lstrip", "chars=None" },
             { "str.rstrip", "chars=None" }, { "str.split", "sep=None, maxsplit=-1" }, { "str.join", "iterable" },
