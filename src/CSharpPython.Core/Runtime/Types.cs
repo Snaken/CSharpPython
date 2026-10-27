@@ -83,6 +83,15 @@ namespace CSharpPython
             return t;
         }
 
+        private static readonly System.Collections.Generic.Dictionary<string, PyType> ItertoolsTypes = new System.Collections.Generic.Dictionary<string, PyType>();
+
+        /// <summary>The type of an <c>itertools</c> iterator, such as <c>itertools.chain</c>.</summary>
+        internal static PyType ItertoolsType(string name)
+        {
+            if (!ItertoolsTypes.TryGetValue(name, out var type)) ItertoolsTypes[name] = type = new PyType(name, ValueKind.Iterator) { Module = "itertools" };
+            return type;
+        }
+
         public static bool TryGet(string name, out PyType type) => ByName.TryGetValue(name, out type);
 
         /// <summary>The type of a value, as a value (what <c>type(x)</c> returns).</summary>
@@ -93,6 +102,7 @@ namespace CSharpPython
                 case ValueKind.Exception: return Value.FromExceptionType(((PyExceptionValue)v.RawObject).Type);
                 case ValueKind.Instance: return Value.FromClass(((PyInstance)v.RawObject).Class);
                 case ValueKind.Iterator when v.RawObject is PyGenerator: return Value.FromType(Generator);
+                case ValueKind.Iterator when v.RawObject is ItertoolsIterator itertools: return Value.FromType(ItertoolsType(itertools.TypeName));
                 case ValueKind.Set: return Value.FromType(((PySet)v.RawObject).Frozen ? FrozenSet : Set);
                 case ValueKind.DictView: return Value.FromType(ViewType((PyDictView)v.RawObject));
                 case ValueKind.Dict: return Value.FromType(DictType((PyDict)v.RawObject));

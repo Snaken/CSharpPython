@@ -38,6 +38,9 @@ namespace CSharpPython
             modules["math"] = MathModule();
             modules["random"] = RandomModule.Create();
             modules["collections"] = CollectionsModule.Create();
+            modules["itertools"] = ItertoolsModule.Create();
+            modules["functools"] = FunctoolsModule.Create();
+            modules["operator"] = FunctoolsModule.CreateOperator();
         }
 
         private static string NameArg(Value v, string function)

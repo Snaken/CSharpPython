@@ -164,6 +164,9 @@ namespace CSharpPython
                     if (v.RawObject is PyGenerator gen)
                         sb.Append("<generator object ").Append(gen.Name).Append(" at 0x")
                             .Append(System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(gen).ToString("x8")).Append('>');
+                    else if (v.RawObject is ItertoolsIterator itertools)
+                        sb.Append("<itertools.").Append(itertools.TypeName).Append(" object at 0x")
+                            .Append(System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(itertools).ToString("x8")).Append('>');
                     else sb.Append("<iterator>");
                     return;
                 case ValueKind.Exception:

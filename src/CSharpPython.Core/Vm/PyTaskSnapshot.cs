@@ -7,7 +7,10 @@ namespace CSharpPython
 {
     public sealed partial class PyTask
     {
-        private const ushort SnapshotVersion = 13;
+        private const ushort SnapshotVersion = 14;
+
+        // Version 14 added the itertools iterators and changed nothing else, so saves of version 13 are read as they are.
+        private const ushort OldestReadableVersion = 13;
         private static readonly byte[] SnapshotMagic = { (byte)'C', (byte)'S', (byte)'P', (byte)'Y' };
 
         // The deepest value stack a restored snapshot may claim, so that damaged data cannot ask for gigabytes.
@@ -155,7 +158,7 @@ namespace CSharpPython
                 magic[2] != SnapshotMagic[2] || magic[3] != SnapshotMagic[3])
                 throw new SnapshotException("this is not a CSharpPython snapshot");
             ushort version = r.ReadUInt16();
-            if (version != SnapshotVersion)
+            if (version < OldestReadableVersion || version > SnapshotVersion)
                 throw new SnapshotException("snapshot version " + version + " is not supported (expected " + SnapshotVersion + ")");
             if (r.ReadUInt64() != script.Fingerprint)
                 throw new SnapshotException("the snapshot was taken from a different script");

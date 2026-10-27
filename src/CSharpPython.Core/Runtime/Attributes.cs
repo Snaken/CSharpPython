@@ -209,6 +209,8 @@ namespace CSharpPython
             }
             if (obj.Kind == ValueKind.Deque && name == "maxlen")
                 return ((PyDeque)obj.RawObject).MaxLen < 0 ? Value.None : Value.FromInt(((PyDeque)obj.RawObject).MaxLen);
+            if (obj.Kind == ValueKind.Native && name == "from_iterable" && obj.RawObject == ItertoolsModule.Chain)
+                return Value.FromNative(ItertoolsModule.ChainFromIterable);
             if (Methods.FindFor(obj, name) is NativeFunction method)
                 return Value.FromBound(new BoundMethod(obj, method));
             throw NoAttribute(obj, name);

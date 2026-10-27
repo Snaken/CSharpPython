@@ -241,6 +241,11 @@ namespace CSharpPython
                     Collect(f.Function);
                     Collect(Value.FromIterator(f.Source));
                     break;
+                case ItertoolsIterator t:
+                    foreach (var s in t.Sources) if (s != null) Collect(Value.FromIterator(s));
+                    foreach (var a in t.Args) Collect(a);
+                    foreach (var item in t.Items) Collect(item);
+                    break;
             }
         }
 
@@ -507,6 +512,22 @@ namespace CSharpPython
                     WriteValue(w, f.Function);
                     WriteValue(w, Value.FromIterator(f.Source));
                     break;
+                case ItertoolsIterator t:
+                    w.Write((byte)12);
+                    w.Write((byte)t.Kind);
+                    w.Write(t.Sources.Length);
+                    foreach (var src in t.Sources)
+                    {
+                        w.Write(src != null);
+                        if (src != null) WriteValue(w, Value.FromIterator(src));
+                    }
+                    w.Write(t.Args.Length);
+                    foreach (var a in t.Args) WriteValue(w, a);
+                    w.Write(t.State.Length);
+                    foreach (var n in t.State) w.Write(n);
+                    w.Write(t.Items.Count);
+                    foreach (var item in t.Items) WriteValue(w, item);
+                    break;
                 case InstanceIterator i:
                     w.Write((byte)7);
                     WriteValue(w, i.Target);
@@ -639,6 +660,7 @@ namespace CSharpPython
                 foreach (var name in Methods.CounterNames)
                     _natives[Methods.FindCounter(name)] = "c:" + name;
                 _natives[Methods.DictFromKeysNative] = "s:dict.fromkeys";
+                _natives[ItertoolsModule.ChainFromIterable] = "s:chain.from_iterable";
                 foreach (var name in NamedTuples.MethodNames) _natives[NamedTuples.FindMethod(name)] = "n:" + name;
                 _natives[NamedTuples.MakeMethod] = "n:_make";
                 foreach (var name in Methods.InstanceNames)
@@ -1033,9 +1055,29 @@ namespace CSharpPython
                     Value function = ReadValue(r);
                     return new FilterIterator(function, AsIterator(ReadValue(r)));
                 }
+                case 12: return ReadItertools(r);
                 default:
                     throw new SnapshotException("the snapshot is damaged");
             }
+        }
+
+        private ItertoolsIterator ReadItertools(BinaryReader r)
+        {
+            byte kind = r.ReadByte();
+            if (kind > (byte)ItertoolsKind.Grouper) throw new SnapshotException("the snapshot is damaged");
+            var sources = new PyIterator[SnapshotIo.ReadCount(r, 1)];
+            for (int i = 0; i < sources.Length; i++)
+                if (r.ReadBoolean()) sources[i] = AsIterator(ReadValue(r));
+            var args = new Value[SnapshotIo.ReadCount(r, 1)];
+            for (int i = 0; i < args.Length; i++) args[i] = ReadValue(r);
+            var state = new long[SnapshotIo.ReadCount(r, 8)];
+            for (int i = 0; i < state.Length; i++) state[i] = r.ReadInt64();
+            int count = SnapshotIo.ReadCount(r, 1);
+            var items = new List<Value>(count);
+            for (int i = 0; i < count; i++) items.Add(ReadValue(r));
+            var it = new ItertoolsIterator((ItertoolsKind)kind, sources, args, state, items);
+            if (!it.IsConsistent()) throw new SnapshotException("the snapshot is damaged");
+            return it;
         }
 
         private PyGenerator ReadGenerator(BinaryReader r)
@@ -1211,6 +1253,7 @@ namespace CSharpPython
                         break;
                     case "s":
                         if (parts[1] == "dict.fromkeys") return Methods.DictFromKeysNative;
+                        if (parts[1] == "chain.from_iterable") return ItertoolsModule.ChainFromIterable;
                         break;
                     case "n":
                         if (parts[1] == "_make") return NamedTuples.MakeMethod;

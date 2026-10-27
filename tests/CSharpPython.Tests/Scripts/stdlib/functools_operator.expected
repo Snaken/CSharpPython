@@ -1,0 +1,13 @@
+10 120 0 zab 9
+5123 [1, 2, 3] {1, 2} 7
+TypeError
+TypeError
+TypeError
+TypeError
+TypeError
+5 -1 6 3.5 3 1 32 -4 -4 -6
+2 7 5 16 8 [1, 2] ab
+True True True True False True True False True True
+True False 7 1 b [3, 2, 1]
+[11, 22] ['aa', 'bbb'] [(2, 'a'), (1, 'b')]
+30 24
