@@ -176,6 +176,16 @@ namespace CSharpPython
                 case ValueKind.BoundMethod:
                     if (AddLeaf(v)) Collect(((BoundMethod)v.RawObject).Self);
                     break;
+                case ValueKind.Functool:
+                    if (AddLeaf(v))
+                    {
+                        var f = (PyFunctool)v.RawObject;
+                        Collect(f.Func);
+                        foreach (var a in f.Args) Collect(a);
+                        foreach (var a in f.KwValues) Collect(a);
+                        if (f.Cache != null) Collect(Value.FromDict(f.Cache));
+                    }
+                    break;
                 case ValueKind.Slice:
                     if (AddLeaf(v))
                     {
@@ -392,6 +402,27 @@ namespace CSharpPython
                     w.Write(fn.Closure.Length);
                     foreach (var cell in fn.Closure) WriteValue(w, Value.FromCell(cell));
                     WriteValue(w, fn.Owner == null ? Value.None : Value.FromClass(fn.Owner));
+                    break;
+                }
+                case ValueKind.Functool:
+                {
+                    var f = (PyFunctool)v.RawObject;
+                    w.Write((byte)f.Mode);
+                    WriteValue(w, f.Func);
+                    w.Write(f.Args.Length);
+                    foreach (var a in f.Args) WriteValue(w, a);
+                    w.Write(f.KwNames.Length);
+                    for (int i = 0; i < f.KwNames.Length; i++)
+                    {
+                        SnapshotIo.WriteString(w, f.KwNames[i]);
+                        WriteValue(w, f.KwValues[i]);
+                    }
+                    w.Write(f.MaxSize);
+                    w.Write(f.Typed);
+                    w.Write(f.Hits);
+                    w.Write(f.Misses);
+                    w.Write(f.Cache != null);
+                    if (f.Cache != null) WriteValue(w, Value.FromDict(f.Cache));
                     break;
                 }
                 case ValueKind.BoundMethod:
@@ -651,7 +682,7 @@ namespace CSharpPython
                     foreach (var member in module.Value.Members)
                         if (member.Value.Kind == ValueKind.Native && !_natives.ContainsKey((NativeFunction)member.Value.RawObject))
                             _natives[(NativeFunction)member.Value.RawObject] = "m:" + module.Key + ":" + member.Key;
-                foreach (var kind in new[] { ValueKind.Str, ValueKind.List, ValueKind.Dict, ValueKind.Tuple, ValueKind.Set, ValueKind.Iterator, ValueKind.Int, ValueKind.Float, ValueKind.Deque })
+                foreach (var kind in new[] { ValueKind.Str, ValueKind.List, ValueKind.Dict, ValueKind.Tuple, ValueKind.Set, ValueKind.Iterator, ValueKind.Int, ValueKind.Float, ValueKind.Deque, ValueKind.Functool })
                     foreach (var name in Methods.NamesOf(kind))
                     {
                         var method = Methods.Find(kind, name);
@@ -911,6 +942,35 @@ namespace CSharpPython
                     if (owner.Kind == ValueKind.Class) function.Owner = (PyClass)owner.RawObject;
                     else if (owner.Kind != ValueKind.None) throw new SnapshotException("the snapshot is damaged");
                     _objects[id] = function;
+                    break;
+                }
+                case ValueKind.Functool:
+                {
+                    byte mode = r.ReadByte();
+                    if (mode > (byte)FunctoolMode.MethodCaller) throw new SnapshotException("the snapshot is damaged");
+                    Value func = ReadValue(r);
+                    var args = new Value[SnapshotIo.ReadCount(r, 1)];
+                    for (int i = 0; i < args.Length; i++) args[i] = ReadValue(r);
+                    var kwNames = new string[SnapshotIo.ReadCount(r, 2)];
+                    var kwValues = new Value[kwNames.Length];
+                    for (int i = 0; i < kwNames.Length; i++)
+                    {
+                        kwNames[i] = SnapshotIo.ReadString(r);
+                        kwValues[i] = ReadValue(r);
+                    }
+                    long maxSize = r.ReadInt64();
+                    bool typed = r.ReadBoolean();
+                    long hits = r.ReadInt64(), misses = r.ReadInt64();
+                    PyDict cache = null;
+                    if (r.ReadBoolean())
+                    {
+                        Value dict = ReadValue(r);
+                        if (dict.Kind != ValueKind.Dict) throw new SnapshotException("the snapshot is damaged");
+                        cache = (PyDict)dict.RawObject;
+                    }
+                    var functool = new PyFunctool((FunctoolMode)mode, func, args, kwNames, kwValues, maxSize, typed, cache) { Hits = hits, Misses = misses };
+                    if (!functool.IsConsistent()) throw new SnapshotException("the snapshot is damaged");
+                    _objects[id] = functool;
                     break;
                 }
                 case ValueKind.BoundMethod:
@@ -1193,6 +1253,7 @@ namespace CSharpPython
                 case ValueKind.ScriptMethod: return Value.FromScriptMethod((ScriptMethod)LeafAs(r.ReadInt32(), typeof(ScriptMethod)));
                 case ValueKind.Function: return Value.FromFunction((PyFunction)LeafAs(r.ReadInt32(), typeof(PyFunction)));
                 case ValueKind.BoundMethod: return Value.FromBound((BoundMethod)LeafAs(r.ReadInt32(), typeof(BoundMethod)));
+                case ValueKind.Functool: return Value.FromFunctool((PyFunctool)LeafAs(r.ReadInt32(), typeof(PyFunctool)));
                 case ValueKind.Descriptor: return Value.FromDescriptor((PyDescriptor)LeafAs(r.ReadInt32(), typeof(PyDescriptor)));
                 case ValueKind.Slice: return Value.FromSlice((PySlice)LeafAs(r.ReadInt32(), typeof(PySlice)));
                 case ValueKind.Exception: return Value.FromException((PyExceptionValue)LeafAs(r.ReadInt32(), typeof(PyExceptionValue)));

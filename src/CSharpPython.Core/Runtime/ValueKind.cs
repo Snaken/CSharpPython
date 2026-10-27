@@ -48,5 +48,7 @@ namespace CSharpPython
         BigInt,
         /// <summary>A <c>collections.deque</c>, see <see cref="PyDeque"/>.</summary>
         Deque,
+        /// <summary>A callable made by <c>functools</c> or <c>operator</c>, see <see cref="PyFunctool"/>.</summary>
+        Functool,
     }
 }

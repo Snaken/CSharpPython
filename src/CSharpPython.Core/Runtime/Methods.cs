@@ -18,6 +18,7 @@ namespace CSharpPython
         private static readonly Dictionary<string, NativeFunction> SetMethods = new Dictionary<string, NativeFunction>();
         private static readonly Dictionary<string, NativeFunction> DescriptorMethods = new Dictionary<string, NativeFunction>();
         private static readonly Dictionary<string, NativeFunction> IteratorMethods = new Dictionary<string, NativeFunction>();
+        private static readonly Dictionary<string, NativeFunction> FunctoolMethods = new Dictionary<string, NativeFunction>();
 
         // What super() reaches once the script classes run out: the methods every object has. They are looked up by
         // name when a snapshot is restored, which is why they live in a table instead of being made on the spot.
@@ -37,6 +38,7 @@ namespace CSharpPython
             if (obj.Kind == ValueKind.Tuple && ((PyTuple)obj.RawObject).Named != null && NamedTuples.FindMethod(name) is NativeFunction namedMethod) return namedMethod;
             if (obj.Kind == ValueKind.Dict && ((PyDict)obj.RawObject).Flavor == DictFlavor.Counter && CounterMethods.TryGetValue(name, out var counterMethod)) return counterMethod;
             if (obj.Kind == ValueKind.Descriptor && ((PyDescriptor)obj.RawObject).Kind != DescriptorKind.Property) return null;
+            if (obj.Kind == ValueKind.Functool && ((PyFunctool)obj.RawObject).Mode != FunctoolMode.Cached) return null;
             return Find(obj.Kind, name);
         }
 
@@ -56,6 +58,7 @@ namespace CSharpPython
                 case ValueKind.Tuple: table = TupleMethods; break;
                 case ValueKind.Set: table = SetMethods; break;
                 case ValueKind.Iterator: table = IteratorMethods; break;
+                case ValueKind.Functool: table = FunctoolMethods; break;
                 case ValueKind.Descriptor: table = DescriptorMethods; break;
                 case ValueKind.Instance: table = InstanceMethods; break;
                 default: return null;
@@ -82,6 +85,7 @@ namespace CSharpPython
                 case ValueKind.Tuple: return TupleMethods.Keys;
                 case ValueKind.Set: return SetMethods.Keys;
                 case ValueKind.Iterator: return IteratorMethods.Keys;
+                case ValueKind.Functool: return FunctoolMethods.Keys;
                 case ValueKind.Descriptor: return DescriptorMethods.Keys;
                 default: return Enumerable.Empty<string>();
             }
@@ -108,6 +112,25 @@ namespace CSharpPython
             InstallMoreDict();
             InstallCounter();
             InstallDeque();
+            InstallFunctool();
+        }
+
+        // cache_info() and cache_clear() of a function wrapped by lru_cache or cache.
+        private static void InstallFunctool()
+        {
+            Add(FunctoolMethods, "_lru_cache_wrapper", "cache_info", 0, 0, (c, a) => FunctoolsModule.CacheInfo(CachedOf(a[0])));
+            Add(FunctoolMethods, "_lru_cache_wrapper", "cache_clear", 0, 0, (c, a) =>
+            {
+                CachedOf(a[0]).ClearCache();
+                return Value.None;
+            });
+        }
+
+        private static PyFunctool CachedOf(Value v)
+        {
+            var f = (PyFunctool)v.RawObject;
+            if (f.Mode != FunctoolMode.Cached) throw new PyError("AttributeError", "'" + f.TypeName + "' object has no attribute 'cache_info'");
+            return f;
         }
 
         // property.getter / setter / deleter return a copy of the property with that function replaced.

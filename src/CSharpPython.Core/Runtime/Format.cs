@@ -159,6 +159,22 @@ namespace CSharpPython
                 case ValueKind.BoundMethod:
                     sb.Append("<built-in method ").Append(((BoundMethod)v.RawObject).Function.Name).Append('>');
                     return;
+                case ValueKind.Functool:
+                {
+                    var f = (PyFunctool)v.RawObject;
+                    if (f.Mode == FunctoolMode.Partial)
+                    {
+                        sb.Append("functools.partial(");
+                        WriteRepr(sb, f.Func, seen);
+                        foreach (var a in f.Args) { sb.Append(", "); WriteRepr(sb, a, seen); }
+                        for (int i = 0; i < f.KwNames.Length; i++) { sb.Append(", ").Append(f.KwNames[i]).Append('='); WriteRepr(sb, f.KwValues[i], seen); }
+                        sb.Append(')');
+                    }
+                    else
+                        sb.Append("<").Append(f.Module).Append('.').Append(f.TypeName).Append(" object at 0x")
+                            .Append(System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(f).ToString("x8")).Append('>');
+                    return;
+                }
                 case ValueKind.Module: sb.Append("<module '").Append(((PyModule)v.RawObject).Name).Append("'>"); return;
                 case ValueKind.Iterator:
                     if (v.RawObject is PyGenerator gen)

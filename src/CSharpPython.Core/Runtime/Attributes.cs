@@ -73,6 +73,9 @@ namespace CSharpPython
                             return CallAccessor(d.Getter, self, null);
                     }
                 }
+                case ValueKind.Functool when onInstance && ((PyFunctool)member.RawObject).Mode == FunctoolMode.Cached:
+                    // A function wrapped by lru_cache is a method like any other: the instance becomes its first argument.
+                    return Value.FromFunctool(new PyFunctool(FunctoolMode.Partial, member, new[] { self }));
                 default: return member;
             }
         }
@@ -206,6 +209,26 @@ namespace CSharpPython
                 if (field >= 0) return tuple.Items[field];
                 if (name == "_fields") return GetAttrCore(Value.FromType(tuple.Named), name);
                 if (name == "_field_defaults") return GetAttrCore(Value.FromType(tuple.Named), name);
+            }
+            if (obj.Kind == ValueKind.Functool)
+            {
+                var f = (PyFunctool)obj.RawObject;
+                if (f.Mode == FunctoolMode.Partial)
+                {
+                    if (name == "func") return f.Func;
+                    if (name == "args") return Value.Tuple(f.Args);
+                    if (name == "keywords")
+                    {
+                        var kw = new PyDict();
+                        for (int i = 0; i < f.KwNames.Length; i++) kw.Set(Value.FromString(f.KwNames[i]), f.KwValues[i]);
+                        return Value.FromDict(kw);
+                    }
+                }
+                else if (f.Mode == FunctoolMode.Cached)
+                {
+                    if (name == "__wrapped__") return f.Func;
+                    if (name == "__name__" && f.Func.Kind == ValueKind.Function) return Value.FromString(((PyFunction)f.Func.RawObject).Name);
+                }
             }
             if (obj.Kind == ValueKind.Deque && name == "maxlen")
                 return ((PyDeque)obj.RawObject).MaxLen < 0 ? Value.None : Value.FromInt(((PyDeque)obj.RawObject).MaxLen);

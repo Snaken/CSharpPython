@@ -1,0 +1,42 @@
+25 8 9 32 90 16 16 3
+[0, 1, 8, 27] [3, 2, 1] 6
+a b|8 20 5 None
+True () {'exponent': 2} (1, 2) {'scale': 3} True
+partial a,b
+[10, 11, 12]
+2 14 14
+TypeError
+TypeError
+TypeError
+TypeError
+23416728348467685 CacheInfo(hits=78, misses=81, maxsize=None, currsize=81)
+CacheInfo(hits=0, misses=0, maxsize=None, currsize=0) 55 CacheInfo(hits=8, misses=11, maxsize=None, currsize=11)
+2 2 2 2 3 6 [(2, 1), (2, 1), (2, 1), (3, 1), (3, 2)] CacheInfo(hits=1, misses=5, maxsize=128, currsize=5)
+1 4 1 9 4 1 [1, 2, 3, 2, 1] CacheInfo(hits=1, misses=5, maxsize=2, currsize=2)
+int float CacheInfo(hits=0, misses=2, maxsize=128, currsize=2) int float bool CacheInfo(hits=0, misses=3, maxsize=4, currsize=3)
+16 16 [('sq', 4)] 1 None
+1 1 CacheInfo(hits=0, misses=2, maxsize=0, currsize=0)
+3 2
+unhashable
+unhashable
+unhashable
+(1, 2) s None 3
+ValueError
+1 CacheInfo(hits=0, misses=2, maxsize=None, currsize=1)
+6 6 1 True 5 _lru_cache_wrapper
+hello bob! hello al? ['hello', 'hello']
+TypeError
+AttributeError
+[('cy', 20, {'city': 'sf'}), ('bob', 25, {'city': 'ny'}), ('al', 30, {'city': 'la'})] ('al', 30, {'city': 'la'}) {'city': 'ny'}
+b 5 (7, 9) 2
+[1, 2, 3] (3, 1) 1 9
+4 13 AB [2, 1]
+TypeError
+TypeError
+IndexError
+AttributeError
+TypeError
+TypeError
+TypeError
+TypeError
+itemgetter attrgetter methodcaller

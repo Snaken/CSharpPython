@@ -65,6 +65,7 @@ namespace CSharpPython
 
         public static Value FromNative(NativeFunction fn) => new Value(ValueKind.Native, 0, fn);
 
+        internal static Value FromFunctool(PyFunctool f) => new Value(ValueKind.Functool, 0, f);
         internal static Value FromBound(BoundMethod m) => new Value(ValueKind.BoundMethod, 0, m);
 
         public static Value FromModule(PyModule m) => new Value(ValueKind.Module, 0, m);

@@ -92,6 +92,14 @@ namespace CSharpPython
             return type;
         }
 
+        private static readonly System.Collections.Generic.Dictionary<string, PyType> FunctoolTypes = new System.Collections.Generic.Dictionary<string, PyType>();
+
+        private static PyType FunctoolType(PyFunctool f)
+        {
+            if (!FunctoolTypes.TryGetValue(f.TypeName, out var type)) FunctoolTypes[f.TypeName] = type = new PyType(f.TypeName, ValueKind.Functool) { Module = f.Module };
+            return type;
+        }
+
         public static bool TryGet(string name, out PyType type) => ByName.TryGetValue(name, out type);
 
         /// <summary>The type of a value, as a value (what <c>type(x)</c> returns).</summary>
@@ -103,6 +111,7 @@ namespace CSharpPython
                 case ValueKind.Instance: return Value.FromClass(((PyInstance)v.RawObject).Class);
                 case ValueKind.Iterator when v.RawObject is PyGenerator: return Value.FromType(Generator);
                 case ValueKind.Iterator when v.RawObject is ItertoolsIterator itertools: return Value.FromType(ItertoolsType(itertools.TypeName));
+                case ValueKind.Functool: return Value.FromType(FunctoolType((PyFunctool)v.RawObject));
                 case ValueKind.Set: return Value.FromType(((PySet)v.RawObject).Frozen ? FrozenSet : Set);
                 case ValueKind.DictView: return Value.FromType(ViewType((PyDictView)v.RawObject));
                 case ValueKind.Dict: return Value.FromType(DictType((PyDict)v.RawObject));
@@ -213,6 +222,7 @@ namespace CSharpPython
                 case ValueKind.Native:
                 case ValueKind.BoundMethod:
                 case ValueKind.ScriptMethod:
+                case ValueKind.Functool:
                 case ValueKind.Class:
                 case ValueKind.Type:
                 case ValueKind.ExceptionType:

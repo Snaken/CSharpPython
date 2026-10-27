@@ -37,6 +37,8 @@ namespace CSharpPython
             public PyGenerator Generator; // set while the frame is a generator's body
             public GenMode GenMode;       // who resumed the generator, and so what a yield or the end delivers
             public Value GenDefault;      // next(g, default): Unbound when there is none
+            public PyFunctool CacheOwner; // set while the frame is a call that a functools cache will remember the result of
+            public Value CacheKey;
         }
 
         // How a generator was resumed.
@@ -1010,6 +1012,7 @@ namespace CSharpPython
                                 throw new PyError("TypeError", "__init__() should return None, not '" + result.TypeName + "'");
                             result = frame.Constructed;
                         }
+                        if (frame.CacheOwner != null) frame.CacheOwner.Store(frame.CacheKey, result);
                         bool wasEvent = frame.IsEvent;
                         _sp = frame.CalleeIndex;
                         _frameCount--;
@@ -1611,6 +1614,13 @@ namespace CSharpPython
                 return CallNative((NativeFunction)callee.RawObject, calleeIndex, calleeIndex + 1, argc + 1, positional + 1, kwNames, 1);
             }
 
+            return DispatchCall(callee, calleeIndex, argStart, argc, positional, kwNames);
+        }
+
+        // Calls what is on the stack at calleeIndex (the arguments start at argStart): runs a script function as a frame, or
+        // a native one at once. Returns what the call needs the loop to do next (CallFrame, CallDone or CallWait).
+        private int DispatchCall(Value callee, int calleeIndex, int argStart, int argc, int positional, string[] kwNames)
+        {
             switch (callee.Kind)
             {
                 case ValueKind.Function:
@@ -1631,6 +1641,8 @@ namespace CSharpPython
                     _stack[argStart - 1] = bound.Self;
                     return CallFunction(bound.Function, calleeIndex, argStart - 1, argc + 1, positional + 1, kwNames);
                 }
+                case ValueKind.Functool:
+                    return CallFunctool(callee, calleeIndex, argStart, argc, positional, kwNames);
                 case ValueKind.Class:
                     return Construct(callee, calleeIndex, argStart, argc, positional, kwNames);
                 case ValueKind.Instance:
@@ -2050,6 +2062,7 @@ namespace CSharpPython
         internal Value CallSync(Value callee, Value arg)
         {
             if (callee.Kind == ValueKind.Function && TryLeaf((PyFunction)callee.RawObject, arg, default, 1, out Value leaf)) return leaf;
+            if (callee.Kind == ValueKind.Functool && ((PyFunctool)callee.RawObject).TryGet(arg, out Value got)) return got;
             if (_nested >= MaxNestedCalls) throw new PyError("RecursionError", "maximum recursion depth exceeded");
             int calleeIndex = _sp;
             EnsureStack(calleeIndex + 10);
@@ -2094,6 +2107,9 @@ namespace CSharpPython
                         status = CallFunction(bound.Function, calleeIndex, argStart - 1, argc + 1, argc + 1, null);
                         break;
                     }
+                    case ValueKind.Functool:
+                        status = CallFunctool(callee, calleeIndex, argStart, argc, argc, null);
+                        break;
                     case ValueKind.Class:
                         status = Construct(callee, calleeIndex, argStart, argc, argc, null);
                         break;
@@ -2253,6 +2269,7 @@ namespace CSharpPython
             f.Generator = null;
             f.GenMode = GenMode.None;
             f.GenDefault = default;
+            f.CacheOwner = null;
             return f;
         }
     }

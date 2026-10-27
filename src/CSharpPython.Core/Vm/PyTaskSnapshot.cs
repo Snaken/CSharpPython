@@ -7,9 +7,9 @@ namespace CSharpPython
 {
     public sealed partial class PyTask
     {
-        private const ushort SnapshotVersion = 14;
+        private const ushort SnapshotVersion = 15;
 
-        // Version 14 added the itertools iterators and changed nothing else, so saves of version 13 are read as they are.
+        // Version 14 added the itertools iterators and 15 the functools callables and caches; older saves have neither, so they are read as they are.
         private const ushort OldestReadableVersion = 13;
         private static readonly byte[] SnapshotMagic = { (byte)'C', (byte)'S', (byte)'P', (byte)'Y' };
 
@@ -40,6 +40,11 @@ namespace CSharpPython
                 if (_frames[i].Owner != null) writer.Collect(Value.FromClass(_frames[i].Owner));
                 if (_frames[i].Generator != null) writer.Collect(Value.FromIterator(_frames[i].Generator));
                 writer.Collect(_frames[i].GenDefault);
+                if (_frames[i].CacheOwner != null)
+                {
+                    writer.Collect(Value.FromFunctool(_frames[i].CacheOwner));
+                    writer.Collect(_frames[i].CacheKey);
+                }
                 if (_frames[i].Closure != null)
                     foreach (var cell in _frames[i].Closure) writer.Collect(Value.FromCell(cell));
             }
@@ -120,6 +125,12 @@ namespace CSharpPython
                 writer.WriteValue(w, f.Generator == null ? Value.None : Value.FromIterator(f.Generator));
                 w.Write((byte)f.GenMode);
                 writer.WriteValue(w, f.GenDefault);
+                w.Write(f.CacheOwner != null);
+                if (f.CacheOwner != null)
+                {
+                    writer.WriteValue(w, Value.FromFunctool(f.CacheOwner));
+                    writer.WriteValue(w, f.CacheKey);
+                }
             }
             writer.WriteValue(w, _lastReturn);
 
@@ -259,6 +270,13 @@ namespace CSharpPython
                 if (genMode > (byte)GenMode.Close || (genMode != 0) != (f.Generator != null)) throw new SnapshotException("the snapshot is damaged");
                 f.GenMode = (GenMode)genMode;
                 f.GenDefault = reader.ReadValue(r);
+                if (version >= 15 && r.ReadBoolean())
+                {
+                    Value owner2 = reader.ReadValue(r);
+                    if (owner2.Kind != ValueKind.Functool || ((PyFunctool)owner2.RawObject).Mode != FunctoolMode.Cached) throw new SnapshotException("the snapshot is damaged");
+                    f.CacheOwner = (PyFunctool)owner2.RawObject;
+                    f.CacheKey = reader.ReadValue(r);
+                }
                 if (f.Pc < 0 || f.Pc > code.Instructions.Length || f.Base < 0 || f.Base + code.NumLocals > sp ||
                     f.CalleeIndex < 0 || f.CalleeIndex > f.Base)
                     throw new SnapshotException("the snapshot is damaged");
