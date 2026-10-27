@@ -130,12 +130,7 @@ namespace CSharpPython
         {
             if (MaxSize == 0) return;
             Cache.Set(key, result);
-            if (MaxSize > 0 && Cache.Count > MaxSize)
-                foreach (var oldest in Cache.Pairs())
-                {
-                    Cache.Remove(oldest.Key);
-                    break;
-                }
+            if (MaxSize > 0 && Cache.Count > MaxSize) Cache.Remove(Cache.Pairs().First().Key); // the least recently used
         }
 
         /// <summary>Runs <c>itemgetter</c> and <c>attrgetter</c> on a value, which needs no frame. False for the other modes.</summary>
