@@ -129,6 +129,17 @@ namespace CSharpPython.Compilation
         ForIterThrow, // iterator exception -> iterator value, or raises the exception inside the iterator; 'yield from' under throw() or close()
         AfterThrow,   // after ForIterThrow: under close(), the delegate is closed, so GeneratorExit is raised here
         GenReturn,    // -> the value the last exhausted generator returned (None for other iterators); ends 'yield from'
+
+        // Combined instructions, which only ever appear in Code.Fast (see Peephole). Each stands in for the first of
+        // the instructions it replaces and reads the rest from the instructions that follow, which stay in place so
+        // that a jump into the middle still works.
+        LoadLocalConst,   // LoadLocal LoadConst
+        LoadLocal2,       // LoadLocal LoadLocal
+        LoadLocalAttr,    // LoadLocal LoadAttr
+        LocalConstArith,  // LoadLocal LoadConst (Add | Sub | Mul | Mod | FloorDiv)
+        ConstArith,       // LoadConst (Add | Sub | Mul | Mod | FloorDiv); arg = constant index
+        CmpJump,          // (Eq | Ne | Lt | Le | Gt | Ge) JumpIfFalse; arg = the comparison
+        LocalConstCmpJump, // LoadLocal LoadConst (Eq | Ne | Lt | Le | Gt | Ge) JumpIfFalse
     }
 
     internal readonly struct Instruction
@@ -189,6 +200,9 @@ namespace CSharpPython.Compilation
         /// <summary>Whether calls need the general argument binding rather than the positional fast path.</summary>
         public bool IsComplex => NumKwOnly > 0 || HasVarArgs || HasVarKeywords;
 
+        /// <summary>Whether a call with exactly the positional arguments just pushes a frame (no general binding, not a generator).</summary>
+        public bool IsPlain => !IsGenerator && !IsComplex;
+
         /// <summary>The names of the positional and keyword-only parameters, in slot order.</summary>
         public string[] ParamNames;
 
@@ -201,6 +215,21 @@ namespace CSharpPython.Compilation
 
         /// <summary>Calling a generator function binds the arguments and returns a generator without running the body.</summary>
         public bool IsGenerator;
+
+        /// <summary>
+        /// Whether the function is small enough and plain enough (arithmetic, comparisons and reads, no calls) to be run
+        /// by <c>PyTask.TryLeaf</c> when native code calls it.
+        /// </summary>
+        public bool IsLeaf;
+
+        /// <summary>The instructions the VM runs: <see cref="Instructions"/> with some runs combined into one (see <see cref="Peephole"/>).</summary>
+        public Instruction[] Fast
+        {
+            get => _fast ?? Instructions;
+            set => _fast = value;
+        }
+
+        private Instruction[] _fast;
 
         /// <summary>A readable listing, used by tests and for debugging.</summary>
         public string Disassemble()

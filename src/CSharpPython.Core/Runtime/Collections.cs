@@ -280,6 +280,26 @@ namespace CSharpPython
 
         public bool ContainsKey(Value key) => Find(key) >= 0;
 
+        /// <summary>Looks up a string key; the usual case of an attribute name, which a small dictionary can answer in place.</summary>
+        internal bool TryGetStr(string name, out Value value)
+        {
+            if (_index == null && !_pending)
+            {
+                for (int i = 0; i < _used; i++)
+                {
+                    ref Entry e = ref _entries[i];
+                    if (e.Key.Kind == ValueKind.Str && ((object)e.Key.RawObject == name || (string)e.Key.RawObject == name) && e.Alive)
+                    {
+                        value = e.Val;
+                        return true;
+                    }
+                }
+                value = default;
+                return false;
+            }
+            return TryGetValue(Value.FromString(name), out value);
+        }
+
         public bool TryGetValue(Value key, out Value value)
         {
             int slot = Find(key);

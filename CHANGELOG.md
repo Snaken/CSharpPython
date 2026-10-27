@@ -2,7 +2,10 @@
 
 ## Unreleased
 
-- Faster: small dictionaries and object attributes are searched in place instead of through a hash table (creating an object and setting attributes take about 40% less time), `sort`/`sorted` of ints, floats and strings, `sum` over ints, list and set comprehensions, calls of list, str, deque and dict methods, `str.split` on one character, and f-strings. Measured against CPython, scripts run 1.3 to 3.8 times slower than it, where before it was up to 5 times. (`benchmarks/` now warms up for a second before timing.)
+- Faster: small dictionaries and object attributes are searched in place instead of through a hash table (creating an object and setting attributes take about 40% less time), `sort`/`sorted` of ints, floats and strings, `sum` over ints, list and set comprehensions, calls of list, str, deque and dict methods, `str.split` on one character, and f-strings.
+- Faster: the interpreter combines common runs of instructions (a local with a constant, a comparison with its jump, arithmetic on a local), calls script functions without the general argument binding, reads and sets instance attributes directly, and keeps the less common instructions out of its main loop so that each call from native code into a script costs less. `fib(24)` takes 4.8 ms instead of 6.9 ms.
+- Faster: a small function that only does arithmetic, comparisons and reads (`key=lambda x: -x`, `lambda p: p.hp`) runs without a frame when `sorted`, `min`, `max`, `map` or `filter` call it, and generators no longer allocate on every `yield`. `min(range(10**6), key=lambda x: -x)` is 4 times quicker.
+- Measured against CPython, every benchmark script runs 1.3 to 2.8 times slower than it, where before it was up to 5 times. (`benchmarks/` now warms up for a second before timing.)
 
 ## 0.2.0
 

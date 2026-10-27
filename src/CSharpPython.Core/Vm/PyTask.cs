@@ -350,7 +350,7 @@ namespace CSharpPython
         {
             Frame frame = _frames[_frameCount - 1];
             Code code = frame.Code;
-            Instruction[] instructions = code.Instructions;
+            Instruction[] instructions = code.Fast;
             int pc = frame.Pc;
             int bas = frame.Base;
 
@@ -452,55 +452,34 @@ namespace CSharpPython
                         break;
 
                     case Op.DeleteLocal:
-                    {
-                        if (_stack[bas + ins.Arg].Kind == ValueKind.Unbound)
-                            throw new PyError("UnboundLocalError", "local variable '" + code.LocalNames[ins.Arg] + "' referenced before assignment");
-                        _stack[bas + ins.Arg] = Value.Unbound;
+                        ColdDeleteLocal(ins, code, bas);
                         break;
-                    }
                     case Op.DeleteCell:
-                    {
-                        var cell = (Cell)_stack[bas + ins.Arg].RawObject;
-                        if (cell.Value.Kind == ValueKind.Unbound)
-                            throw new PyError("UnboundLocalError", "local variable '" + code.LocalNames[ins.Arg] + "' referenced before assignment");
-                        cell.Value = Value.Unbound;
+                        ColdDeleteCell(ins, code, bas);
                         break;
-                    }
                     case Op.DeleteFree:
-                    {
-                        var cell = frame.Closure[ins.Arg];
-                        if (cell.Value.Kind == ValueKind.Unbound)
-                            throw new PyError("NameError", "free variable '" + code.FreeNames[ins.Arg] + "' referenced before assignment in enclosing scope");
-                        cell.Value = Value.Unbound;
+                        ColdDeleteFree(ins, code, frame);
                         break;
-                    }
                     case Op.DeleteGlobal:
-                    {
-                        string name = code.Names[ins.Arg];
-                        if (!Globals.Remove(name)) throw new PyError("NameError", "name '" + name + "' is not defined");
+                        ColdDeleteGlobal(ins, code);
                         break;
-                    }
                     case Op.DeleteAttr:
-                        Ops.DelAttr(_stack[--_sp], code.Names[ins.Arg]);
+                        ColdDeleteAttr(ins, code);
                         break;
                     case Op.DeleteIndex:
-                    {
-                        Value index = _stack[--_sp];
-                        Ops.DelItem(_stack[--_sp], index);
+                        ColdDeleteIndex();
                         break;
-                    }
-
                     case Op.LoadAttr:
                     {
                         Value obj = _stack[--_sp];
-                        Push(Ops.GetAttr(obj, code.Names[ins.Arg]));
+                        Push(GetAttribute(obj, code.Names[ins.Arg]));
                         break;
                     }
                     case Op.StoreAttr:
                     {
                         Value obj = _stack[--_sp];
                         Value value = _stack[--_sp];
-                        Ops.SetAttr(obj, code.Names[ins.Arg], value);
+                        SetAttribute(obj, code.Names[ins.Arg], value);
                         break;
                     }
                     case Op.LoadMethod:
@@ -540,14 +519,8 @@ namespace CSharpPython
                         break;
                     }
                     case Op.BuildSlice:
-                    {
-                        Value step = _stack[--_sp];
-                        Value stop = _stack[--_sp];
-                        Value start = _stack[--_sp];
-                        Push(Ops.MakeSlice(start, stop, step));
+                        ColdBuildSlice();
                         break;
-                    }
-
                     case Op.BuildList:
                     {
                         var list = new PyList(new ArraySegment<Value>(_stack, _sp - ins.Arg, ins.Arg));
@@ -564,23 +537,11 @@ namespace CSharpPython
                         break;
                     }
                     case Op.BuildDict:
-                    {
-                        var dict = new PyDict();
-                        int start = _sp - ins.Arg * 2;
-                        for (int k = 0; k < ins.Arg; k++) dict.Set(_stack[start + k * 2], _stack[start + k * 2 + 1]);
-                        _sp = start;
-                        Push(Value.FromDict(dict));
+                        ColdBuildDict(ins);
                         break;
-                    }
                     case Op.BuildSet:
-                    {
-                        var set = new PySet();
-                        int start = _sp - ins.Arg;
-                        for (int k = 0; k < ins.Arg; k++) set.Add(_stack[start + k]);
-                        _sp = start;
-                        Push(Value.FromSet(set));
+                        ColdBuildSet(ins);
                         break;
-                    }
                     case Op.ListAppend:
                     {
                         Value item = _stack[--_sp];
@@ -590,19 +551,11 @@ namespace CSharpPython
                         break;
                     }
                     case Op.ListExtend:
-                    {
-                        Value source = _stack[--_sp];
-                        var list = (PyList)_stack[_sp - 1].RawObject;
-                        list.Items.AddRange(SpreadItems(source, ins.Arg == 1));
-                        if (list.Count > Ops.MaxSequenceLength) throw new PyError("MemoryError", "sequence too long");
+                        ColdListExtend(ins);
                         break;
-                    }
                     case Op.ListToTuple:
-                    {
-                        var list = (PyList)_stack[_sp - 1].RawObject;
-                        _stack[_sp - 1] = Value.FromTuple(new PyTuple(list.Items.ToArray()));
+                        ColdListToTuple();
                         break;
-                    }
                     case Op.SetAdd:
                     {
                         Value item = _stack[--_sp];
@@ -610,97 +563,31 @@ namespace CSharpPython
                         break;
                     }
                     case Op.SetUpdate:
-                    {
-                        Value source = _stack[--_sp];
-                        var set = (PySet)_stack[_sp - 1].RawObject;
-                        foreach (var item in SpreadItems(source, true)) set.Add(item);
+                        ColdSetUpdate();
                         break;
-                    }
                     case Op.DictSet:
-                    {
-                        Value val = _stack[--_sp];
-                        Value key = _stack[--_sp];
-                        ((PyDict)_stack[_sp - 1].RawObject).Set(key, val);
+                        ColdDictSet();
                         break;
-                    }
                     case Op.DictUpdate:
-                    {
-                        Value source = _stack[--_sp];
-                        if (source.Kind != ValueKind.Dict)
-                            throw new PyError("TypeError", "'" + source.TypeName + "' object is not a mapping");
-                        var dict = (PyDict)_stack[_sp - 1].RawObject;
-                        foreach (var pair in new List<KeyValuePair<Value, Value>>(((PyDict)source.RawObject).Pairs())) dict.Set(pair.Key, pair.Value);
+                        ColdDictUpdate();
                         break;
-                    }
                     case Op.DictSetUnique:
-                    {
-                        Value val = _stack[--_sp];
-                        Value key = _stack[--_sp];
-                        var dict = (PyDict)_stack[_sp - 1].RawObject;
-                        if (dict.ContainsKey(key))
-                            throw new PyError("TypeError", "got multiple values for keyword argument '" + (string)key.RawObject + "'");
-                        dict.Set(key, val);
+                        ColdDictSetUnique();
                         break;
-                    }
                     case Op.DictMerge:
-                    {
-                        Value source = _stack[--_sp];
-                        if (source.Kind != ValueKind.Dict)
-                            throw new PyError("TypeError", "argument after ** must be a mapping, not " + source.TypeName);
-                        var dict = (PyDict)_stack[_sp - 1].RawObject;
-                        foreach (var pair in ((PyDict)source.RawObject).Pairs())
-                        {
-                            if (pair.Key.Kind != ValueKind.Str) throw new PyError("TypeError", "keywords must be strings");
-                            if (dict.ContainsKey(pair.Key))
-                                throw new PyError("TypeError", "got multiple values for keyword argument '" + (string)pair.Key.RawObject + "'");
-                            dict.Set(pair.Key, pair.Value);
-                        }
+                        ColdDictMerge();
                         break;
-                    }
                     case Op.BuildString:
-                    {
-                        int start = _sp - ins.Arg;
-                        long length = 0;
-                        for (int k = 0; k < ins.Arg; k++) length += ((string)_stack[start + k].RawObject).Length;
-                        if (length > Ops.MaxSequenceLength) throw new PyError("MemoryError", "string too long");
-                        string joined;
-                        if (ins.Arg == 2) joined = string.Concat((string)_stack[start].RawObject, (string)_stack[start + 1].RawObject);
-                        else if (ins.Arg == 3) joined = string.Concat((string)_stack[start].RawObject, (string)_stack[start + 1].RawObject, (string)_stack[start + 2].RawObject);
-                        else if (ins.Arg == 4) joined = string.Concat((string)_stack[start].RawObject, (string)_stack[start + 1].RawObject, (string)_stack[start + 2].RawObject, (string)_stack[start + 3].RawObject);
-                        else
-                        {
-                            var sb = new StringBuilder((int)length);
-                            for (int k = 0; k < ins.Arg; k++) sb.Append((string)_stack[start + k].RawObject);
-                            joined = sb.ToString();
-                        }
-                        _sp = start;
-                        Push(Value.FromString(joined));
+                        ColdBuildString(ins);
                         break;
-                    }
                     case Op.FormatValue:
-                    {
-                        string spec = null;
-                        if ((ins.Arg & 0x100) != 0) spec = (string)_stack[--_sp].RawObject;
-                        Value v = _stack[--_sp];
-                        switch ((char)(ins.Arg & 0xFF))
-                        {
-                            case 'r':
-                            case 'a':
-                                v = Value.FromString(Ops.Repr(v));
-                                break;
-                            case 's':
-                                v = Value.FromString(Ops.Str(v));
-                                break;
-                        }
-                        Push(Value.FromString(Ops.FormatValue(v, spec)));
+                        ColdFormatValue(ins);
                         break;
-                    }
-
                     case Op.Negate:
                         _stack[_sp - 1] = Ops.Negate(_stack[_sp - 1]);
                         break;
                     case Op.Plus:
-                        _stack[_sp - 1] = Ops.Plus(_stack[_sp - 1]);
+                        ColdPlus();
                         break;
                     case Op.Not:
                         _stack[_sp - 1] = Value.FromBool(!_stack[_sp - 1].IsTruthy);
@@ -742,45 +629,26 @@ namespace CSharpPython
                         break;
                     }
                     case Op.BitOr:
-                    {
-                        Value b = _stack[--_sp];
-                        _stack[_sp - 1] = ins.Arg != 0 ? Ops.BitOrInPlace(_stack[_sp - 1], b) : Ops.BitOr(_stack[_sp - 1], b);
+                        ColdBitOr(ins);
                         break;
-                    }
                     case Op.BitXor:
-                    {
-                        Value b = _stack[--_sp];
-                        _stack[_sp - 1] = ins.Arg != 0 ? Ops.BitXorInPlace(_stack[_sp - 1], b) : Ops.BitXor(_stack[_sp - 1], b);
+                        ColdBitXor(ins);
                         break;
-                    }
                     case Op.BitAnd:
-                    {
-                        Value b = _stack[--_sp];
-                        _stack[_sp - 1] = ins.Arg != 0 ? Ops.BitAndInPlace(_stack[_sp - 1], b) : Ops.BitAnd(_stack[_sp - 1], b);
+                        ColdBitAnd(ins);
                         break;
-                    }
                     case Op.LShift:
-                    {
-                        Value b = _stack[--_sp];
-                        _stack[_sp - 1] = ins.Arg != 0 ? Ops.LShiftInPlace(_stack[_sp - 1], b) : Ops.LShift(_stack[_sp - 1], b);
+                        ColdLShift(ins);
                         break;
-                    }
                     case Op.RShift:
-                    {
-                        Value b = _stack[--_sp];
-                        _stack[_sp - 1] = ins.Arg != 0 ? Ops.RShiftInPlace(_stack[_sp - 1], b) : Ops.RShift(_stack[_sp - 1], b);
+                        ColdRShift(ins);
                         break;
-                    }
                     case Op.Invert:
-                        _stack[_sp - 1] = Ops.Invert(_stack[_sp - 1]);
+                        ColdInvert();
                         break;
                     case Op.Pow:
-                    {
-                        Value b = _stack[--_sp];
-                        _stack[_sp - 1] = ins.Arg != 0 ? Ops.PowInPlace(_stack[_sp - 1], b) : Ops.Pow(_stack[_sp - 1], b);
+                        ColdPow(ins);
                         break;
-                    }
-
                     case Op.Eq:
                     {
                         Value b = _stack[--_sp];
@@ -876,7 +744,7 @@ namespace CSharpPython
                             ResumeGenerator(forGen, Value.None, _sp, GenMode.For, Value.Unbound);
                             frame = _frames[_frameCount - 1];
                             code = frame.Code;
-                            instructions = code.Instructions;
+                            instructions = code.Fast;
                             pc = frame.Pc;
                             bas = frame.Base;
                             break;
@@ -900,7 +768,7 @@ namespace CSharpPython
                             ResumeGenerator(sendGen, sentValue, _sp, GenMode.For, Value.Unbound);
                             frame = _frames[_frameCount - 1];
                             code = frame.Code;
-                            instructions = code.Instructions;
+                            instructions = code.Fast;
                             pc = frame.Pc;
                             bas = frame.Base;
                         }
@@ -923,7 +791,7 @@ namespace CSharpPython
                             ResumeWithException(throwGen, thrown, _sp, frame.GenMode == GenMode.Close ? GenMode.Close : GenMode.For);
                             frame = _frames[_frameCount - 1];
                             code = frame.Code;
-                            instructions = code.Instructions;
+                            instructions = code.Fast;
                             pc = frame.Pc;
                             bas = frame.Base;
                             break;
@@ -931,11 +799,7 @@ namespace CSharpPython
                         throw new ScriptRaise(thrown);
                     }
                     case Op.AfterThrow:
-                        if (frame.GenMode == GenMode.Close)
-                        {
-                            _sp--; // the None the closed generator delivered
-                            throw new ScriptRaise(new PyExceptionValue(ExceptionTypes.GeneratorExit, ""));
-                        }
+                        ColdAfterThrow(frame);
                         break;
                     case Op.GenReturn:
                         Push(_lastReturn);
@@ -968,45 +832,118 @@ namespace CSharpPython
                         Push(yielded);
                         frame = _frames[_frameCount - 1];
                         code = frame.Code;
-                        instructions = code.Instructions;
+                        instructions = code.Fast;
                         pc = frame.Pc;
                         bas = frame.Base;
                         break;
                     }
 
                     case Op.ClassNamespace:
-                    {
-                        var ns = new PyDict();
-                        for (int i = 0; i < code.NumLocals; i++)
-                            if (_stack[bas + i].Kind != ValueKind.Unbound) ns.Set(Value.FromString(code.LocalNames[i]), _stack[bas + i]);
-                        Push(Value.FromDict(ns));
+                        ColdClassNamespace(code, bas);
                         break;
-                    }
                     case Op.LoadSuper:
-                    {
-                        if (frame.Owner == null || code.NumParams == 0)
-                            throw new PyError("RuntimeError", "super(): no arguments");
-                        Value self = _stack[bas];
-                        if (self.Kind == ValueKind.Cell) self = ((Cell)self.RawObject).Value;
-                        Push(Ops.SuperAttr(frame.Owner, self, code.Names[ins.Arg]));
+                        ColdLoadSuper(ins, code, frame, bas);
                         break;
-                    }
                     case Op.LoadSuper2:
+                        ColdLoadSuper2(ins, code);
+                        break;
+                    case Op.BuildClass:
+                        ColdBuildClass(ins);
+                        break;
+                    case Op.LoadLocalConst:
                     {
-                        Value obj = _stack[--_sp];
-                        Value cls = _stack[--_sp];
-                        if (cls.Kind != ValueKind.Class)
-                            throw new PyError("TypeError", "super() argument 1 must be a class, not " + cls.TypeName);
-                        Push(Ops.SuperAttr((PyClass)cls.RawObject, obj, code.Names[ins.Arg]));
+                        Value v = _stack[bas + ins.Arg];
+                        if (v.Kind == ValueKind.Unbound) throw UnboundLocal(code, ins.Arg);
+                        Push(v);
+                        Push(code.Constants[instructions[pc++].Arg]);
+                        _budget--;
                         break;
                     }
-                    case Op.BuildClass:
-                        BuildClass(ins.Arg);
+                    case Op.LoadLocal2:
+                    {
+                        Value v = _stack[bas + ins.Arg];
+                        if (v.Kind == ValueKind.Unbound) throw UnboundLocal(code, ins.Arg);
+                        int second = instructions[pc++].Arg;
+                        Value w = _stack[bas + second];
+                        if (w.Kind == ValueKind.Unbound) throw UnboundLocal(code, second);
+                        Push(v);
+                        Push(w);
+                        _budget--;
                         break;
-
+                    }
+                    case Op.LoadLocalAttr:
+                    {
+                        Value obj = _stack[bas + ins.Arg];
+                        if (obj.Kind == ValueKind.Unbound) throw UnboundLocal(code, ins.Arg);
+                        Push(GetAttribute(obj, code.Names[instructions[pc++].Arg]));
+                        _budget--;
+                        break;
+                    }
+                    case Op.LocalConstArith:
+                    {
+                        Value left = _stack[bas + ins.Arg];
+                        if (left.Kind == ValueKind.Unbound) throw UnboundLocal(code, ins.Arg);
+                        Push(Arithmetic(instructions[pc + 1], left, code.Constants[instructions[pc].Arg]));
+                        pc += 2;
+                        _budget -= 2;
+                        break;
+                    }
+                    case Op.ConstArith:
+                    {
+                        _stack[_sp - 1] = Arithmetic(instructions[pc], _stack[_sp - 1], code.Constants[ins.Arg]);
+                        pc++;
+                        _budget--;
+                        break;
+                    }
+                    case Op.CmpJump:
+                    {
+                        Value right = _stack[--_sp];
+                        if (Compares((Op)ins.Arg, _stack[--_sp], right)) pc++;
+                        else pc = instructions[pc].Arg;
+                        _budget--;
+                        break;
+                    }
+                    case Op.LocalConstCmpJump:
+                    {
+                        Value left = _stack[bas + ins.Arg];
+                        if (left.Kind == ValueKind.Unbound) throw UnboundLocal(code, ins.Arg);
+                        if (Compares(instructions[pc + 1].Op, left, code.Constants[instructions[pc].Arg])) pc += 3;
+                        else pc = instructions[pc + 2].Arg;
+                        _budget -= 3;
+                        break;
+                    }
                     case Op.Call:
-                    case Op.CallKw:
                     case Op.CallMethod:
+                    {
+                        // A script function called with exactly its positional arguments: the common case, done in place.
+                        // The receiver of a method already sits in front of its arguments, so the arguments start at the same slot.
+                        bool isMethod = ins.Op == Op.CallMethod;
+                        int calleeIndex = _sp - ins.Arg - (isMethod ? 2 : 1);
+                        if (_stack[calleeIndex].Kind == ValueKind.Function && (!isMethod || _stack[calleeIndex + 1].Kind != ValueKind.Unbound))
+                        {
+                            var callee = (PyFunction)_stack[calleeIndex].RawObject;
+                            Code target = callee.Code;
+                            int argc = isMethod ? ins.Arg + 1 : ins.Arg;
+                            if (argc == target.NumParams && target.IsPlain && _frameCount < Vm.Options.MaxCallDepth)
+                            {
+                                int argStart = calleeIndex + 1;
+                                int numLocals = target.NumLocals;
+                                if (argStart + numLocals + 8 > _stack.Length) EnsureStack(argStart + numLocals + 8);
+                                for (int i = argc; i < numLocals; i++) _stack[argStart + i] = Value.Unbound;
+                                _sp = argStart + numLocals;
+                                frame = PushFrame(target, argStart, calleeIndex);
+                                frame.Closure = callee.Closure;
+                                frame.Owner = callee.Owner;
+                                code = target;
+                                instructions = target.Fast;
+                                pc = 0;
+                                bas = argStart;
+                                break;
+                            }
+                        }
+                        goto case Op.CallEx;
+                    }
+                    case Op.CallKw:
                     case Op.CallMethodKw:
                     case Op.CallEx:
                     {
@@ -1015,7 +952,7 @@ namespace CSharpPython
                         {
                             frame = _frames[_frameCount - 1];
                             code = frame.Code;
-                            instructions = code.Instructions;
+                            instructions = code.Fast;
                             pc = frame.Pc;
                             bas = frame.Base;
                         }
@@ -1036,7 +973,7 @@ namespace CSharpPython
                             Value endDefault = frame.GenDefault;
                             int endTo = frame.CalleeIndex;
                             frame.Generator.State = GeneratorState.Done;
-                            frame.Generator.Saved = null;
+                            frame.Generator.Release();
                             frame.Generator.ReturnValue = result;
                             _lastReturn = result;
                             _sp = endTo;
@@ -1053,7 +990,7 @@ namespace CSharpPython
                             }
                             frame = _frames[_frameCount - 1];
                             code = frame.Code;
-                            instructions = code.Instructions;
+                            instructions = code.Fast;
                             pc = frame.Pc;
                             bas = frame.Base;
                             if (endMode == GenMode.For)
@@ -1101,7 +1038,7 @@ namespace CSharpPython
                                 {
                                     frame = _frames[_frameCount - 1];
                                     code = frame.Code;
-                                    instructions = code.Instructions;
+                                    instructions = code.Fast;
                                     pc = frame.Pc;
                                     bas = frame.Base;
                                     break;
@@ -1116,7 +1053,7 @@ namespace CSharpPython
                             {
                                 frame = _frames[_frameCount - 1];
                                 code = frame.Code;
-                                instructions = code.Instructions;
+                                instructions = code.Fast;
                                 pc = frame.Pc;
                                 bas = frame.Base;
                                 break;
@@ -1131,7 +1068,7 @@ namespace CSharpPython
                         // Continue the caller.
                         frame = _frames[_frameCount - 1];
                         code = frame.Code;
-                        instructions = code.Instructions;
+                        instructions = code.Fast;
                         pc = frame.Pc;
                         bas = frame.Base;
                         break;
@@ -1153,16 +1090,8 @@ namespace CSharpPython
                     }
 
                     case Op.UnpackEx:
-                    {
-                        var all = UnpackSource(_stack[--_sp]);
-                        int before = ins.Arg & 0xFFFF, after = ins.Arg >> 16;
-                        if (all.Count < before + after)
-                            throw new PyError("ValueError", "not enough values to unpack (expected at least " + (before + after) + ", got " + all.Count + ")");
-                        for (int k = 0; k < after; k++) Push(all[all.Count - 1 - k]);
-                        Push(Value.FromList(new PyList(all.GetRange(before, all.Count - before - after))));
-                        for (int k = before - 1; k >= 0; k--) Push(all[k]);
+                        ColdUnpackEx(ins);
                         break;
-                    }
                     case Op.UnpackSequence:
                     {
                         var items = UnpackSource(_stack[--_sp]);
@@ -1182,56 +1111,421 @@ namespace CSharpPython
                         frame.HandlerCount--;
                         break;
                     case Op.Raise:
-                    {
-                        Value v = _stack[--_sp];
-                        if (v.Kind == ValueKind.ExceptionType)
-                            throw new ScriptRaise(new PyExceptionValue((PyExceptionType)v.RawObject, ""));
-                        if (v.Kind == ValueKind.Class && ((PyClass)v.RawObject).ExceptionRoot != null)
-                            v = CallSync(v, Array.Empty<Value>()); // 'raise MyError' makes the instance
-                        var raised = AsException(v);
-                        if (raised == null) throw new PyError("TypeError", "exceptions must derive from BaseException");
-                        throw new ScriptRaise(raised);
-                    }
+                        ColdRaise();
+                        break;
                     case Op.Reraise:
-                        throw new ScriptRaise(AsException(_stack[--_sp]));
+                        ColdReraise();
+                        break;
                     case Op.RaiseCurrent:
-                    {
-                        var current = AsException(frame.ExcInfo);
-                        if (current == null) throw new PyError("RuntimeError", "No active exception to reraise");
-                        throw new ScriptRaise(current);
-                    }
+                        ColdRaiseCurrent(frame);
+                        break;
                     case Op.MatchException:
-                    {
-                        Value type = _stack[--_sp];
-                        var exc = AsException(_stack[_sp - 1]);
-                        Push(Value.FromBool(MatchesType(exc, type)));
+                        ColdMatchException();
                         break;
-                    }
-
                     case Op.Import:
-                    {
-                        string name = code.Names[ins.Arg];
-                        if (!Vm.Modules.TryGetValue(name, out PyModule module))
-                            throw new PyError("ImportError", "No module named '" + name + "'");
-                        Push(Value.FromModule(module));
+                        ColdImport(ins, code);
                         break;
-                    }
                     case Op.ImportTop:
-                    {
-                        string name = code.Names[ins.Arg];
-                        _stack[_sp - 1] = Value.FromModule(Vm.Modules[name]);
+                        ColdImportTop(ins, code);
                         break;
-                    }
                     case Op.ImportFrom:
-                    {
-                        var module = (PyModule)_stack[_sp - 1].RawObject;
-                        string name = code.Names[ins.Arg];
-                        if (!module.Members.TryGetValue(name, out Value member))
-                            throw new PyError("ImportError", "cannot import name '" + name + "' from '" + module.Name + "'");
-                        Push(member);
+                        ColdImportFrom(ins, code);
                         break;
-                    }
                 }
+            }
+        }
+
+        // The less common instructions have methods of their own so that the stack frame of Loop stays small: Loop is
+        // entered afresh for every call that native code makes into a script, and its frame is cleared each time.
+
+        private void ColdDeleteLocal(Instruction ins, Code code, int bas)
+        {
+            if (_stack[bas + ins.Arg].Kind == ValueKind.Unbound)
+                throw new PyError("UnboundLocalError", "local variable '" + code.LocalNames[ins.Arg] + "' referenced before assignment");
+            _stack[bas + ins.Arg] = Value.Unbound;
+        }
+
+        private void ColdDeleteCell(Instruction ins, Code code, int bas)
+        {
+            var cell = (Cell)_stack[bas + ins.Arg].RawObject;
+            if (cell.Value.Kind == ValueKind.Unbound)
+                throw new PyError("UnboundLocalError", "local variable '" + code.LocalNames[ins.Arg] + "' referenced before assignment");
+            cell.Value = Value.Unbound;
+        }
+
+        private void ColdDeleteFree(Instruction ins, Code code, Frame frame)
+        {
+            var cell = frame.Closure[ins.Arg];
+            if (cell.Value.Kind == ValueKind.Unbound)
+                throw new PyError("NameError", "free variable '" + code.FreeNames[ins.Arg] + "' referenced before assignment in enclosing scope");
+            cell.Value = Value.Unbound;
+        }
+
+        private void ColdDeleteGlobal(Instruction ins, Code code)
+        {
+            string name = code.Names[ins.Arg];
+            if (!Globals.Remove(name)) throw new PyError("NameError", "name '" + name + "' is not defined");
+        }
+
+        private void ColdDeleteAttr(Instruction ins, Code code)
+        {
+            Ops.DelAttr(_stack[--_sp], code.Names[ins.Arg]);
+        }
+
+        private void ColdDeleteIndex()
+        {
+            Value index = _stack[--_sp];
+            Ops.DelItem(_stack[--_sp], index);
+        }
+
+        private void ColdBuildSlice()
+        {
+            Value step = _stack[--_sp];
+            Value stop = _stack[--_sp];
+            Value start = _stack[--_sp];
+            Push(Ops.MakeSlice(start, stop, step));
+        }
+
+        private void ColdBuildDict(Instruction ins)
+        {
+            var dict = new PyDict();
+            int start = _sp - ins.Arg * 2;
+            for (int k = 0; k < ins.Arg; k++) dict.Set(_stack[start + k * 2], _stack[start + k * 2 + 1]);
+            _sp = start;
+            Push(Value.FromDict(dict));
+        }
+
+        private void ColdBuildSet(Instruction ins)
+        {
+            var set = new PySet();
+            int start = _sp - ins.Arg;
+            for (int k = 0; k < ins.Arg; k++) set.Add(_stack[start + k]);
+            _sp = start;
+            Push(Value.FromSet(set));
+        }
+
+        private void ColdListExtend(Instruction ins)
+        {
+            Value source = _stack[--_sp];
+            var list = (PyList)_stack[_sp - 1].RawObject;
+            list.Items.AddRange(SpreadItems(source, ins.Arg == 1));
+            if (list.Count > Ops.MaxSequenceLength) throw new PyError("MemoryError", "sequence too long");
+        }
+
+        private void ColdListToTuple()
+        {
+            var list = (PyList)_stack[_sp - 1].RawObject;
+            _stack[_sp - 1] = Value.FromTuple(new PyTuple(list.Items.ToArray()));
+        }
+
+        private void ColdSetUpdate()
+        {
+            Value source = _stack[--_sp];
+            var set = (PySet)_stack[_sp - 1].RawObject;
+            foreach (var item in SpreadItems(source, true)) set.Add(item);
+        }
+
+        private void ColdDictSet()
+        {
+            Value val = _stack[--_sp];
+            Value key = _stack[--_sp];
+            ((PyDict)_stack[_sp - 1].RawObject).Set(key, val);
+        }
+
+        private void ColdDictUpdate()
+        {
+            Value source = _stack[--_sp];
+            if (source.Kind != ValueKind.Dict)
+                throw new PyError("TypeError", "'" + source.TypeName + "' object is not a mapping");
+            var dict = (PyDict)_stack[_sp - 1].RawObject;
+            foreach (var pair in new List<KeyValuePair<Value, Value>>(((PyDict)source.RawObject).Pairs())) dict.Set(pair.Key, pair.Value);
+        }
+
+        private void ColdDictSetUnique()
+        {
+            Value val = _stack[--_sp];
+            Value key = _stack[--_sp];
+            var dict = (PyDict)_stack[_sp - 1].RawObject;
+            if (dict.ContainsKey(key))
+                throw new PyError("TypeError", "got multiple values for keyword argument '" + (string)key.RawObject + "'");
+            dict.Set(key, val);
+        }
+
+        private void ColdDictMerge()
+        {
+            Value source = _stack[--_sp];
+            if (source.Kind != ValueKind.Dict)
+                throw new PyError("TypeError", "argument after ** must be a mapping, not " + source.TypeName);
+            var dict = (PyDict)_stack[_sp - 1].RawObject;
+            foreach (var pair in ((PyDict)source.RawObject).Pairs())
+            {
+                if (pair.Key.Kind != ValueKind.Str) throw new PyError("TypeError", "keywords must be strings");
+                if (dict.ContainsKey(pair.Key))
+                    throw new PyError("TypeError", "got multiple values for keyword argument '" + (string)pair.Key.RawObject + "'");
+                dict.Set(pair.Key, pair.Value);
+            }
+        }
+
+        private void ColdBuildString(Instruction ins)
+        {
+            int start = _sp - ins.Arg;
+            long length = 0;
+            for (int k = 0; k < ins.Arg; k++) length += ((string)_stack[start + k].RawObject).Length;
+            if (length > Ops.MaxSequenceLength) throw new PyError("MemoryError", "string too long");
+            string joined;
+            if (ins.Arg == 2) joined = string.Concat((string)_stack[start].RawObject, (string)_stack[start + 1].RawObject);
+            else if (ins.Arg == 3) joined = string.Concat((string)_stack[start].RawObject, (string)_stack[start + 1].RawObject, (string)_stack[start + 2].RawObject);
+            else if (ins.Arg == 4) joined = string.Concat((string)_stack[start].RawObject, (string)_stack[start + 1].RawObject, (string)_stack[start + 2].RawObject, (string)_stack[start + 3].RawObject);
+            else
+            {
+                var sb = new StringBuilder((int)length);
+                for (int k = 0; k < ins.Arg; k++) sb.Append((string)_stack[start + k].RawObject);
+                joined = sb.ToString();
+            }
+            _sp = start;
+            Push(Value.FromString(joined));
+        }
+
+        private void ColdFormatValue(Instruction ins)
+        {
+            string spec = null;
+            if ((ins.Arg & 0x100) != 0) spec = (string)_stack[--_sp].RawObject;
+            Value v = _stack[--_sp];
+            switch ((char)(ins.Arg & 0xFF))
+            {
+                case 'r':
+                case 'a':
+                    v = Value.FromString(Ops.Repr(v));
+                    break;
+                case 's':
+                    v = Value.FromString(Ops.Str(v));
+                    break;
+            }
+            Push(Value.FromString(Ops.FormatValue(v, spec)));
+        }
+
+        private void ColdPlus()
+        {
+            _stack[_sp - 1] = Ops.Plus(_stack[_sp - 1]);
+        }
+
+        private void ColdBitOr(Instruction ins)
+        {
+            Value b = _stack[--_sp];
+            _stack[_sp - 1] = ins.Arg != 0 ? Ops.BitOrInPlace(_stack[_sp - 1], b) : Ops.BitOr(_stack[_sp - 1], b);
+        }
+
+        private void ColdBitXor(Instruction ins)
+        {
+            Value b = _stack[--_sp];
+            _stack[_sp - 1] = ins.Arg != 0 ? Ops.BitXorInPlace(_stack[_sp - 1], b) : Ops.BitXor(_stack[_sp - 1], b);
+        }
+
+        private void ColdBitAnd(Instruction ins)
+        {
+            Value b = _stack[--_sp];
+            _stack[_sp - 1] = ins.Arg != 0 ? Ops.BitAndInPlace(_stack[_sp - 1], b) : Ops.BitAnd(_stack[_sp - 1], b);
+        }
+
+        private void ColdLShift(Instruction ins)
+        {
+            Value b = _stack[--_sp];
+            _stack[_sp - 1] = ins.Arg != 0 ? Ops.LShiftInPlace(_stack[_sp - 1], b) : Ops.LShift(_stack[_sp - 1], b);
+        }
+
+        private void ColdRShift(Instruction ins)
+        {
+            Value b = _stack[--_sp];
+            _stack[_sp - 1] = ins.Arg != 0 ? Ops.RShiftInPlace(_stack[_sp - 1], b) : Ops.RShift(_stack[_sp - 1], b);
+        }
+
+        private void ColdInvert()
+        {
+            _stack[_sp - 1] = Ops.Invert(_stack[_sp - 1]);
+        }
+
+        private void ColdPow(Instruction ins)
+        {
+            Value b = _stack[--_sp];
+            _stack[_sp - 1] = ins.Arg != 0 ? Ops.PowInPlace(_stack[_sp - 1], b) : Ops.Pow(_stack[_sp - 1], b);
+        }
+
+        private void ColdAfterThrow(Frame frame)
+        {
+            if (frame.GenMode == GenMode.Close)
+            {
+                _sp--; // the None the closed generator delivered
+                throw new ScriptRaise(new PyExceptionValue(ExceptionTypes.GeneratorExit, ""));
+            }
+        }
+
+        private void ColdClassNamespace(Code code, int bas)
+        {
+            var ns = new PyDict();
+            for (int i = 0; i < code.NumLocals; i++)
+                if (_stack[bas + i].Kind != ValueKind.Unbound) ns.Set(Value.FromString(code.LocalNames[i]), _stack[bas + i]);
+            Push(Value.FromDict(ns));
+        }
+
+        private void ColdLoadSuper(Instruction ins, Code code, Frame frame, int bas)
+        {
+            if (frame.Owner == null || code.NumParams == 0)
+                throw new PyError("RuntimeError", "super(): no arguments");
+            Value self = _stack[bas];
+            if (self.Kind == ValueKind.Cell) self = ((Cell)self.RawObject).Value;
+            Push(Ops.SuperAttr(frame.Owner, self, code.Names[ins.Arg]));
+        }
+
+        private void ColdLoadSuper2(Instruction ins, Code code)
+        {
+            Value obj = _stack[--_sp];
+            Value cls = _stack[--_sp];
+            if (cls.Kind != ValueKind.Class)
+                throw new PyError("TypeError", "super() argument 1 must be a class, not " + cls.TypeName);
+            Push(Ops.SuperAttr((PyClass)cls.RawObject, obj, code.Names[ins.Arg]));
+        }
+
+        private void ColdBuildClass(Instruction ins)
+        {
+            BuildClass(ins.Arg);
+        }
+
+        private void ColdUnpackEx(Instruction ins)
+        {
+            var all = UnpackSource(_stack[--_sp]);
+            int before = ins.Arg & 0xFFFF, after = ins.Arg >> 16;
+            if (all.Count < before + after)
+                throw new PyError("ValueError", "not enough values to unpack (expected at least " + (before + after) + ", got " + all.Count + ")");
+            for (int k = 0; k < after; k++) Push(all[all.Count - 1 - k]);
+            Push(Value.FromList(new PyList(all.GetRange(before, all.Count - before - after))));
+            for (int k = before - 1; k >= 0; k--) Push(all[k]);
+        }
+
+        private void ColdRaise()
+        {
+            Value v = _stack[--_sp];
+            if (v.Kind == ValueKind.ExceptionType)
+                throw new ScriptRaise(new PyExceptionValue((PyExceptionType)v.RawObject, ""));
+            if (v.Kind == ValueKind.Class && ((PyClass)v.RawObject).ExceptionRoot != null)
+                v = CallSync(v, Array.Empty<Value>()); // 'raise MyError' makes the instance
+            var raised = AsException(v);
+            if (raised == null) throw new PyError("TypeError", "exceptions must derive from BaseException");
+            throw new ScriptRaise(raised);
+        }
+
+        private void ColdReraise()
+        {
+            throw new ScriptRaise(AsException(_stack[--_sp]));
+        }
+
+        private void ColdRaiseCurrent(Frame frame)
+        {
+            var current = AsException(frame.ExcInfo);
+            if (current == null) throw new PyError("RuntimeError", "No active exception to reraise");
+            throw new ScriptRaise(current);
+        }
+
+        private void ColdMatchException()
+        {
+            Value type = _stack[--_sp];
+            var exc = AsException(_stack[_sp - 1]);
+            Push(Value.FromBool(MatchesType(exc, type)));
+        }
+
+        private void ColdImport(Instruction ins, Code code)
+        {
+            string name = code.Names[ins.Arg];
+            if (!Vm.Modules.TryGetValue(name, out PyModule module))
+                throw new PyError("ImportError", "No module named '" + name + "'");
+            Push(Value.FromModule(module));
+        }
+
+        private void ColdImportTop(Instruction ins, Code code)
+        {
+            string name = code.Names[ins.Arg];
+            _stack[_sp - 1] = Value.FromModule(Vm.Modules[name]);
+        }
+
+        private void ColdImportFrom(Instruction ins, Code code)
+        {
+            var module = (PyModule)_stack[_sp - 1].RawObject;
+            string name = code.Names[ins.Arg];
+            if (!module.Members.TryGetValue(name, out Value member))
+                throw new PyError("ImportError", "cannot import name '" + name + "' from '" + module.Name + "'");
+            Push(member);
+        }
+
+        // An instance attribute when the class has no hooks or properties that could intercept the access, else the general lookup.
+        private static Value GetAttribute(Value obj, string name)
+        {
+            if (obj.Kind == ValueKind.Instance && !PyClass.HooksExist && !PyDescriptor.PropertiesExist && !(name.Length == 9 && name == "__class__")
+                && ((PyInstance)obj.RawObject).Fields.TryGetStr(name, out Value field))
+                return field;
+            return Ops.GetAttr(obj, name);
+        }
+
+        private static void SetAttribute(Value obj, string name, Value value)
+        {
+            if (obj.Kind == ValueKind.Instance && !PyClass.HooksExist && !PyDescriptor.PropertiesExist)
+                ((PyInstance)obj.RawObject).Fields.Set(Value.FromString(name), value);
+            else Ops.SetAttr(obj, name, value);
+        }
+
+        private static PyError UnboundLocal(Code code, int slot) =>
+            new PyError("UnboundLocalError", "local variable '" + code.LocalNames[slot] + "' referenced before assignment");
+
+        // The arithmetic instruction 'op' on two values, with the common cases (small integers) done in place.
+        private static Value Arithmetic(Instruction op, Value a, Value b)
+        {
+            if (a.Kind == ValueKind.Int && b.Kind == ValueKind.Int)
+            {
+                long x = a.RawInt, y = b.RawInt;
+                if (op.Op == Op.Add)
+                {
+                    long sum = unchecked(x + y);
+                    if (((x ^ sum) & (y ^ sum)) >= 0) return Value.FromInt(sum);
+                }
+                else if (op.Op == Op.Sub)
+                {
+                    long difference = unchecked(x - y);
+                    if (((x ^ y) & (x ^ difference)) >= 0) return Value.FromInt(difference);
+                }
+            }
+            bool inPlace = op.Arg != 0;
+            switch (op.Op)
+            {
+                case Op.Add: return inPlace ? Ops.AddInPlace(a, b) : Ops.Add(a, b);
+                case Op.Sub: return inPlace ? Ops.SubInPlace(a, b) : Ops.Sub(a, b);
+                case Op.Mul: return inPlace ? Ops.MulInPlace(a, b) : Ops.Mul(a, b);
+                case Op.Mod: return inPlace ? Ops.ModInPlace(a, b) : Ops.Mod(a, b);
+                default: return inPlace ? Ops.FloorDivInPlace(a, b) : Ops.FloorDiv(a, b);
+            }
+        }
+
+        // The comparison instruction 'cmp' on two values, as a truth value.
+        private static bool Compares(Op cmp, Value a, Value b)
+        {
+            if (a.Kind == ValueKind.Int && b.Kind == ValueKind.Int)
+            {
+                long x = a.RawInt, y = b.RawInt;
+                switch (cmp)
+                {
+                    case Op.Lt: return x < y;
+                    case Op.Le: return x <= y;
+                    case Op.Gt: return x > y;
+                    case Op.Ge: return x >= y;
+                    case Op.Eq: return x == y;
+                    default: return x != y;
+                }
+            }
+            switch (cmp)
+            {
+                case Op.Lt: return Ops.CompareOp(a, b, Ops.Order.Lt).IsTruthy;
+                case Op.Le: return Ops.CompareOp(a, b, Ops.Order.Le).IsTruthy;
+                case Op.Gt: return Ops.CompareOp(a, b, Ops.Order.Gt).IsTruthy;
+                case Op.Ge: return Ops.CompareOp(a, b, Ops.Order.Ge).IsTruthy;
+                case Op.Eq: return Ops.EqualOp(a, b).IsTruthy;
+                default: return Ops.NotEqualOp(a, b).IsTruthy;
             }
         }
 
@@ -1686,7 +1980,7 @@ namespace CSharpPython
                 if (f.Generator != null)
                 {
                     f.Generator.State = GeneratorState.Done;
-                    f.Generator.Saved = null;
+                    f.Generator.Release();
                     if (f.GenMode == GenMode.Close && (exc.Type.IsSubclassOf(ExceptionTypes.GeneratorExit) || exc.Type.IsSubclassOf(ExceptionTypes.StopIteration)))
                     {
                         // The generator let GeneratorExit through (or ended): that is how close() succeeds.
@@ -1741,6 +2035,9 @@ namespace CSharpPython
         /// </summary>
         internal Value CallSync(Value callee, Value[] args)
         {
+            if (callee.Kind == ValueKind.Function && args.Length <= 2
+                && TryLeaf((PyFunction)callee.RawObject, args.Length > 0 ? args[0] : default, args.Length > 1 ? args[1] : default, args.Length, out Value leaf))
+                return leaf;
             if (_nested >= MaxNestedCalls) throw new PyError("RecursionError", "maximum recursion depth exceeded");
             int calleeIndex = _sp;
             EnsureStack(calleeIndex + args.Length + 9);
@@ -1752,6 +2049,7 @@ namespace CSharpPython
         /// <summary>The same for a single argument, which saves allocating an array for each call of a key function.</summary>
         internal Value CallSync(Value callee, Value arg)
         {
+            if (callee.Kind == ValueKind.Function && TryLeaf((PyFunction)callee.RawObject, arg, default, 1, out Value leaf)) return leaf;
             if (_nested >= MaxNestedCalls) throw new PyError("RecursionError", "maximum recursion depth exceeded");
             int calleeIndex = _sp;
             EnsureStack(calleeIndex + 10);
@@ -1935,7 +2233,7 @@ namespace CSharpPython
             Array.Resize(ref _stack, length);
         }
 
-        private void PushFrame(Code code, int bas, int calleeIndex)
+        private Frame PushFrame(Code code, int bas, int calleeIndex)
         {
             if (_frameCount == _frames.Length) Array.Resize(ref _frames, _frameCount * 2);
             Frame f = _frames[_frameCount] ?? (_frames[_frameCount] = new Frame());
@@ -1955,6 +2253,7 @@ namespace CSharpPython
             f.Generator = null;
             f.GenMode = GenMode.None;
             f.GenDefault = default;
+            return f;
         }
     }
 }

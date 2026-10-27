@@ -17,7 +17,7 @@ namespace CSharpPython
 
             int bas = _sp;
             EnsureStack(bas + g.Saved.Length + g.Code.NumLocals + 8);
-            Array.Copy(g.Saved, 0, _stack, bas, g.Saved.Length);
+            CopyValues(g.Saved, _stack, bas, g.Saved.Length);
             _sp = bas + g.Saved.Length;
             PushFrame(g.Code, bas, calleeIndex);
             Frame f = _frames[_frameCount - 1];
@@ -35,15 +35,32 @@ namespace CSharpPython
             }
             if (g.State == GeneratorState.Suspended) Push(sent);
             g.State = GeneratorState.Running;
+            g.Spare = g.Saved; // the next yield reuses it when the stack has the same height
             g.Saved = null;
+        }
+
+        // Array.Copy costs more than a loop for the few values a generator keeps.
+        private static void CopyValues(Value[] from, Value[] to, int toIndex, int count) => CopyValues(from, 0, to, toIndex, count);
+
+        private static void CopyValues(Value[] from, int fromIndex, Value[] to, int toIndex, int count)
+        {
+            if (count > 8)
+            {
+                Array.Copy(from, fromIndex, to, toIndex, count);
+                return;
+            }
+            for (int i = 0; i < count; i++) to[toIndex + i] = from[fromIndex + i];
         }
 
         // Copies a yielding generator's frame back into the generator.
         private void SuspendGenerator(Frame f)
         {
             PyGenerator g = f.Generator;
-            g.Saved = new Value[_sp - f.Base];
-            Array.Copy(_stack, f.Base, g.Saved, 0, g.Saved.Length);
+            int height = _sp - f.Base;
+            Value[] spare = g.Spare;
+            g.Saved = spare != null && spare.Length == height ? spare : new Value[height];
+            g.Spare = null;
+            CopyValues(_stack, f.Base, g.Saved, 0, g.Saved.Length);
             g.Pc = f.Pc;
             g.ExcInfo = f.ExcInfo;
             g.HandlerAddresses = f.HandlerCount == 0 ? Array.Empty<int>() : new int[f.HandlerCount];
@@ -60,7 +77,7 @@ namespace CSharpPython
         {
             if (f.Generator == null) return;
             f.Generator.State = GeneratorState.Done;
-            f.Generator.Saved = null;
+            f.Generator.Release();
         }
 
         // next(g), g.send(x) and g.__next__() from a script run the generator as a frame, so it can wait. Returns
@@ -106,7 +123,7 @@ namespace CSharpPython
             {
                 // Never started, or finished: nothing runs. throw() raises in the caller; close() just closes.
                 g.State = GeneratorState.Done;
-                g.Saved = null;
+                g.Release();
                 if (!close) throw new ScriptRaise(raised);
                 _sp = calleeIndex;
                 Push(Value.None);

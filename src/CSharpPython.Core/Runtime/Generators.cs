@@ -20,6 +20,9 @@ namespace CSharpPython
         public Value[] Saved;
         public int Pc;
 
+        /// <summary>The array Saved had before the generator last resumed, kept to save an allocation at the next yield.</summary>
+        public Value[] Spare;
+
         /// <summary>The open try blocks as handler address and stack height relative to the frame's base.</summary>
         public int[] HandlerAddresses = System.Array.Empty<int>();
         public int[] HandlerHeights = System.Array.Empty<int>();
@@ -51,7 +54,14 @@ namespace CSharpPython
         {
             if (State == GeneratorState.Running) throw new PyError("ValueError", "generator already executing");
             State = GeneratorState.Done;
+            Release();
+        }
+
+        /// <summary>Lets go of the saved frame, once the generator has ended.</summary>
+        public void Release()
+        {
             Saved = null;
+            Spare = null;
         }
     }
 }

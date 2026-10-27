@@ -97,6 +97,7 @@ namespace CSharpPython.Compilation
                 NumDefaults = numDefaults,
                 NumPosDefaults = numPosDefaults,
             };
+            code.Fast = Peephole.Combine(code.Instructions);
             if (def != null)
             {
                 code.NumParams = def.Params.Count;
@@ -119,6 +120,7 @@ namespace CSharpPython.Compilation
                 code.ParamNames = System.Array.Empty<string>();
                 code.KwDefaultIndex = System.Array.Empty<int>();
             }
+            code.IsLeaf = def != null && !code.IsGenerator && !code.IsComplex && code.NumParams <= 2 && code.NumLocals <= 8 && Peephole.IsLeaf(code.Instructions);
             return code;
         }
 
