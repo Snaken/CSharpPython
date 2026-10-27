@@ -1,6 +1,6 @@
 {
   "name": "com.rachlh.csharppython",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "displayName": "CSharpPython",
   "description": "A Python-style language parser, compiler and bytecode VM written in plain C#. IL2CPP and WebGL safe, with no UnityEngine dependency in the core.",
   "unity": "6000.0",
