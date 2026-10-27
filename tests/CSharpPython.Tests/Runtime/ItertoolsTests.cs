@@ -6,10 +6,10 @@ namespace CSharpPython.Tests.Runtime
 {
     public class ItertoolsTests
     {
-        private static PyIterator Source() => new ListIterator(new PyList(new List<Value> { Value.FromInt(1) }));
+        private static ListIterator Source() => new ListIterator(new PyList(new List<Value> { Value.FromInt(1) }));
 
         private static ItertoolsIterator Make(ItertoolsKind kind, int sources, int args, long[] state, params Value[] items) =>
-            new ItertoolsIterator(kind, Enumerable.Range(0, sources).Select(_ => Source()).ToArray(), new Value[args], state, items.ToList());
+            new ItertoolsIterator(kind, Enumerable.Range(0, sources).Select(_ => (PyIterator)Source()).ToArray(), new Value[args], state, items.ToList());
 
         [TestCase("Count", 0, 2, 0, true)]
         [TestCase("Count", 1, 2, 0, false)]
@@ -42,7 +42,7 @@ namespace CSharpPython.Tests.Runtime
         [TestCase("Product", 1, 0, 3, false)]
         public void TheShapeOfEachKindIsChecked(string kindName, int sources, int args, int stateLength, bool expected)
         {
-            var kind = (ItertoolsKind)System.Enum.Parse(typeof(ItertoolsKind), kindName);
+            var kind = System.Enum.Parse<ItertoolsKind>(kindName);
             var state = new long[stateLength];
             if (kind == ItertoolsKind.Islice) state[2] = 1;
             if (kind == ItertoolsKind.Batched) state[0] = 1;
@@ -60,7 +60,7 @@ namespace CSharpPython.Tests.Runtime
             Assert.That(Make(ItertoolsKind.Accumulate, 1, 2, new long[] { 3 }).IsConsistent(), Is.False);
             Assert.That(Make(ItertoolsKind.Pairwise, 1, 1, new long[] { 3 }).IsConsistent(), Is.False);
             Assert.That(Make(ItertoolsKind.Batched, 1, 0, new long[] { 0, 0 }).IsConsistent(), Is.False);
-            Assert.That(Make((ItertoolsKind)99, 0, 0, new long[0]).IsConsistent(), Is.False);
+            Assert.That(Make((ItertoolsKind)99, 0, 0, System.Array.Empty<long>()).IsConsistent(), Is.False);
             // product: 2 pools of 1 item each, with a position outside the pool
             Assert.That(Make(ItertoolsKind.Product, 0, 0, new long[] { 2, 0, 0, 1, 1, 0, 5 }, Value.FromInt(1), Value.FromInt(2)).IsConsistent(), Is.False);
             Assert.That(Make(ItertoolsKind.Product, 0, 0, new long[] { 2, 0, 0, 1, 1, 0, 0 }, Value.FromInt(1), Value.FromInt(2)).IsConsistent(), Is.True);
