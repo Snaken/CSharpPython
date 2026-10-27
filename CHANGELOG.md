@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Exception chaining: `raise X from Y` (and `from None`), `__cause__`, `__context__` and `__suppress_context__`. An error raised while an `except` block handles another one remembers it as its context, including errors the VM raises and ones raised by a function that the block calls. A task that stops with a chained error has `PyRuntimeError.Cause` and `PyRuntimeError.Context`, and `FormatTraceback()` prints the whole chain. A generator that lets `StopIteration` escape now raises `RuntimeError` with it as the cause. Snapshot format version 16 (it still reads version 13 to 15). **Saved tasks of a script with a `try` statement from before this release cannot be restored**, because `try` now compiles to a few more instructions and a snapshot only restores against the same compiled script.
 - `match` statements: literal, capture, wildcard, value, sequence (with `*rest`), mapping (with `**rest`), class, `|` and `as` patterns, and guards. `match` and `case` stay ordinary names anywhere else. The editor tooling highlights them as keywords where they start a block.
 
 - `itertools` module: `count`, `cycle`, `repeat`, `chain` and `chain.from_iterable`, `islice`, `accumulate`, `compress`, `dropwhile`, `takewhile`, `filterfalse`, `starmap`, `zip_longest`, `pairwise`, `batched`, `product`, `permutations`, `combinations`, `combinations_with_replacement` and `groupby` (`tee` is missing). They are lazy, and snapshots save them in the middle of a loop (snapshot format version 15, which still reads version 13 and 14 saves).

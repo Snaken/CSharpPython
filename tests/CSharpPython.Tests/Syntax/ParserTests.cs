@@ -455,6 +455,8 @@ namespace CSharpPython.Tests.Syntax
         {
             Assert.That(M("raise\n"), Is.EqualTo("(raise)"));
             Assert.That(M("raise ValueError('x')\n"), Is.EqualTo("(raise (call ValueError 'x'))"));
+            Assert.That(M("raise A from B\n"), Is.EqualTo("(raise A from B)"));
+            Assert.That(M("raise A() from None\n"), Is.EqualTo("(raise (call A) from None)"));
         }
 
         [Test]
@@ -700,7 +702,7 @@ namespace CSharpPython.Tests.Syntax
         }
 
         [Test]
-        public void RaiseFromIsRejected() => Assert.That(Fails("raise A from B\n").Problem, Does.Contain("raise ... from"));
+        public void RaiseFromNeedsAnExceptionBeforeIt() => Assert.That(Fails("raise from B\n").Problem, Is.Not.Empty);
 
         [Test]
         public void MissingClosersAreReported()

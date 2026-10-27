@@ -196,7 +196,13 @@ namespace CSharpPython
                     }
                     break;
                 case ValueKind.Exception:
-                    if (AddLeaf(v)) Collect(((PyExceptionValue)v.RawObject).Payload);
+                    if (AddLeaf(v))
+                    {
+                        var e = (PyExceptionValue)v.RawObject;
+                        Collect(e.Payload);
+                        Collect(e.Cause);
+                        Collect(e.Context);
+                    }
                     break;
                 case ValueKind.Iterator:
                     if (AddLeaf(v)) CollectIterator((PyIterator)v.RawObject);
@@ -477,6 +483,9 @@ namespace CSharpPython
                         w.Write(f.Line);
                     }
                     WriteValue(w, e.Payload);
+                    WriteValue(w, e.Cause);
+                    WriteValue(w, e.Context);
+                    w.Write(e.SuppressContext);
                     break;
                 }
                 default:
@@ -711,6 +720,7 @@ namespace CSharpPython
         private readonly PyVm _vm;
         private readonly Script _script;
         private readonly byte[] _data;
+        private readonly ushort _version;
 
         private object[] _objects;           // containers first, then leaves
         private int _containerCount;
@@ -720,11 +730,12 @@ namespace CSharpPython
         private readonly List<DequeIterator> _dequeIterators = new List<DequeIterator>();
         private bool _filled; // true once every container has its contents
 
-        public SnapshotReader(PyVm vm, Script script, byte[] data)
+        public SnapshotReader(PyVm vm, Script script, byte[] data, ushort version)
         {
             _vm = vm;
             _script = script;
             _data = data;
+            _version = version;
         }
 
         public void ReadTable(BinaryReader r)
@@ -1027,6 +1038,12 @@ namespace CSharpPython
                         exc.Trace.Add(new TraceFrame(fn, r.ReadInt32()));
                     }
                     exc.Payload = ReadValue(r);
+                    if (_version >= 16)
+                    {
+                        exc.Cause = ReadValue(r);
+                        exc.Context = ReadValue(r);
+                        exc.SuppressContext = r.ReadBoolean();
+                    }
                     _objects[id] = exc;
                     break;
                 }

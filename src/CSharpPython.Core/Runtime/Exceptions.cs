@@ -160,6 +160,42 @@ namespace CSharpPython
         /// <summary>The value a <c>StopIteration</c> carries: what the generator returned. None for other exceptions.</summary>
         public Value Payload;
 
+        // The exception chain. A script class's exception keeps it in the instance (so snapshots save it with the other
+        // attributes); a built-in one keeps it here.
+        private Value _cause = Value.None, _context = Value.None;
+        private bool _suppressContext;
+
+        /// <summary>The <c>__cause__</c>: the exception given by <c>raise ... from</c>, or None.</summary>
+        public Value Cause
+        {
+            get => _instance != null ? ChainField("__cause__") : _cause;
+            set { if (_instance != null) _instance.Fields.Set(Value.FromString("__cause__"), value); else _cause = value; }
+        }
+
+        /// <summary>The <c>__context__</c>: the exception that was being handled when this one was raised, or None.</summary>
+        public Value Context
+        {
+            get => _instance != null ? ChainField("__context__") : _context;
+            set { if (_instance != null) _instance.Fields.Set(Value.FromString("__context__"), value); else _context = value; }
+        }
+
+        /// <summary>The <c>__suppress_context__</c>: set by <c>raise ... from</c>, which hides the context.</summary>
+        public bool SuppressContext
+        {
+            get => _instance != null ? ChainField("__suppress_context__").IsTruthy : _suppressContext;
+            set { if (_instance != null) _instance.Fields.Set(Value.FromString("__suppress_context__"), Value.FromBool(value)); else _suppressContext = value; }
+        }
+
+        private Value ChainField(string name) =>
+            _instance.Fields.TryGetStr(name, out Value v) ? v : Value.None;
+
+        /// <summary>What an exception instance has for a chain attribute it was never given.</summary>
+        internal static bool TryDefaultChainAttribute(string name, out Value value)
+        {
+            value = name == "__suppress_context__" ? Value.FromBool(false) : Value.None;
+            return name == "__cause__" || name == "__context__" || name == "__suppress_context__";
+        }
+
         /// <summary>The innermost frame first. Filled in when the exception is raised.</summary>
         public List<TraceFrame> Trace = new List<TraceFrame>();
 

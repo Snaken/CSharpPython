@@ -14,6 +14,7 @@ namespace CSharpPython.Compilation
             public bool IsFor;
             public int TryDepth;
             public int FinallyLevel;
+            public int ExcDepth;
         }
 
         // A try statement with a finally block that the code being compiled is currently inside.
@@ -42,6 +43,8 @@ namespace CSharpPython.Compilation
             public int InFinally;
             public int TryDepth;
             public int HandlerDepth;
+            // How many handler bodies (the exceptional path of a finally counts as one) the code being compiled is inside.
+            public int ExcDepth;
             public int Line = 1;
 
             public Unit(Scope scope, string name)
@@ -421,7 +424,7 @@ namespace CSharpPython.Compilation
             int top = Here;
             CompileExpr(w.Test);
             int toEnd = Emit(Op.JumpIfFalse);
-            var loop = new Loop { ContinueTarget = top, TryDepth = _unit.TryDepth, FinallyLevel = _unit.InFinally };
+            var loop = new Loop { ContinueTarget = top, TryDepth = _unit.TryDepth, FinallyLevel = _unit.InFinally, ExcDepth = _unit.ExcDepth };
             _unit.Loops.Add(loop);
             CompileBody(w.Body);
             _unit.Loops.RemoveAt(_unit.Loops.Count - 1);
@@ -439,7 +442,7 @@ namespace CSharpPython.Compilation
             int top = Here;
             int forIter = Emit(Op.ForIter);
             CompileStore(f.Target);
-            var loop = new Loop { ContinueTarget = top, IsFor = true, TryDepth = _unit.TryDepth, FinallyLevel = _unit.InFinally };
+            var loop = new Loop { ContinueTarget = top, IsFor = true, TryDepth = _unit.TryDepth, FinallyLevel = _unit.InFinally, ExcDepth = _unit.ExcDepth };
             _unit.Loops.Add(loop);
             CompileBody(f.Body);
             _unit.Loops.RemoveAt(_unit.Loops.Count - 1);
@@ -483,6 +486,7 @@ namespace CSharpPython.Compilation
             var loop = _unit.Loops[_unit.Loops.Count - 1];
             if (loop.FinallyLevel != _unit.InFinally) throw Error("'break' cannot leave a 'finally' block", at);
             RunGuards(loop.TryDepth, true);
+            if (_unit.ExcDepth > loop.ExcDepth) Emit(Op.EndHandler, loop.ExcDepth);
             if (loop.IsFor) Emit(Op.Pop); // discard the iterator
             loop.BreakJumps.Add(Emit(Op.Jump));
         }
@@ -492,6 +496,7 @@ namespace CSharpPython.Compilation
             var loop = _unit.Loops[_unit.Loops.Count - 1];
             if (loop.FinallyLevel != _unit.InFinally) throw Error("'continue' cannot leave a 'finally' block", at);
             RunGuards(loop.TryDepth, true);
+            if (_unit.ExcDepth > loop.ExcDepth) Emit(Op.EndHandler, loop.ExcDepth);
             Emit(Op.Jump, loop.ContinueTarget);
         }
 
@@ -623,7 +628,10 @@ namespace CSharpPython.Compilation
 
             // An exception got past the body and handlers: it is on the stack. Run the finally block, then raise it again.
             Patch(setup);
+            _unit.ExcDepth++;
+            Emit(Op.EnterHandler, _unit.ExcDepth);
             CompileBody(t.Finally);
+            _unit.ExcDepth--;
             _unit.InFinally--;
             Emit(Op.Reraise);
             Patch(toEnd);
@@ -647,6 +655,8 @@ namespace CSharpPython.Compilation
             Patch(setup);
             // The exception is on the stack. Try each handler in turn.
             _unit.HandlerDepth++;
+            _unit.ExcDepth++;
+            Emit(Op.EnterHandler, _unit.ExcDepth);
             foreach (var h in t.Handlers)
             {
                 int next = -1;
@@ -660,10 +670,12 @@ namespace CSharpPython.Compilation
                 if (h.Name != null) StoreName(h.Name);
                 else Emit(Op.Pop);
                 CompileBody(h.Body);
+                Emit(Op.EndHandler, _unit.ExcDepth - 1);
                 toEnd.Add(Emit(Op.Jump));
                 if (next >= 0) Patch(next);
             }
             _unit.HandlerDepth--;
+            _unit.ExcDepth--;
             if (t.Handlers[t.Handlers.Count - 1].Type != null) Emit(Op.Reraise);
             foreach (int j in toEnd) Patch(j);
         }
@@ -678,8 +690,9 @@ namespace CSharpPython.Compilation
                 return;
             }
             CompileExpr(r.Value);
+            if (r.Cause != null) CompileExpr(r.Cause);
             SetLine(r);
-            Emit(Op.Raise);
+            Emit(r.Cause != null ? Op.RaiseFrom : Op.Raise);
         }
 
         // ---- Expressions ----------------------------------------------------------------------------------------

@@ -129,6 +129,9 @@ namespace CSharpPython.Compilation
         ForIterThrow, // iterator exception -> iterator value, or raises the exception inside the iterator; 'yield from' under throw() or close()
         AfterThrow,   // after ForIterThrow: under close(), the delegate is closed, so GeneratorExit is raised here
         GenReturn,    // -> the value the last exhausted generator returned (None for other iterators); ends 'yield from'
+        RaiseFrom,    // value cause -> (raises value with cause as its __cause__)
+        EnterHandler, // exception -> exception; arg = how many handler bodies deep this one is; records the exception as the one being handled
+        EndHandler,   // arg = the depth to return to: the handled exception of every deeper handler body is forgotten
 
         // Combined instructions, which only ever appear in Code.Fast (see Peephole). Each stands in for the first of
         // the instructions it replaces and reads the rest from the instructions that follow, which stay in place so
@@ -319,6 +322,7 @@ namespace CSharpPython.Compilation
                     case Op.Raise:
                     case Op.Reraise:
                     case Op.RaiseCurrent:
+                    case Op.RaiseFrom:
                     case Op.MatchException:
                     case Op.ClassNamespace:
                         break;

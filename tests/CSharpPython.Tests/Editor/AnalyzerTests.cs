@@ -83,6 +83,13 @@ namespace CSharpPython.Tests.Editor
             Assert.That(Analyzer.Analyze("match = 1\ncase = match\nprint(match, case)\nmatch(case)\n"), Is.Empty);
         }
 
+        [Test]
+        public void RaiseFromIsValid()
+        {
+            Assert.That(Analyzer.Analyze("try:\n    pass\nexcept ValueError as e:\n    raise KeyError('k') from e\n"), Is.Empty);
+            Assert.That(Analyzer.Analyze("raise ValueError('x') from None\n"), Is.Empty);
+        }
+
         [TestCase("match x:\n    case [*a, *b]:\n        pass\n", "multiple starred")]
         [TestCase("match x:\n    case _:\n        pass\n    case 1:\n        pass\n", "unreachable")]
         [TestCase("match x:\n    case f(1, a=2, 3):\n        pass\n", "positional patterns follow keyword")]

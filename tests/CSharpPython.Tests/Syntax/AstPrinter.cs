@@ -127,7 +127,7 @@ namespace CSharpPython.Tests.Syntax
                 case TryStmt t:
                     return "(try " + Body(t.Body) + string.Concat(t.Handlers.Select(h =>
                         " (except " + (h.Type == null ? "_" : Expr(h.Type)) + (h.Name != null ? " as " + h.Name : "") + " " + Body(h.Body) + ")")) + ")";
-                case RaiseStmt r: return r.Value == null ? "(raise)" : "(raise " + Expr(r.Value) + ")";
+                case RaiseStmt r: return r.Value == null ? "(raise)" : "(raise " + Expr(r.Value) + (r.Cause == null ? "" : " from " + Expr(r.Cause)) + ")";
                 case ImportStmt i: return "(import " + i.Module + (i.Alias != null ? " as " + i.Alias : "") + ")";
                 case ImportFromStmt i:
                     return "(from " + i.Module + " import " + string.Join(", ", i.Names.Select((n, k) => n + (i.Aliases[k] != null ? " as " + i.Aliases[k] : ""))) + ")";

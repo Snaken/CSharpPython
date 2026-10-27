@@ -65,6 +65,9 @@ Classes have instances, instance and class attributes, methods, `__init__` and s
 - Built-in errors raised by the VM (a `ZeroDivisionError`) are never instances of your subclasses.
 - The traceback of an exception instance isn't kept across a snapshot.
 - Register host exception types with `vm.RegisterExceptionType("GameError")`.
+- **Chaining.** `raise X from Y` sets `X.__cause__` to `Y` (an exception, an exception class, or `None`) and `__suppress_context__` to `True`. An exception raised while an `except` block is handling another one (also from a function that block calls, or by the VM, like a `ZeroDivisionError`) gets that one as `__context__`; the handled exception is forgotten again when the block ends, and an inner `try` inside an `except` block gives the outer one back. Without a chain the three attributes are `None`, `None` and `False`. They are read-only on built-in exceptions; an exception of your own class can assign them.
+- A task that stops with a chained error keeps the chain: `PyRuntimeError.Cause` and `PyRuntimeError.Context` (also `InnerException`) hold the earlier errors, and `FormatTraceback()` prints them first, with CPython's "The above exception was the direct cause of the following exception:" and "During handling of the above exception, another exception occurred:" lines. The chain is not kept in the saved state of a task that has already stopped with an error.
+- Not there yet: `__traceback__`, `with_traceback`, `add_note`, and the exception groups.
 
 ## Closures, sets and comprehensions
 

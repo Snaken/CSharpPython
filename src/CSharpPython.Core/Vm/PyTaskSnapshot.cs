@@ -7,9 +7,9 @@ namespace CSharpPython
 {
     public sealed partial class PyTask
     {
-        private const ushort SnapshotVersion = 15;
+        private const ushort SnapshotVersion = 16;
 
-        // Version 14 added the itertools iterators and 15 the functools callables and caches; older saves have neither, so they are read as they are.
+        // Version 14 added the itertools iterators, 15 the functools callables and caches and 16 the cause and context of exceptions; older saves have none of them, so they are read as they are.
         private const ushort OldestReadableVersion = 13;
         private static readonly byte[] SnapshotMagic = { (byte)'C', (byte)'S', (byte)'P', (byte)'Y' };
 
@@ -174,7 +174,7 @@ namespace CSharpPython
             if (r.ReadUInt64() != script.Fingerprint)
                 throw new SnapshotException("the snapshot was taken from a different script");
 
-            var reader = new SnapshotReader(vm, script, data);
+            var reader = new SnapshotReader(vm, script, data, version);
             reader.ReadTable(r);
 
             var task = new PyTask(vm, script, true);

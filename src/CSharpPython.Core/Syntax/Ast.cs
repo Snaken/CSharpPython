@@ -323,6 +323,9 @@ namespace CSharpPython.Syntax
     {
         /// <summary>The exception to raise, or null for a bare <c>raise</c> that re-raises.</summary>
         public Expr Value;
+
+        /// <summary>The <c>Y</c> of <c>raise X from Y</c>, or null when there is no <c>from</c> clause.</summary>
+        public Expr Cause;
     }
 
     public sealed class ImportStmt : Stmt

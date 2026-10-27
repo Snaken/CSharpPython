@@ -108,6 +108,7 @@ namespace CSharpPython.Compilation
                     break;
                 case RaiseStmt r:
                     if (r.Value != null) VisitExpr(r.Value);
+                    if (r.Cause != null) VisitExpr(r.Cause);
                     break;
                 case ImportStmt i:
                     Bind(i.Alias ?? i.BoundName);

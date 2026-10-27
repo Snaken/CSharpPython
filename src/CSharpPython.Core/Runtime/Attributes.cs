@@ -133,6 +133,7 @@ namespace CSharpPython
                         return BindMember(prop, obj, inst.Class, name);
                     if (inst.Fields.TryGetValue(Value.FromString(name), out Value field)) return field;
                     if (inst.Class.TryFind(name, out Value member)) return BindMember(member, obj, inst.Class, name);
+                    if (inst.Class.ExceptionRoot != null && PyExceptionValue.TryDefaultChainAttribute(name, out Value chain)) return chain;
                     throw NoAttribute(obj, name);
                 }
                 case ValueKind.Class:
@@ -190,6 +191,9 @@ namespace CSharpPython
                 case ValueKind.Exception:
                 {
                     var exc = (PyExceptionValue)obj.RawObject;
+                    if (name == "__cause__") return exc.Cause;
+                    if (name == "__context__") return exc.Context;
+                    if (name == "__suppress_context__") return Value.FromBool(exc.SuppressContext);
                     if (name == "args")
                     {
                         if (exc.Payload.Kind != ValueKind.None) return Value.Tuple(exc.Payload);

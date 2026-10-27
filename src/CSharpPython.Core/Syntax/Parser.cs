@@ -649,7 +649,7 @@ namespace CSharpPython.Syntax
                     Advance();
                     var node = At(new RaiseStmt(), tok);
                     if (!EndsStatement(Cur.Kind)) node.Value = ParseTernary();
-                    if (Cur.Kind == TokenKind.KwFrom) throw Error("'raise ... from' is not supported yet", Cur);
+                    if (node.Value != null && Accept(TokenKind.KwFrom)) node.Cause = ParseTernary();
                     return node;
                 }
                 case TokenKind.KwImport: return ParseImport();

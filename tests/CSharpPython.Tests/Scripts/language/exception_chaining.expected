@@ -1,0 +1,30 @@
+RuntimeError(outer) cause: ValueError(inner) context: ValueError(inner) suppress: True
+AppError(a) cause: ValueError() context: None suppress: True
+AppError(b) cause: None context: None suppress: True
+ValueError(plain) cause: None context: None suppress: False
+RuntimeError(x) cause: Detail(code 7) context: None suppress: True
+7
+LookupError(k) cause: None context: ZeroDivisionError(division by zero) suppress: False
+KeyError('missing') cause: None context: IndexError(list index out of range) suppress: False
+ValueError(invalid literal for int() with base 10: 'nope') cause: None context: ValueError(first) suppress: False
+ValueError(first) cause: None context: None suppress: False
+AppError(from function) cause: None context: ValueError(handled) suppress: False
+TypeError(two) cause: LookupError(cause) context: ValueError(one) suppress: True
+AppError(wrapped) cause: Detail(code 1) context: Detail(code 1) suppress: True
+1 True
+LookupError(later) cause: None context: None suppress: False
+OSError(after the loop) cause: None context: None suppress: False
+RuntimeError(after inner) cause: None context: ValueError(outer one) suppress: False
+ValueError(outer two) cause: None context: None suppress: False
+IndexError(a3) cause: None context: None suppress: False
+ValueError(same) cause: None context: None suppress: False
+ValueError(self) cause: None context: None suppress: False
+['RuntimeError', 'ValueError', 'LookupError']
+LookupError(in finally) cause: None context: ValueError(body) suppress: False
+AppError(closing) cause: None context: ValueError(inside with) suppress: False
+RuntimeError(generator raised StopIteration) cause: StopIteration(stop) context: StopIteration(stop) suppress: True
+exception causes must derive from BaseException
+exception causes must derive from BaseException
+exception causes must derive from BaseException
+exceptions must derive from BaseException
+['no error', 'ValueError(1)', 'no error']

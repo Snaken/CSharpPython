@@ -30,7 +30,7 @@ namespace CSharpPython
             public bool IsBoundary; // the entry frame of a call made by a native function (see CallSync)
             public Handler[] Handlers = new Handler[4];
             public int HandlerCount;
-            public Value ExcInfo;   // the exception being handled, for a bare 'raise'
+            public Value ExcInfo;   // the exceptions being handled, one per nested except block (see HandledExceptions)
             public bool IsConstructor; // running __init__ for a call of a class; the call's result is Constructed
             public Value Constructed;
             public PyClass Owner;   // the class whose method is running, for super()
@@ -306,6 +306,7 @@ namespace CSharpPython
                 catch (PyError e)
                 {
                     var exc = new PyExceptionValue(ExceptionTypes.GetOrCreate(e.TypeName), e.Problem);
+                    LinkContext(exc);
                     if (!Unwind(ref exc)) return TaskState.Error;
                 }
                 catch (ScriptRaise r)
@@ -1122,6 +1123,15 @@ namespace CSharpPython
                     case Op.RaiseCurrent:
                         ColdRaiseCurrent(frame);
                         break;
+                    case Op.RaiseFrom:
+                        ColdRaiseFrom();
+                        break;
+                    case Op.EnterHandler:
+                        frame.ExcInfo = HandledExceptions.Enter(frame.ExcInfo, ins.Arg, _stack[_sp - 1]);
+                        break;
+                    case Op.EndHandler:
+                        frame.ExcInfo = HandledExceptions.Leave(frame.ExcInfo, ins.Arg);
+                        break;
                     case Op.MatchException:
                         ColdMatchException();
                         break;
@@ -1404,16 +1414,75 @@ namespace CSharpPython
             for (int k = before - 1; k >= 0; k--) Push(all[k]);
         }
 
-        private void ColdRaise()
+        // The exception a raise statement raises for this value: an exception class is called to make its instance.
+        // Null if the value is not an exception.
+        private PyExceptionValue ToRaisable(Value v)
         {
-            Value v = _stack[--_sp];
             if (v.Kind == ValueKind.ExceptionType)
-                throw new ScriptRaise(new PyExceptionValue((PyExceptionType)v.RawObject, ""));
+                return new PyExceptionValue((PyExceptionType)v.RawObject, "");
             if (v.Kind == ValueKind.Class && ((PyClass)v.RawObject).ExceptionRoot != null)
                 v = CallSync(v, Array.Empty<Value>()); // 'raise MyError' makes the instance
-            var raised = AsException(v);
+            return AsException(v);
+        }
+
+        private void ColdRaise()
+        {
+            var raised = ToRaisable(_stack[--_sp]);
             if (raised == null) throw new PyError("TypeError", "exceptions must derive from BaseException");
+            LinkContext(raised);
             throw new ScriptRaise(raised);
+        }
+
+        private void ColdRaiseFrom()
+        {
+            Value cause = _stack[--_sp];
+            var raised = ToRaisable(_stack[--_sp]);
+            if (raised == null) throw new PyError("TypeError", "exceptions must derive from BaseException");
+            if (cause.Kind == ValueKind.None) raised.Cause = Value.None;
+            else
+            {
+                var causeException = ToRaisable(cause);
+                if (causeException == null) throw new PyError("TypeError", "exception causes must derive from BaseException");
+                raised.Cause = ValueOf(causeException);
+            }
+            raised.SuppressContext = true;
+            LinkContext(raised);
+            throw new ScriptRaise(raised);
+        }
+
+        // The exception being handled by the innermost running except block, in this frame or the ones that called it.
+        private Value CurrentlyHandled()
+        {
+            for (int i = _frameCount - 1; i >= 0; i--)
+            {
+                Value handled = HandledExceptions.Current(_frames[i].ExcInfo);
+                if (handled.Kind != ValueKind.None || _frames[i].IsEvent) return handled;
+            }
+            return Value.None;
+        }
+
+        private static bool SameException(PyExceptionValue a, PyExceptionValue b) =>
+            a == b || (a.Instance != null && a.Instance == b.Instance);
+
+        // A new exception raised while another is being handled remembers it as its __context__ (unless it is that
+        // exception, or the link would make a loop).
+        private void LinkContext(PyExceptionValue raised)
+        {
+            Value current = CurrentlyHandled();
+            var handled = AsException(current);
+            if (handled == null || SameException(handled, raised)) return;
+            var link = handled;
+            for (int steps = 0; link != null && steps < 64; steps++)
+            {
+                var next = AsException(link.Context);
+                if (next != null && SameException(next, raised))
+                {
+                    link.Context = Value.None;
+                    break;
+                }
+                link = next;
+            }
+            raised.Context = current;
         }
 
         private void ColdReraise()
@@ -1423,7 +1492,7 @@ namespace CSharpPython
 
         private void ColdRaiseCurrent(Frame frame)
         {
-            var current = AsException(frame.ExcInfo);
+            var current = AsException(HandledExceptions.Current(frame.ExcInfo));
             if (current == null) throw new PyError("RuntimeError", "No active exception to reraise");
             throw new ScriptRaise(current);
         }
@@ -1982,9 +2051,7 @@ namespace CSharpPython
                 {
                     Handler h = f.Handlers[--f.HandlerCount];
                     _sp = h.Sp;
-                    Value value = ValueOf(exc);
-                    Push(value);
-                    f.ExcInfo = value;
+                    Push(ValueOf(exc));
                     f.Pc = h.Address;
                     return true;
                 }
@@ -2002,7 +2069,8 @@ namespace CSharpPython
                         return true;
                     }
                     if (exc.Type.IsSubclassOf(ExceptionTypes.StopIteration))
-                        exc = new PyExceptionValue(ExceptionTypes.GetOrCreate("RuntimeError"), "generator raised StopIteration") { Trace = exc.Trace };
+                        exc = new PyExceptionValue(ExceptionTypes.GetOrCreate("RuntimeError"), "generator raised StopIteration")
+                        { Trace = exc.Trace, Cause = ValueOf(exc), SuppressContext = true, Context = ValueOf(exc) };
                 }
                 _sp = f.CalleeIndex;
                 _frameCount--;
@@ -2012,8 +2080,19 @@ namespace CSharpPython
             return false;
         }
 
-        private PyRuntimeError FromError(PyExceptionValue exc) =>
-            new PyRuntimeError(exc.TypeName, exc.Message, _script.Name, exc.Trace);
+        // The error the host sees, with the exceptions that caused it or were being handled when it was raised.
+        private PyRuntimeError FromError(PyExceptionValue exc, int depth = 0)
+        {
+            PyRuntimeError cause = null, context = null;
+            if (depth < 8)
+            {
+                var causeException = AsException(exc.Cause);
+                var contextException = AsException(exc.Context);
+                if (causeException != null) cause = FromError(causeException, depth + 1);
+                else if (contextException != null && !exc.SuppressContext) context = FromError(contextException, depth + 1);
+            }
+            return new PyRuntimeError(exc.TypeName, exc.Message, _script.Name, exc.Trace, cause ?? context) { Cause = cause, Context = context };
+        }
 
         private List<TraceFrame> CurrentTrace()
         {
@@ -2160,6 +2239,7 @@ namespace CSharpPython
                 catch (PyError e)
                 {
                     var exc = new PyExceptionValue(ExceptionTypes.GetOrCreate(e.TypeName), e.Problem);
+                    LinkContext(exc);
                     if (!Unwind(ref exc, floor)) throw new ScriptRaise(exc);
                 }
                 catch (ScriptRaise r)

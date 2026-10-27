@@ -10,8 +10,7 @@ Everything known to be missing, grouped by area. The order inside a group is rou
 
 ## Language
 
-- `match` statements (structural pattern matching).
-- Exceptions: `raise X from Y`, exception chaining (`__cause__`, `__context__`) and `__traceback__`, `ExceptionGroup` and `except*`, and real `args` on built-in exceptions (today they keep only a message string).
+- Exceptions: `__traceback__`, assigning `__cause__` or `__context__` on a built-in exception, `ExceptionGroup` and `except*`, and real `args` on built-in exceptions (today they keep only a message string).
 - `return`, `break` and `continue` inside `finally`.
 - Classes: multiple inheritance with a proper MRO, inheriting from built-in types (`list`, `dict`, `int`, ...), `object()`, `__slots__`, `__del__`, `__missing__`, and the special methods `__trunc__`, `__floor__`, `__ceil__` and `__getattribute__`.
 - Special methods, property getters and setters and attribute hooks that can wait. Today they run to completion, like sort-key callbacks, so they cannot call `game.wait`.
@@ -22,7 +21,7 @@ Everything known to be missing, grouped by area. The order inside a group is rou
 
 ## Standard library
 
-Only `math` exists today, and only a part of it. Wanted, with games in mind:
+`math`, `random`, `collections`, `itertools`, `functools` and `operator` exist, each with parts missing. Wanted, with games in mind:
 
 - More of `random`: `float`, `str` and `bytes` seeds, `sample(counts=)`, `Random` objects with `getstate` and `setstate`, `randbytes`, `binomialvariate` and the gamma, beta, pareto, weibull and von Mises distributions.
 - More of `math`: `erf`, `gamma`, `lgamma`, `fma`, `nextafter`, `ulp` and `sumprod`.
