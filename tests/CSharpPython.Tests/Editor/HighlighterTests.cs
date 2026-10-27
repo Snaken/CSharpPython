@@ -20,6 +20,14 @@ namespace CSharpPython.Tests.Editor
         }
 
         [Test]
+        public void MatchAndCaseAreKeywordsOnlyWhereTheyStartABlock()
+        {
+            Assert.That(Show("match x:\n    case 1:\n        pass"), Does.StartWith("match:Keyword x:Identifier ::Punctuation").And.Contain("case:Keyword 1:Number"));
+            Assert.That(Show("match = 1\ncase = match"), Is.EqualTo("match:Identifier =:Operator 1:Number case:Identifier =:Operator match:Identifier"));
+            Assert.That(Show("xs.match(1)\nmatch(1)"), Does.Contain("match:Member").And.Contain("match:Identifier"));
+        }
+
+        [Test]
         public void FunctionNamesMembersAndModulesGetTheirOwnKinds()
         {
             Assert.That(Show("def fly(a, b):\n    return a"),

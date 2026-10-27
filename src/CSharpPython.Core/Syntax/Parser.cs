@@ -9,7 +9,7 @@ namespace CSharpPython.Syntax
     /// Recursive-descent parser for statements with a precedence-climbing (Pratt) parser for arithmetic.
     /// Anything outside the supported subset is rejected with a message that says it is not supported yet.
     /// </summary>
-    public sealed class Parser
+    public sealed partial class Parser
     {
         // Binding powers for the binary arithmetic operators.
         private const int PowerBitOr = 2;
@@ -172,7 +172,10 @@ namespace CSharpPython.Syntax
                 case TokenKind.KwFor: into.Add(ParseFor()); return;
                 case TokenKind.KwTry: into.Add(ParseTry()); return;
                 case TokenKind.KwWith: ParseWith(into); return;
-                default: ParseSimpleLine(into); return;
+                default:
+                    if (LooksLikeMatch()) ParseMatch(into);
+                    else ParseSimpleLine(into);
+                    return;
             }
         }
 

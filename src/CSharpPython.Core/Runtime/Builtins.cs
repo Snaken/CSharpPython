@@ -26,12 +26,15 @@ namespace CSharpPython
                     into[fn.Name] = Value.FromNative(fn);
                 }
             }
+            foreach (var fn in MatchHelpers.Functions()) into[fn.Name] = Value.FromNative(fn);
             foreach (var type in ExceptionTypes.All) into[type.Name] = Value.FromExceptionType(type);
             into["object"] = Value.FromType(PyTypes.Object);
 
             // Names no script can write, used by the code a 'with' statement is rewritten into.
             into[".type"] = into["type"];
             into[".iter"] = into["iter"];
+            into[".len"] = into["len"];
+            into[".list"] = into["list"];
             into[".Exception"] = Value.FromExceptionType(ExceptionTypes.Exception);
             into["NotImplemented"] = Value.NotImplemented;
             into["Ellipsis"] = Value.Ellipsis;

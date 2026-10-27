@@ -5,14 +5,14 @@ differs from CPython. Anything not mentioned here should be assumed unsupported.
 
 Contents: [Syntax and types](#syntax-and-types) · [Built-ins](#built-ins-and-methods) · [Functions and modules](#functions-and-modules) ·
 [Classes](#classes) · [Exceptions](#exceptions) · [Closures, sets and comprehensions](#closures-sets-and-comprehensions) ·
-[Generators](#generators) · [with](#with) · [Not supported](#not-supported-yet) · [Differences from CPython](#differences-from-cpython) · [Limits](#limits-and-safety)
+[Generators](#generators) · [with](#with) · [match](#match) · [Not supported](#not-supported-yet) · [Differences from CPython](#differences-from-cpython) · [Limits](#limits-and-safety)
 
 ## Syntax and types
 
 | Area | Details |
 | --- | --- |
 | Types | `int` (any size, up to `MaxIntBits`), `float`, `str`, `bool`, `None`, `list`, `tuple`, `dict`, `set`, `range`, host handles |
-| Statements | assignment (chained, tuple unpacking including `a, *rest = xs`, augmented), `if/elif/else`, `while` and `for` (with an `else` block that a `break` skips), `break`, `continue`, `pass`, `return`, `global`, `nonlocal`, `del` (names, attributes, items and list slices), slice assignment (`xs[1:3] = [...]`, `xs[::2] = [...]` on lists, with CPython's size rules), type annotations (`x: int = 5`, `def f(a: int = 0, *args: str) -> bool:`; they are checked for syntax and then ignored, never evaluated or stored), `assert`, `with` (context managers, with `as` targets and several items), `yield` and `yield from` (generators), `import`/`from ... import`, `def` (including nested functions), `class`, `lambda`, list, dict and set comprehensions, set displays (`{1, 2}`), `*iterable` and `**mapping` unpacking inside list, tuple, set and dict displays (`[*a, 1]`, `{**d, 'k': v}`), generator expressions, `try/except/else/finally`, `raise` |
+| Statements | assignment (chained, tuple unpacking including `a, *rest = xs`, augmented), `if/elif/else`, `while` and `for` (with an `else` block that a `break` skips), `break`, `continue`, `pass`, `return`, `global`, `nonlocal`, `del` (names, attributes, items and list slices), slice assignment (`xs[1:3] = [...]`, `xs[::2] = [...]` on lists, with CPython's size rules), type annotations (`x: int = 5`, `def f(a: int = 0, *args: str) -> bool:`; they are checked for syntax and then ignored, never evaluated or stored), `assert`, `with` (context managers, with `as` targets and several items), `match` (see [match](#match)), `yield` and `yield from` (generators), `import`/`from ... import`, `def` (including nested functions), `class`, `lambda`, list, dict and set comprehensions, set displays (`{1, 2}`), `*iterable` and `**mapping` unpacking inside list, tuple, set and dict displays (`[*a, 1]`, `{**d, 'k': v}`), generator expressions, `try/except/else/finally`, `raise` |
 | Expressions | arithmetic, bit operators (`&`, `\|`, `^`, `~`, `<<`, `>>`, on `int` and `bool`; `\|`, `&` and `^` also on sets; `\|` and `\|=` on dicts), comparison chains, `and/or/not`, `in`, `is`, conditional expressions, assignment expressions (`if (n := len(xs)) > 3:`, `while (line := next_line()):`, `[y for x in xs if (y := f(x))]`; in a comprehension the name is bound in the enclosing function or module, as in Python), subscripts and slices, f-strings, printf-style `"%d items" % n` (flags, width, precision, `*`, `%(name)s` with a dict, and `d i u o x X e E f F g G c r s a %`), keyword and default arguments |
 
 ## Built-ins and methods
@@ -87,6 +87,23 @@ Classes have instances, instance and class attributes, methods, `__init__` and s
 ## with
 
 `with` follows PEP 343: `__exit__` receives the exception type and instance (the traceback argument is always `None`) and a true return value suppresses the exception; `return`, `break` and `continue` inside the body run `__exit__` too. Several items work, and so does the parenthesized form `with (a as x, b as y):`.
+
+## match
+
+`match` and `case` work as in Python 3.10 and later, and are ordinary names everywhere else (`match = 1` is fine). The patterns are:
+
+| Pattern | Example |
+| --- | --- |
+| literals (compared with `==`; `None`, `True` and `False` with `is`) | `case 0`, `case -1.5`, `case 'go'`, `case None` |
+| capture and wildcard | `case x`, `case _` |
+| value (a dotted name) | `case Color.RED` |
+| sequence (not `str`), with one `*rest` | `case [x, y]`, `case (1, *rest)`, `case first, *_` |
+| mapping, with `**rest` | `case {'kind': 'circle', 'r': r, **others}` |
+| class, positional and by keyword | `case Point(0, y)`, `case Circle(radius=r)` |
+| alternatives and `as` | `case 1 \| 2`, `case [x, y] as pair` |
+| guard | `case [x, y] if x < y` |
+
+A class takes positional patterns from its `__match_args__` (a tuple of attribute names), and a named tuple from its fields. `int`, `float`, `str`, `bool`, `list`, `dict`, `tuple`, `set` and `frozenset` take one positional pattern that matches the value itself, as in `case int(n)`. Names are only bound once the whole pattern has matched, and stay bound after the block, like in CPython. A task that is paused inside a `case` block is saved and restored like any other. The `match` statement is rewritten into `if` and `elif` statements while it is parsed, using a few built-in helpers whose names start with a dot, so the subject is kept in a hidden variable such as `.m1`. Complex-number literals (`case 1+2j`) are not supported.
 
 ## Not supported yet
 

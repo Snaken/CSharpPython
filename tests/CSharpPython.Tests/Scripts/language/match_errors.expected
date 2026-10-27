@@ -1,0 +1,21 @@
+TypeError NoArgs(1)
+TypeError Two(1, 2, 3)
+TypeError int(1, 2)
+TypeError x()
+TypeError Bad(1)
+TypeError list(1, 2)
+both 1 2
+mixed
+int 5
+str text
+float 2.5
+list 1 [2, 3]
+dict {'a': 1}
+tuple 1 2
+bool True
+int only
+value error
+['subject', 'guard3', 'guard3b', 'body']
+x kept the binding of the failed case: outer 2
+10 b
+['small', 'big']

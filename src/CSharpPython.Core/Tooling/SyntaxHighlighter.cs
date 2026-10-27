@@ -97,7 +97,8 @@ namespace CSharpPython.Editor
                 switch (t.Kind)
                 {
                     case TokenKind.Name:
-                        if (prev == TokenKind.Dot) kind = inImport ? HighlightKind.Module : HighlightKind.Member;
+                        if (IsSoftKeyword(tokens, i, prev)) kind = HighlightKind.Keyword;
+                        else if (prev == TokenKind.Dot) kind = inImport ? HighlightKind.Module : HighlightKind.Member;
                         else if (prev == TokenKind.KwDef) kind = HighlightKind.FunctionName;
                         else if (prev == TokenKind.KwClass) kind = HighlightKind.ClassName;
                         else if (inImport && prev != TokenKind.KwAs) kind = HighlightKind.Module;
@@ -130,6 +131,17 @@ namespace CSharpPython.Editor
             }
             AddComments(source, cursor, source.Length, spans);
             return spans;
+        }
+
+        // 'match' and 'case' are only keywords at the start of a line that ends in ':' ('case = 1' is an assignment).
+        private static bool IsSoftKeyword(List<Token> tokens, int index, TokenKind prev)
+        {
+            string text = tokens[index].Text;
+            if (text != "match" && text != "case") return false;
+            if (prev != TokenKind.Newline && prev != TokenKind.Indent && prev != TokenKind.Dedent && index != 0) return false;
+            int j = index + 1;
+            while (j < tokens.Count && tokens[j].Kind != TokenKind.Newline && tokens[j].Kind != TokenKind.EndOfFile) j++;
+            return j - 1 > index && tokens[j - 1].Kind == TokenKind.Colon;
         }
 
         private static bool IsFromStatement(List<Token> tokens, int importIndex)

@@ -75,5 +75,27 @@ namespace CSharpPython.Tests.Editor
             Assert.That(bad, Is.Not.Empty);
             Assert.That(bad[0].Message, Does.Contain("after a decorator"));
         }
+
+        [Test]
+        public void MatchStatementsAreValid()
+        {
+            Assert.That(Analyzer.Analyze("match [1, 2]:\n    case [a, b] if a < b:\n        print(a)\n    case {'k': v, **r}:\n        print(v, r)\n    case Point(x=1) | None:\n        pass\n    case _:\n        pass\n"), Is.Empty);
+            Assert.That(Analyzer.Analyze("match = 1\ncase = match\nprint(match, case)\nmatch(case)\n"), Is.Empty);
+        }
+
+        [TestCase("match x:\n    case [*a, *b]:\n        pass\n", "multiple starred")]
+        [TestCase("match x:\n    case _:\n        pass\n    case 1:\n        pass\n", "unreachable")]
+        [TestCase("match x:\n    case f(1, a=2, 3):\n        pass\n", "positional patterns follow keyword")]
+        [TestCase("match x:\n    case 1 as _:\n        pass\n", "cannot use '_'")]
+        [TestCase("match x:\n    case 'a' 'b' | f'{x}':\n        pass\n", "literals")]
+        [TestCase("match x:\n    case {a: 1}:\n        pass\n", "literals or dotted names")]
+        [TestCase("match x:\n    case -x:\n        pass\n", "expected a number")]
+        [TestCase("match x:\n    case f(a=1, a=2):\n        pass\n", "repeated")]
+        [TestCase("match x:\n    case 1:\n        pass\n    other\n", "expected a 'case' block")]
+        [TestCase("match x:\n    case +:\n        pass\n", "invalid pattern")]
+        public void BadPatternsAreSyntaxErrors(string source, string message)
+        {
+            Assert.That(Analyzer.Analyze(source).First().Message, Does.Contain(message));
+        }
     }
 }

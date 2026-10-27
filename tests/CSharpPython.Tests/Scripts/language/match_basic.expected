@@ -1,0 +1,56 @@
+0 zero
+1 small
+3 small
+-1 minus one
+3.5 three and a half
+'hello' greeting
+'a' letter
+None none
+True small
+False zero
+[] empty sequence
+() empty sequence
+[1, 2] one two
+[7] single 7
+[1, 2, 3, 4] long 1[2, 3, 4]
+(5, 6) pair 5 6
+{'kind': 'circle', 'r': 2} circle 2
+{'kind': 'sq', 'w': 1, 'h': 2} kind sq {'w': 1, 'h': 2}
+{} empty dict
+'xyz' string xyz
+500 big 500
+2.5 float
+50 other
+{1: 2} empty dict
+[1, 2, 3] other
+set() other
+origin
+on x axis at 3
+on y axis at 4
+diagonal 2
+point 1 2
+circle at 1 2 radius 5
+circle radius 3
+red
+green or ninety nine
+green or ninety nine
+unknown
+unknown
+10 x5+2 bob:a last 7 None None
+(1, 2, [3, 4], 5) (1, 2, [], 3) (1, []) no (0, 1, [], 2) matched str no
+a [4, 5] b 6 6 ?
+going north
+tuple subject 3 4
+simple 1
+simple a
+pair 3
+after [1, 2]
+skipped
+422
+namedtuple 1 2
+as tuple 1 2
+not a P
+{'b': 2, 'c': 3}
+captured 5
+a soft keyword a soft keyword
+3

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `match` statements: literal, capture, wildcard, value, sequence (with `*rest`), mapping (with `**rest`), class, `|` and `as` patterns, and guards. `match` and `case` stay ordinary names anywhere else. The editor tooling highlights them as keywords where they start a block.
+
 - `itertools` module: `count`, `cycle`, `repeat`, `chain` and `chain.from_iterable`, `islice`, `accumulate`, `compress`, `dropwhile`, `takewhile`, `filterfalse`, `starmap`, `zip_longest`, `pairwise`, `batched`, `product`, `permutations`, `combinations`, `combinations_with_replacement` and `groupby` (`tee` is missing). They are lazy, and snapshots save them in the middle of a loop (snapshot format version 15, which still reads version 13 and 14 saves).
 - `functools.reduce`, `partial`, `lru_cache`, `cache` and `wraps`, and an `operator` module with the arithmetic, bitwise, comparison and truth functions, `itemgetter`, `attrgetter` and `methodcaller`. A cached function that is called while a snapshot is taken is saved with its cache (snapshot format version 15, which still reads version 13 and 14 saves).
 
