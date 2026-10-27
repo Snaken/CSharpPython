@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- `functools.cmp_to_key` and `total_ordering`, and `itertools.tee`.
+- `int(x, base=2)` takes the base as a keyword.
+- Error messages follow CPython 3.14: every division or modulo by zero says `division by zero` (and `0 ** -1` says `zero to a negative power`), and a variable used before it has a value says `cannot access local variable 'x' where it is not associated with a value` (for a variable of an enclosing function, `cannot access free variable 'x' where it is not associated with a value in enclosing scope`).
 - Exception chaining: `raise X from Y` (and `from None`), `__cause__`, `__context__` and `__suppress_context__`. An error raised while an `except` block handles another one remembers it as its context, including errors the VM raises and ones raised by a function that the block calls. A task that stops with a chained error has `PyRuntimeError.Cause` and `PyRuntimeError.Context`, and `FormatTraceback()` prints the whole chain. A generator that lets `StopIteration` escape now raises `RuntimeError` with it as the cause. Snapshot format version 16 (it still reads version 13 to 15). **Saved tasks of a script with a `try` statement from before this release cannot be restored**, because `try` now compiles to a few more instructions and a snapshot only restores against the same compiled script.
 - `match` statements: literal, capture, wildcard, value, sequence (with `*rest`), mapping (with `**rest`), class, `|` and `as` patterns, and guards. `match` and `case` stay ordinary names anywhere else. The editor tooling highlights them as keywords where they start a block.
 

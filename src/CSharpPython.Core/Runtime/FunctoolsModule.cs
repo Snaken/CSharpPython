@@ -14,7 +14,29 @@ namespace CSharpPython
             m.Members["cache"] = Value.FromNative(new NativeFunction("cache", (c, a) => Cached(a[0], -1, false), 1, 1) { Signature = "user_function" });
             m.Members["wraps"] = Value.FromNative(new NativeFunction("wraps", (c, a) =>
                 Value.FromFunctool(new PyFunctool(FunctoolMode.Wraps, a[0], Array.Empty<Value>())), 1, 3, true) { Signature = "wrapped" });
+            m.Members["cmp_to_key"] = Value.FromNative(new NativeFunction("cmp_to_key", (c, a) =>
+            {
+                if (!PyTypes.IsCallable(a[0])) throw Ops.TypeError("the first argument must be callable");
+                return Value.FromFunctool(new PyFunctool(FunctoolMode.CmpKey, a[0], Array.Empty<Value>()));
+            }, 1, 1) { Signature = "mycmp" });
+            m.Members["total_ordering"] = Value.FromNative(new NativeFunction("total_ordering", (c, a) => TotalOrdering(a[0]), 1, 1) { Signature = "cls" });
             return m;
+        }
+
+        // The ordering methods in the order total_ordering prefers them as the one the others are worked out from.
+        private static readonly string[] OrderingRoots = { "__lt__", "__le__", "__gt__", "__ge__" };
+
+        private static Value TotalOrdering(Value cls)
+        {
+            if (cls.Kind != ValueKind.Class) throw Ops.TypeError("total_ordering() needs a class");
+            var pyClass = (PyClass)cls.RawObject;
+            foreach (string root in OrderingRoots)
+            {
+                if (!pyClass.TryFind(root, out Value member) || member.Kind != ValueKind.Function) continue;
+                pyClass.Namespace.Set(Value.FromString(Ops.OrderingKey), Value.FromString(root));
+                return cls;
+            }
+            throw Ops.ValueError("must define at least one ordering operation: < > <= >=");
         }
 
         private static readonly PyType CacheInfoType = NamedTuples.CreateType("CacheInfo", new[] { "hits", "misses", "maxsize", "currsize" }, Array.Empty<Value>());

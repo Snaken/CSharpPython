@@ -46,7 +46,39 @@ namespace CSharpPython
         private static bool TryOne(Value self, string name, Value other, out Value result)
         {
             result = default;
-            return self.Kind == ValueKind.Instance && TryCallDunder(self, name, new[] { other }, out result) && result.Kind != ValueKind.NotImplemented;
+            if (self.Kind != ValueKind.Instance) return false;
+            if (TryCallDunder(self, name, new[] { other }, out result)) return result.Kind != ValueKind.NotImplemented;
+            return TryDerivedOrdering(self, name, other, out result);
+        }
+
+        /// <summary>The name a class decorated with <c>functools.total_ordering</c> keeps its chosen method under (no script can write it).</summary>
+        internal const string OrderingKey = ".ordering";
+
+        // total_ordering: a comparison the class does not define is worked out from the one it does, the way functools does.
+        private static bool TryDerivedOrdering(Value self, string name, Value other, out Value result)
+        {
+            result = default;
+            if (name != "__lt__" && name != "__le__" && name != "__gt__" && name != "__ge__") return false;
+            var cls = ((PyInstance)self.RawObject).Class;
+            if (!cls.TryFind(OrderingKey, out Value rootName) || rootName.Kind != ValueKind.Str) return false;
+            string root = (string)rootName.RawObject;
+            if (root == name || !TryCallDunder(self, root, new[] { other }, out Value answer)) return false;
+            if (answer.Kind == ValueKind.NotImplemented)
+            {
+                result = answer;
+                return false;
+            }
+            bool r = answer.IsTruthy;
+            switch (root + name)
+            {
+                case "__lt____gt__": case "__gt____lt__": r = !r && !EqualOp(self, other).IsTruthy; break;
+                case "__lt____le__": case "__gt____ge__": r = r || EqualOp(self, other).IsTruthy; break;
+                case "__le____lt__": case "__ge____gt__": r = r && !EqualOp(self, other).IsTruthy; break;
+                case "__le____ge__": case "__ge____le__": r = !r || EqualOp(self, other).IsTruthy; break;
+                default: r = !r; break; // lt to ge, le to gt, gt to le, ge to lt
+            }
+            result = Value.FromBool(r);
+            return true;
         }
 
         // ---- Equality and hashing -------------------------------------------------------------------------------

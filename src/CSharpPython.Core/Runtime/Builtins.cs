@@ -88,7 +88,7 @@ namespace CSharpPython
             yield return F("hash", 1, 1, (c, a) => Value.FromInt(Ops.Hash(a[0])));
             yield return F("len", 1, 1, (c, a) => Value.FromInt(Ops.Length(a[0])));
             yield return F("range", 1, 3, Range);
-            yield return F("int", 0, 2, ToInt);
+            yield return F("int", 0, 2, ToInt, true);
             yield return F("float", 0, 1, ToFloat);
             yield return F("str", 0, 1, (c, a) => Value.FromString(a.Length == 0 ? "" : Ops.Str(a[0])));
             yield return F("bool", 0, 1, (c, a) => Value.FromBool(a.Length > 0 && a[0].IsTruthy));
@@ -243,12 +243,27 @@ namespace CSharpPython
 
         private static Value ToInt(CallContext ctx, ReadOnlySpan<Value> a)
         {
-            if (a.Length == 0) return Value.FromInt(0);
+            int given = ctx.PositionalCount;
+            Value radix = given == 2 ? a[1] : default;
+            bool hasRadix = given == 2;
+            if (ctx.KeywordNames.Length > 0)
+            {
+                if (ctx.KeywordNames.Length > 1 || ctx.KeywordNames[0] != "base")
+                    throw Ops.TypeError("int() got an unexpected keyword argument '" + ctx.KeywordNames[ctx.KeywordNames[0] == "base" ? 1 : 0] + "'");
+                if (hasRadix) throw Ops.TypeError("argument for int() given by name ('base') and position (2)");
+                radix = a[given];
+                hasRadix = true;
+            }
+            if (given == 0)
+            {
+                if (hasRadix) throw Ops.TypeError("int() missing string argument");
+                return Value.FromInt(0);
+            }
             Value v = a[0];
-            if (a.Length == 2)
+            if (hasRadix)
             {
                 if (v.Kind != ValueKind.Str) throw Ops.TypeError("int() can't convert non-string with explicit base");
-                return ParseInt(v.AsString(), (int)a[1].AsInt());
+                return ParseInt(v.AsString(), (int)radix.AsInt());
             }
             switch (v.Kind)
             {
@@ -716,7 +731,7 @@ namespace CSharpPython
                 if (x <= 0) throw Ops.ValueError("math domain error");
                 if (a.Length == 1) return Value.FromFloat(Math.Log(x));
                 double b = a[1].AsFloat();
-                if (MathExtras.Exactly(b, 1.0)) throw new PyError("ZeroDivisionError", "float division by zero");
+                if (MathExtras.Exactly(b, 1.0)) throw new PyError("ZeroDivisionError", "division by zero");
                 if (b <= 0) throw Ops.ValueError("math domain error");
                 return Value.FromFloat(Math.Log(x) / Math.Log(b));
             }));

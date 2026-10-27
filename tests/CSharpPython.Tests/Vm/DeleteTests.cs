@@ -32,8 +32,8 @@ namespace CSharpPython.Tests.Vm
         public void UnboundErrorsMatchTheOtherUnboundReads()
         {
             Assert.That(Fails("def f():\n    x = 1\n    del x\n    return x\nf()").TypeName, Is.EqualTo("UnboundLocalError"));
-            Assert.That(Message("def f():\n    x = 1\n    del x\n    return x\nf()"), Is.EqualTo("local variable 'x' referenced before assignment"));
-            Assert.That(Message("def f():\n    del x\nf()"), Is.EqualTo("local variable 'x' referenced before assignment"));
+            Assert.That(Message("def f():\n    x = 1\n    del x\n    return x\nf()"), Is.EqualTo("cannot access local variable 'x' where it is not associated with a value"));
+            Assert.That(Message("def f():\n    del x\nf()"), Is.EqualTo("cannot access local variable 'x' where it is not associated with a value"));
             Assert.That(Message("del nothing"), Is.EqualTo("name 'nothing' is not defined"));
         }
 
@@ -47,7 +47,7 @@ namespace CSharpPython.Tests.Vm
         [Test]
         public void DelMakesAFunctionVariableLocal()
         {
-            Assert.That(Message("x = 1\ndef f():\n    del x\nf()"), Is.EqualTo("local variable 'x' referenced before assignment"));
+            Assert.That(Message("x = 1\ndef f():\n    del x\nf()"), Is.EqualTo("cannot access local variable 'x' where it is not associated with a value"));
             Assert.That(Out("x = 1\ndef f():\n    global x\n    del x\nf()\ntry:\n    x\nexcept NameError:\n    print('gone')"), Is.EqualTo("gone"));
         }
 
@@ -61,11 +61,11 @@ namespace CSharpPython.Tests.Vm
         public void AClosureSeesADeletedVariableAsUnbound()
         {
             Assert.That(Out("def f():\n    x = 1\n    def g():\n        return x\n    del x\n    try:\n        g()\n    except NameError as e:\n        print(e)\n    x = 7\n    return g()\nprint(f())"),
-                Is.EqualTo("free variable 'x' referenced before assignment in enclosing scope\n7"));
+                Is.EqualTo("cannot access free variable 'x' where it is not associated with a value in enclosing scope\n7"));
             Assert.That(Message("def f():\n    x = 1\n    def g():\n        nonlocal x\n        del x\n        del x\n    g()\nf()"),
-                Is.EqualTo("free variable 'x' referenced before assignment in enclosing scope"));
+                Is.EqualTo("cannot access free variable 'x' where it is not associated with a value in enclosing scope"));
             Assert.That(Message("def f():\n    x = 1\n    def g():\n        return x\n    del x\n    del x\nf()"),
-                Is.EqualTo("local variable 'x' referenced before assignment"));
+                Is.EqualTo("cannot access local variable 'x' where it is not associated with a value"));
         }
 
         [Test]

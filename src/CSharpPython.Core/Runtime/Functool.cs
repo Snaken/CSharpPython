@@ -5,7 +5,7 @@ namespace CSharpPython
 {
     internal enum FunctoolMode : byte
     {
-        Partial, Cached, CacheMaker, Wraps, ItemGetter, AttrGetter, MethodCaller,
+        Partial, Cached, CacheMaker, Wraps, ItemGetter, AttrGetter, MethodCaller, CmpKey,
     }
 
     /// <summary>
@@ -59,6 +59,7 @@ namespace CSharpPython
                     case FunctoolMode.Wraps: return "_wraps_decorator";
                     case FunctoolMode.ItemGetter: return "itemgetter";
                     case FunctoolMode.AttrGetter: return "attrgetter";
+                    case FunctoolMode.CmpKey: return "KeyWrapper";
                     default: return "methodcaller";
                 }
             }
@@ -79,6 +80,7 @@ namespace CSharpPython
                 case FunctoolMode.ItemGetter: return Args.Length >= 1;
                 case FunctoolMode.AttrGetter: return Args.Length >= 1 && Args.All(a => a.Kind == ValueKind.Str);
                 case FunctoolMode.MethodCaller: return Args.Length >= 1 && Args[0].Kind == ValueKind.Str;
+                case FunctoolMode.CmpKey: return Func.Kind != ValueKind.None && Func.Kind != ValueKind.Unbound && Args.Length <= 1;
                 default: return false;
             }
         }

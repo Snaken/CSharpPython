@@ -28,6 +28,9 @@ namespace CSharpPython
                 case FunctoolMode.Wraps:
                     result = arg;
                     break;
+                case FunctoolMode.CmpKey:
+                    result = Value.FromFunctool(new PyFunctool(FunctoolMode.CmpKey, f.Func, new[] { arg }));
+                    break;
                 case FunctoolMode.MethodCaller:
                     result = CallSync(Ops.GetAttr(arg, (string)f.Args[0].RawObject), f.Args.Skip(1).ToArray());
                     break;

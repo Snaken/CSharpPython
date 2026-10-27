@@ -82,7 +82,7 @@ namespace CSharpPython
         private static Value BigFloorDiv(Value a, Value b)
         {
             BigInteger y = ToBig(b);
-            if (y.IsZero) throw new PyError("ZeroDivisionError", "integer division or modulo by zero");
+            if (y.IsZero) throw new PyError("ZeroDivisionError", "division by zero");
             BigDivMod(ToBig(a), y, out BigInteger q, out _);
             return BigResult(q);
         }
@@ -90,7 +90,7 @@ namespace CSharpPython
         private static Value BigMod(Value a, Value b)
         {
             BigInteger y = ToBig(b);
-            if (y.IsZero) throw new PyError("ZeroDivisionError", "integer modulo by zero");
+            if (y.IsZero) throw new PyError("ZeroDivisionError", "division by zero");
             BigDivMod(ToBig(a), y, out _, out BigInteger r);
             return BigResult(r);
         }

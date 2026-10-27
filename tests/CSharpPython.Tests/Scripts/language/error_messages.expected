@@ -1,0 +1,24 @@
+int / ZeroDivisionError: division by zero
+int // ZeroDivisionError: division by zero
+int % ZeroDivisionError: division by zero
+float / ZeroDivisionError: division by zero
+float // ZeroDivisionError: division by zero
+float % ZeroDivisionError: division by zero
+divmod ZeroDivisionError: division by zero
+divmod float ZeroDivisionError: division by zero
+big / ZeroDivisionError: division by zero
+big // ZeroDivisionError: division by zero
+big % ZeroDivisionError: division by zero
+0 ** -1 ZeroDivisionError: zero to a negative power
+0.0 ** -1 ZeroDivisionError: zero to a negative power
+pow(2, 3, 0) ValueError: pow() 3rd argument cannot be 0
+local UnboundLocalError: cannot access local variable 'x' where it is not associated with a value
+deleted UnboundLocalError: cannot access local variable 'y' where it is not associated with a value
+free NameError: cannot access free variable 'z' where it is not associated with a value in enclosing scope
+5 255 35 31
+42 -7
+int TypeError: int() can't convert non-string with explicit base
+int TypeError: int() missing string argument
+int TypeError: int() got an unexpected keyword argument 'radix'
+int ValueError: int() base must be >= 2 and <= 36, or 0
+int ValueError: invalid literal for int() with base 8: '9'

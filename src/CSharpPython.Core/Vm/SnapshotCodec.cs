@@ -958,7 +958,7 @@ namespace CSharpPython
                 case ValueKind.Functool:
                 {
                     byte mode = r.ReadByte();
-                    if (mode > (byte)FunctoolMode.MethodCaller) throw new SnapshotException("the snapshot is damaged");
+                    if (mode > (byte)FunctoolMode.CmpKey) throw new SnapshotException("the snapshot is damaged");
                     Value func = ReadValue(r);
                     var args = new Value[SnapshotIo.ReadCount(r, 1)];
                     for (int i = 0; i < args.Length; i++) args[i] = ReadValue(r);
@@ -1141,7 +1141,7 @@ namespace CSharpPython
         private ItertoolsIterator ReadItertools(BinaryReader r)
         {
             byte kind = r.ReadByte();
-            if (kind > (byte)ItertoolsKind.Grouper) throw new SnapshotException("the snapshot is damaged");
+            if (kind > (byte)ItertoolsKind.Tee) throw new SnapshotException("the snapshot is damaged");
             var sources = new PyIterator[SnapshotIo.ReadCount(r, 1)];
             for (int i = 0; i < sources.Length; i++)
                 if (r.ReadBoolean()) sources[i] = AsIterator(ReadValue(r));

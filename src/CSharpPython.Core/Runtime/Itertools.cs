@@ -6,7 +6,7 @@ namespace CSharpPython
     internal enum ItertoolsKind : byte
     {
         Count, Cycle, Repeat, Chain, ChainFrom, Islice, Accumulate, Compress, DropWhile, TakeWhile, FilterFalse, StarMap,
-        ZipLongest, Pairwise, Batched, Product, Permutations, Combinations, CombinationsWithReplacement, GroupBy, Grouper,
+        ZipLongest, Pairwise, Batched, Product, Permutations, Combinations, CombinationsWithReplacement, GroupBy, Grouper, Tee,
     }
 
     /// <summary>
@@ -86,6 +86,9 @@ namespace CSharpPython
                 case ItertoolsKind.Combinations:
                 case ItertoolsKind.CombinationsWithReplacement: return CombinationsIsConsistent();
                 case ItertoolsKind.GroupBy: return sources == 1 && Sources[0] != null && args == 4 && state == 4;
+                case ItertoolsKind.Tee:
+                    return sources == 1 && Sources[0] != null && args == 1 && Args[0].Kind == ValueKind.List && state == 2
+                        && State[0] >= 0 && State[0] <= ((PyList)Args[0].RawObject).Items.Count && (State[1] == 0 || State[1] == 1);
                 case ItertoolsKind.Grouper: return sources == 1 && Sources[0] is ItertoolsIterator parent && parent.Kind == ItertoolsKind.GroupBy && args == 0 && state == 1;
                 default: return false;
             }
@@ -115,6 +118,7 @@ namespace CSharpPython
                 case ItertoolsKind.Combinations: return NextCombinations(out value);
                 case ItertoolsKind.CombinationsWithReplacement: return NextCombinationsWithReplacement(out value);
                 case ItertoolsKind.GroupBy: return NextGroupBy(out value);
+                case ItertoolsKind.Tee: return NextTee(out value);
                 default: return NextGrouper(out value);
             }
         }
@@ -313,6 +317,28 @@ namespace CSharpPython
                 items[i] = Args[0];
             }
             value = Value.Tuple(items);
+            return true;
+        }
+
+        // The iterators tee makes share one source and one list of what it has given out. Args = [that list];
+        // State = [how many of its items this iterator has returned, 1 once the source is used up].
+        private bool NextTee(out Value value)
+        {
+            var seen = ((PyList)Args[0].RawObject).Items;
+            if (State[0] < seen.Count)
+            {
+                value = seen[(int)State[0]++];
+                return true;
+            }
+            value = default;
+            if (State[1] == 1) return false;
+            if (!Sources[0].Next(out value))
+            {
+                State[1] = 1;
+                return false;
+            }
+            seen.Add(value);
+            State[0]++;
             return true;
         }
 

@@ -405,7 +405,7 @@ namespace CSharpPython
                     {
                         Value v = _stack[bas + ins.Arg];
                         if (v.Kind == ValueKind.Unbound)
-                            throw new PyError("UnboundLocalError", "local variable '" + code.LocalNames[ins.Arg] + "' referenced before assignment");
+                            throw new PyError("UnboundLocalError", "cannot access local variable '" + code.LocalNames[ins.Arg] + "' where it is not associated with a value");
                         Push(v);
                         break;
                     }
@@ -419,7 +419,7 @@ namespace CSharpPython
                     {
                         Value v = ((Cell)_stack[bas + ins.Arg].RawObject).Value;
                         if (v.Kind == ValueKind.Unbound)
-                            throw new PyError("UnboundLocalError", "local variable '" + code.LocalNames[ins.Arg] + "' referenced before assignment");
+                            throw new PyError("UnboundLocalError", "cannot access local variable '" + code.LocalNames[ins.Arg] + "' where it is not associated with a value");
                         Push(v);
                         break;
                     }
@@ -430,7 +430,7 @@ namespace CSharpPython
                     {
                         Value v = frame.Closure[ins.Arg].Value;
                         if (v.Kind == ValueKind.Unbound)
-                            throw new PyError("NameError", "free variable '" + code.FreeNames[ins.Arg] + "' referenced before assignment in enclosing scope");
+                            throw new PyError("NameError", "cannot access free variable '" + code.FreeNames[ins.Arg] + "' where it is not associated with a value in enclosing scope");
                         Push(v);
                         break;
                     }
@@ -1154,7 +1154,7 @@ namespace CSharpPython
         private void ColdDeleteLocal(Instruction ins, Code code, int bas)
         {
             if (_stack[bas + ins.Arg].Kind == ValueKind.Unbound)
-                throw new PyError("UnboundLocalError", "local variable '" + code.LocalNames[ins.Arg] + "' referenced before assignment");
+                throw new PyError("UnboundLocalError", "cannot access local variable '" + code.LocalNames[ins.Arg] + "' where it is not associated with a value");
             _stack[bas + ins.Arg] = Value.Unbound;
         }
 
@@ -1162,7 +1162,7 @@ namespace CSharpPython
         {
             var cell = (Cell)_stack[bas + ins.Arg].RawObject;
             if (cell.Value.Kind == ValueKind.Unbound)
-                throw new PyError("UnboundLocalError", "local variable '" + code.LocalNames[ins.Arg] + "' referenced before assignment");
+                throw new PyError("UnboundLocalError", "cannot access local variable '" + code.LocalNames[ins.Arg] + "' where it is not associated with a value");
             cell.Value = Value.Unbound;
         }
 
@@ -1170,7 +1170,7 @@ namespace CSharpPython
         {
             var cell = frame.Closure[ins.Arg];
             if (cell.Value.Kind == ValueKind.Unbound)
-                throw new PyError("NameError", "free variable '" + code.FreeNames[ins.Arg] + "' referenced before assignment in enclosing scope");
+                throw new PyError("NameError", "cannot access free variable '" + code.FreeNames[ins.Arg] + "' where it is not associated with a value in enclosing scope");
             cell.Value = Value.Unbound;
         }
 
@@ -1544,7 +1544,7 @@ namespace CSharpPython
         }
 
         private static PyError UnboundLocal(Code code, int slot) =>
-            new PyError("UnboundLocalError", "local variable '" + code.LocalNames[slot] + "' referenced before assignment");
+            new PyError("UnboundLocalError", "cannot access local variable '" + code.LocalNames[slot] + "' where it is not associated with a value");
 
         // The arithmetic instruction 'op' on two values, with the common cases (small integers) done in place.
         private static Value Arithmetic(Instruction op, Value a, Value b)

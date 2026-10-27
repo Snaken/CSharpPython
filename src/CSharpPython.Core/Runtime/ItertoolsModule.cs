@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace CSharpPython
 {
-    /// <summary>The <c>itertools</c> module, without <c>tee</c>.</summary>
+    /// <summary>The <c>itertools</c> module.</summary>
     internal static class ItertoolsModule
     {
         /// <summary><c>itertools.chain</c>, which has a <c>from_iterable</c> of its own.</summary>
@@ -33,6 +33,7 @@ namespace CSharpPython
             Add(m, "combinations", (c, a) => MakeCombinations(a, ItertoolsKind.Combinations), 2, 2, false, "iterable, r");
             Add(m, "combinations_with_replacement", (c, a) => MakeCombinations(a, ItertoolsKind.CombinationsWithReplacement), 2, 2, false, "iterable, r");
             Add(m, "groupby", MakeGroupBy, 1, 2, true, "iterable, key=None");
+            Add(m, "tee", MakeTee, 1, 2, false, "iterable, n=2");
             return m;
         }
 
@@ -155,6 +156,23 @@ namespace CSharpPython
             if (n < 1) throw Ops.ValueError("n must be at least one");
             bool strict = ctx.TryGetKeyword(a, "strict", out Value s) && s.IsTruthy;
             return Make(ItertoolsKind.Batched, new[] { Ops.GetIterator(a[0]) }, new Value[0], new[] { n, strict ? 1L : 0L });
+        }
+
+        private static Value MakeTee(CallContext ctx, ReadOnlySpan<Value> a)
+        {
+            long n = 2;
+            if (a.Length > 1)
+            {
+                if (!a[1].IsInteger) throw Ops.TypeError("'" + a[1].TypeName + "' object cannot be interpreted as an integer");
+                n = a[1].AsInt();
+            }
+            if (n < 0) throw Ops.ValueError("n must be >= 0");
+            if (n > 1000000) throw new PyError("MemoryError", "tee() cannot make that many iterators");
+            var source = Ops.GetIterator(a[0]);
+            var seen = Value.FromList(new PyList(new List<Value>()));
+            var copies = new Value[n];
+            for (int i = 0; i < n; i++) copies[i] = Make(ItertoolsKind.Tee, new[] { source }, new[] { seen }, new long[2]);
+            return Value.Tuple(copies);
         }
 
         private static List<Value> Pool(Value iterable) => Ops.ToList(iterable);

@@ -274,7 +274,7 @@ print(count)"), Is.EqualTo("2"));
         {
             var e = Fails("x = 1\ndef f():\n    print(x)\n    x = 2\nf()");
             Assert.That(e.TypeName, Is.EqualTo("UnboundLocalError"));
-            Assert.That(e.Problem, Is.EqualTo("local variable 'x' referenced before assignment"));
+            Assert.That(e.Problem, Is.EqualTo("cannot access local variable 'x' where it is not associated with a value"));
         }
 
         [Test]

@@ -133,7 +133,7 @@ namespace CSharpPython
             {
                 double lambd = Number(p[0], 1.0);
                 double r = -Math.Log(1.0 - s.NextDouble());
-                if (MathExtras.Exactly(lambd, 0.0)) throw new PyError("ZeroDivisionError", "float division by zero");
+                if (MathExtras.Exactly(lambd, 0.0)) throw new PyError("ZeroDivisionError", "division by zero");
                 return Value.FromFloat(r / lambd);
             });
             return m;

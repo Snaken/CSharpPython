@@ -379,7 +379,7 @@ namespace CSharpPython
             if (a.IsIntLike() && b.IsIntLike())
             {
                 long x = a.RawInt, y = b.RawInt;
-                if (y == 0) throw new PyError("ZeroDivisionError", "integer division or modulo by zero");
+                if (y == 0) throw new PyError("ZeroDivisionError", "division by zero");
                 if (y == -1)
                 {
                     if (x == long.MinValue) return BigResult(-new System.Numerics.BigInteger(x));
@@ -391,7 +391,7 @@ namespace CSharpPython
             }
             if (a.IsInteger && b.IsInteger) return BigFloorDiv(a, b);
             double fy = b.AsFloat();
-            if (fy == 0.0) throw new PyError("ZeroDivisionError", "float floor division by zero");
+            if (fy == 0.0) throw new PyError("ZeroDivisionError", "division by zero");
             return Value.FromFloat(Math.Floor(a.AsFloat() / fy));
         }
 
@@ -406,7 +406,7 @@ namespace CSharpPython
             if (a.IsIntLike() && b.IsIntLike())
             {
                 long x = a.RawInt, y = b.RawInt;
-                if (y == 0) throw new PyError("ZeroDivisionError", "integer modulo by zero");
+                if (y == 0) throw new PyError("ZeroDivisionError", "division by zero");
                 if (y == -1) return Value.FromInt(0);
                 long r = x % y;
                 if (r != 0 && ((r ^ y) < 0)) r += y;
@@ -414,7 +414,7 @@ namespace CSharpPython
             }
             if (a.IsInteger && b.IsInteger) return BigMod(a, b);
             double fx = a.AsFloat(), fy = b.AsFloat();
-            if (fy == 0.0) throw new PyError("ZeroDivisionError", "float modulo by zero");
+            if (fy == 0.0) throw new PyError("ZeroDivisionError", "division by zero");
             double m = fx % fy; // C# '%' on doubles is fmod
             if (m == 0.0) m = fy < 0 ? -0.0 : 0.0; // a zero result takes the sign of the divisor
             else if ((m < 0) != (fy < 0)) m += fy;
@@ -445,7 +445,7 @@ namespace CSharpPython
                 return BigPow(a, b);
             }
             double x = a.AsFloat(), y = b.AsFloat();
-            if (x == 0.0 && y < 0) throw new PyError("ZeroDivisionError", "0.0 cannot be raised to a negative power");
+            if (x == 0.0 && y < 0) throw new PyError("ZeroDivisionError", "zero to a negative power");
             double p = Math.Pow(x, y);
             if (double.IsNaN(p) && !double.IsNaN(x) && !double.IsNaN(y))
                 throw ValueError("negative number cannot be raised to a fractional power");
@@ -536,6 +536,14 @@ namespace CSharpPython
                 return CompareSets(AsSetOperand(a), AsSetOperand(b), o);
             if (a.Kind == ValueKind.Set && b.Kind == ValueKind.Set) return CompareSets((PySet)a.RawObject, (PySet)b.RawObject, o);
             if (a.Kind == ValueKind.Instance || b.Kind == ValueKind.Instance) return CompareOp(a, b, o).IsTruthy;
+            if (a.Kind == ValueKind.Functool && b.Kind == ValueKind.Functool && PyTask.Current != null)
+            {
+                var x = (PyFunctool)a.RawObject;
+                var y = (PyFunctool)b.RawObject;
+                // cmp_to_key: the two wrapped values are ordered by calling the comparison function.
+                if (x.Mode == FunctoolMode.CmpKey && y.Mode == FunctoolMode.CmpKey && x.Args.Length == 1 && y.Args.Length == 1)
+                    return Compare(PyTask.Current.CallSync(x.Func, new[] { x.Args[0], y.Args[0] }), Value.FromInt(0), o, depth + 1);
+            }
             throw TypeError("'" + OrderSymbol(o) + "' not supported between instances of '" + TypeName(a) + "' and '" + TypeName(b) + "'");
         }
 
