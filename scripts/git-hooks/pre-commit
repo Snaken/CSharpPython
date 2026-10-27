@@ -1,0 +1,7 @@
+#!/bin/sh
+# Keeps the Unity .meta files in step with the sources: regenerates them and adds any that changed to the commit.
+# Install once with: git config core.hooksPath scripts/git-hooks
+root=$(git rev-parse --show-toplevel) || exit 1
+cd "$root" || exit 1
+python3 scripts/generate-unity-meta.py > /dev/null || exit 1
+git add -A -- 'src/**/*.meta'

@@ -8,6 +8,7 @@ dotnet test -c Release
 dotnet test -c Release --collect:"XPlat Code Coverage"
 python3 scripts/check-coverage.py <coverage.cobertura.xml> 95
 python3 scripts/generate-unity-meta.py          # after adding or removing source files (add --check to verify)
+git config core.hooksPath scripts/git-hooks      # once: commits then regenerate and include the .meta files
 python3 scripts/update-expected.py               # regenerate tests/CSharpPython.Tests/Scripts/**/*.expected from CPython
 python3 benchmarks/run.py                        # timings against CPython (see docs/performance.md)
 ```
