@@ -282,7 +282,7 @@ namespace CSharpPython
             }
             if (LeafNumber(a, out double fx, out _) && LeafNumber(b, out double fy, out _))
             {
-                result = op == Op.Lt ? fx < fy : op == Op.Le ? fx <= fy : op == Op.Gt ? fx > fy : op == Op.Ge ? fx >= fy : op == Op.Eq ? fx == fy : fx != fy;
+                result = op == Op.Lt ? fx < fy : op == Op.Le ? fx <= fy : op == Op.Gt ? fx > fy : op == Op.Ge ? fx >= fy : op == Op.Eq ? FloatsEqual(fx, fy) : !FloatsEqual(fx, fy);
                 return true;
             }
             if (a.Kind == ValueKind.Str && b.Kind == ValueKind.Str && (op == Op.Eq || op == Op.Ne))
@@ -292,6 +292,9 @@ namespace CSharpPython
             }
             return false;
         }
+
+        // Equal as numbers; NaN is equal to nothing. Written without == so that it reads as intended.
+        private static bool FloatsEqual(double x, double y) => !double.IsNaN(x) && !double.IsNaN(y) && !(x < y) && !(x > y);
 
         private static bool LeafIndex(Value container, Value index, out Value result)
         {
