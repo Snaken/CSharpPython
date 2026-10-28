@@ -6,7 +6,7 @@ Everything known to be missing, grouped by area. The order inside a group is rou
 
 - A WebGL build and a check inside the Editor and on a `GameObject`. A standalone Mono and IL2CPP player passes its checks.
 - Publish to NuGet and OpenUPM.
-- Samples (a script running on a `GameObject`, an in-game editor using the editor tooling) and an API reference.
+- Samples (a script running on a `GameObject`, an in-game editor using the editor tooling) and an API reference. The samples should include one for each view: Python, Block and Node (see Editor tooling and Blocks).
 
 ## Language
 
@@ -39,10 +39,13 @@ Everything known to be missing, grouped by area. The order inside a group is rou
 
 ## Editor tooling and Blocks
 
+- A public "current line" on `PyTask`, so an editor can highlight the running line or block. There is none today.
 - A debugger: breakpoints, stepping and variable inspection, built on the step budget.
 - Hover and signature help for `self.method(` and `Class.method`.
 - A formatter, code actions, unused-name warnings and a console that runs a line against a live task.
 - Blocks: more block kinds, loops that wait for a changing call result, variadic calls and several outputs per block.
+- A node view in the style of Unreal Engine Blueprints, next to the block view: nodes on a free canvas, white execution wires for control flow and typed data wires for values, event nodes that start a chain, and latent nodes such as a delay. The graph is the source of truth, wires are type-checked as they are drawn, and the editor can list the nodes that accept or produce a given type. See [Node view: design notes](node-view-design.md).
+- One example for each way of writing a script: Python view (the text editor), Block view and Node view. Each runs the same small game script on a `GameObject`, so the three can be compared side by side.
 
 ## Performance and quality
 
