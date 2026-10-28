@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Host functions can declare types: `Describe("spawn", "kind: str, count: int = 1 -> Entity")`, with several named results as `-> (hit: bool, point: Vec)`, and `latent: true` for a function that can pause the script. Types are `any`, `int`, `float`, `bool`, `str`, `none`, `list[T]` and host handle names. Untyped descriptions work as before and signature help still shows the plain parameter list. This is the first step of the [node view](docs/node-view-design.md).
+- The built-in functions and the `math` and `random` modules have types (`HostSignature` on `NativeFunction.Typed` for host functions; the built-ins are described by an internal table).
+
 ## 0.2.2
 
 The first standard library modules beyond 0.2.0 (`itertools`, `functools`, `operator`), `match` statements and exception chaining. **Saved tasks from 0.2.1 or earlier of a script with a `try` statement cannot be restored** (see the exception chaining entry), and the snapshot format is now version 16, which still reads versions 13 to 15.

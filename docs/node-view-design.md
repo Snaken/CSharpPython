@@ -1,6 +1,6 @@
 # Node view: design notes
 
-Status: design agreed. Step 1 of the suggested order is partly built: typed `Describe` strings (`HostSignature`, `PinType`) and the `latent` flag are in; typing the existing built-in functions is not. See the [roadmap](roadmap.md) for where it sits.
+Status: design agreed. Step 1 of the suggested order is built: typed `Describe` strings (`HostSignature`, `PinType`), the `latent` flag, and types for the built-in functions, `math` and `random`. Methods of built-in types are not typed yet. Nothing after step 1 is built.
 
 The node view is a Blueprint-style editor: a script is a graph of nodes on a free canvas, joined by wires. The player picks a script's kind once. A script made as a node graph stays a node graph; changing the kind discards the graph.
 
