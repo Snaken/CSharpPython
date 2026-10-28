@@ -1,14 +1,15 @@
 # Changelog
 
-## Unreleased
+## 0.2.2
+
+The first standard library modules beyond 0.2.0 (`itertools`, `functools`, `operator`), `match` statements and exception chaining. **Saved tasks from 0.2.1 or earlier of a script with a `try` statement cannot be restored** (see the exception chaining entry), and the snapshot format is now version 16, which still reads versions 13 to 15.
 
 - `functools.cmp_to_key` and `total_ordering`, and `itertools.tee`.
 - `int(x, base=2)` takes the base as a keyword.
 - Error messages follow CPython 3.14: every division or modulo by zero says `division by zero` (and `0 ** -1` says `zero to a negative power`), and a variable used before it has a value says `cannot access local variable 'x' where it is not associated with a value` (for a variable of an enclosing function, `cannot access free variable 'x' where it is not associated with a value in enclosing scope`).
 - Exception chaining: `raise X from Y` (and `from None`), `__cause__`, `__context__` and `__suppress_context__`. An error raised while an `except` block handles another one remembers it as its context, including errors the VM raises and ones raised by a function that the block calls. A task that stops with a chained error has `PyRuntimeError.Cause` and `PyRuntimeError.Context`, and `FormatTraceback()` prints the whole chain. A generator that lets `StopIteration` escape now raises `RuntimeError` with it as the cause. Snapshot format version 16 (it still reads version 13 to 15). **Saved tasks of a script with a `try` statement from before this release cannot be restored**, because `try` now compiles to a few more instructions and a snapshot only restores against the same compiled script.
 - `match` statements: literal, capture, wildcard, value, sequence (with `*rest`), mapping (with `**rest`), class, `|` and `as` patterns, and guards. `match` and `case` stay ordinary names anywhere else. The editor tooling highlights them as keywords where they start a block.
-
-- `itertools` module: `count`, `cycle`, `repeat`, `chain` and `chain.from_iterable`, `islice`, `accumulate`, `compress`, `dropwhile`, `takewhile`, `filterfalse`, `starmap`, `zip_longest`, `pairwise`, `batched`, `product`, `permutations`, `combinations`, `combinations_with_replacement` and `groupby` (`tee` is missing). They are lazy, and snapshots save them in the middle of a loop (snapshot format version 15, which still reads version 13 and 14 saves).
+- `itertools` module: `count`, `cycle`, `repeat`, `chain` and `chain.from_iterable`, `islice`, `accumulate`, `compress`, `dropwhile`, `takewhile`, `filterfalse`, `starmap`, `zip_longest`, `pairwise`, `batched`, `product`, `permutations`, `combinations`, `combinations_with_replacement`, `groupby` and `tee`. They are lazy, and snapshots save them in the middle of a loop (snapshot format version 15, which still reads version 13 and 14 saves).
 - `functools.reduce`, `partial`, `lru_cache`, `cache` and `wraps`, and an `operator` module with the arithmetic, bitwise, comparison and truth functions, `itemgetter`, `attrgetter` and `methodcaller`. A cached function that is called while a snapshot is taken is saved with its cache (snapshot format version 15, which still reads version 13 and 14 saves).
 
 ## 0.2.1
