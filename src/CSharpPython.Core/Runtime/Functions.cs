@@ -30,6 +30,15 @@ namespace CSharpPython
         /// </summary>
         public string Signature { get; set; }
 
+        /// <summary>
+        /// The typed description given to <c>Describe</c>, or null when the function has none. Its
+        /// <see cref="HostSignature.ParameterText"/> is what <see cref="Signature"/> holds.
+        /// </summary>
+        public HostSignature Typed { get; set; }
+
+        /// <summary>True when a call can pause the script (it takes a <see cref="CallContext"/> and calls <c>Wait</c>). An editor marks such a call with a clock.</summary>
+        public bool Latent { get; set; }
+
         public NativeFunction(string name, NativeFn fn, int minArgs = 0, int maxArgs = -1, bool acceptsKeywords = false)
         {
             Name = name;

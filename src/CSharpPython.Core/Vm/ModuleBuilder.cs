@@ -31,10 +31,22 @@ namespace CSharpPython
         /// Gives a function already added to this module a parameter list for the editor's signature help, such as
         /// <c>"target, speed=1.0"</c>. Does nothing when there is no such function.
         /// </summary>
-        public ModuleBuilder Describe(string name, string signature)
+        /// <remarks>
+        /// Parameters and the result may carry types: <c>"kind: str, count: int = 1 -&gt; Entity"</c>, or several
+        /// named results as <c>"-&gt; (hit: bool, point: Vec)"</c>. Signature help still shows the plain list. Set
+        /// <paramref name="latent"/> for a function that can pause the script. Throws
+        /// <see cref="ArgumentException"/> when a type is malformed.
+        /// </remarks>
+        public ModuleBuilder Describe(string name, string signature, bool latent = false)
         {
             if (Module.Members.TryGetValue(name, out var member) && member.Kind == ValueKind.Native)
-                ((NativeFunction)member.RawObject).Signature = signature;
+            {
+                var fn = (NativeFunction)member.RawObject;
+                var typed = signature == null ? null : HostSignature.Parse(signature);
+                fn.Typed = typed;
+                fn.Signature = typed?.ParameterText;
+                fn.Latent = latent;
+            }
             return this;
         }
 
