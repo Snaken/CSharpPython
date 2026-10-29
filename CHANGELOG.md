@@ -5,6 +5,7 @@
 - Host functions can declare types: `Describe("spawn", "kind: str, count: int = 1 -> Entity")`, with several named results as `-> (hit: bool, point: Vec)`, and `latent: true` for a function that can pause the script. Types are `any`, `int`, `float`, `bool`, `str`, `none`, `list[T]` and host handle names. Untyped descriptions work as before and signature help still shows the plain parameter list. This is the first step of the [node view](docs/node-view-design.md).
 - The built-in functions and the `math` and `random` modules have types (`HostSignature` on `NativeFunction.Typed` for host functions; the built-ins are described by an internal table).
 - `PinCompatibility.Check(from, to)` says whether an output of one type may be wired to an input of another, with the reason when it may not: `any` fits on either side, `int` fits `float`, lists need the same element type, and every other mismatch is refused.
+- `BlockLibrary` functions carry pin types (`FunctionSpec.ParameterTypes` and `Outputs`) from the typed descriptions, and `PinTypeIndex` finds the functions that fit a pin: `Accepting(type)` lists the inputs an output may be wired to, and `Producing(type)` lists the outputs that fit an input.
 
 ## 0.2.2
 

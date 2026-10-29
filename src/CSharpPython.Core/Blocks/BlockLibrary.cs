@@ -68,7 +68,19 @@ namespace CSharpPython.Blocks
         /// <summary>The parameter list as an editor should show it, such as <c>"x, base=10"</c>.</summary>
         public string Signature { get; }
 
-        internal FunctionSpec(string name, string module, string[] parameters, bool pure, int required, string signature)
+        /// <summary>The typed description this function was added with, or null when its pins are all <c>any</c>.</summary>
+        public HostSignature Typed { get; }
+
+        /// <summary>The type of each pin in <see cref="Parameters"/>. A pin with no declared type is <see cref="PinType.Any"/>.</summary>
+        public IReadOnlyList<PinType> ParameterTypes { get; }
+
+        /// <summary>
+        /// The value outputs, in order. A function with no declared result has one <c>any</c> output, and one that
+        /// returns <c>none</c> has none. Several named outputs come from a result such as <c>(hit: bool, point: Vec)</c>.
+        /// </summary>
+        public IReadOnlyList<HostOutput> Outputs { get; }
+
+        internal FunctionSpec(string name, string module, string[] parameters, bool pure, int required, string signature, HostSignature typed)
         {
             Name = name;
             Module = module;
@@ -76,6 +88,34 @@ namespace CSharpPython.Blocks
             Pure = pure;
             RequiredParameters = required < 0 || required > parameters.Length ? parameters.Length : required;
             Signature = signature ?? string.Join(", ", parameters);
+            Typed = typed;
+            ParameterTypes = PinTypesOf(parameters.Length, typed);
+            Outputs = OutputsOf(typed);
+        }
+
+        // The pins are the named parameters in order, so the n-th pin takes the n-th named parameter's type.
+        private static PinType[] PinTypesOf(int count, HostSignature typed)
+        {
+            var types = new PinType[count];
+            for (int i = 0; i < count; i++) types[i] = PinType.Any;
+            if (typed == null) return types;
+            int pin = 0;
+            foreach (var p in typed.Parameters)
+            {
+                if (p.Kind != ParameterKind.Normal) continue;
+                if (pin == count) break;
+                types[pin++] = p.Type;
+            }
+            return types;
+        }
+
+        private static IReadOnlyList<HostOutput> OutputsOf(HostSignature typed)
+        {
+            if (typed == null || !typed.HasResult) return new[] { new HostOutput(null, PinType.Any) };
+            var outputs = new List<HostOutput>();
+            foreach (var o in typed.Outputs)
+                if (!o.Type.Equals(PinType.None)) outputs.Add(o);
+            return outputs;
         }
 
         /// <summary>The pin name of the argument at <paramref name="index"/>: <c>arg0</c>, <c>arg1</c>, ...</summary>
@@ -182,10 +222,11 @@ namespace CSharpPython.Blocks
         /// Makes a built-in function (when <paramref name="module"/> is null) or a host module function callable from
         /// blocks. The compiler adds <c>import module</c> automatically. Registering a name again replaces it.
         /// </summary>
-        public BlockLibrary AddFunction(string name, string[] parameters, bool pure = false, string module = null, int required = -1, string signature = null)
+        public BlockLibrary AddFunction(string name, string[] parameters, bool pure = false, string module = null, int required = -1, string signature = null, HostSignature typed = null)
         {
             if (string.IsNullOrEmpty(name)) throw new ArgumentException("A function needs a name.", nameof(name));
-            var spec = new FunctionSpec(name, module, parameters ?? None, pure, required, signature);
+            typed = typed ?? TypedSignatures.Find(module == null ? name : module + "." + name);
+            var spec = new FunctionSpec(name, module, parameters ?? None, pure, required, signature, typed);
             string key = module == null ? name : module + "." + name;
             if (_functions.ContainsKey(key)) _functionOrder.Remove(_functions[key]);
             _functions[key] = spec;
@@ -209,7 +250,8 @@ namespace CSharpPython.Blocks
             {
                 var v = m.Members[name];
                 if (v.Kind != ValueKind.Native || name.StartsWith("_", StringComparison.Ordinal) || name.StartsWith(".", StringComparison.Ordinal)) continue;
-                string signature = Signatures.For((NativeFunction)v.RawObject, module + "." + name, 0);
+                var native = (NativeFunction)v.RawObject;
+                string signature = Signatures.For(native, module + "." + name, 0);
                 var parameters = new List<string>();
                 int required = -1;
                 foreach (var part in signature.Split(','))
@@ -221,7 +263,7 @@ namespace CSharpPython.Blocks
                     if (eq >= 0 && required < 0) required = parameters.Count;
                     parameters.Add(pname);
                 }
-                AddFunction(name, parameters.ToArray(), pure, module, required, signature);
+                AddFunction(name, parameters.ToArray(), pure, module, required, signature, TypedSignatures.For(native, module + "." + name, 0));
             }
             return true;
         }
