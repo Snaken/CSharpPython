@@ -6,8 +6,9 @@ namespace CSharpPython
 {
     /// <summary>
     /// The type of a pin or parameter in a host function description: <c>any</c>, <c>int</c>, <c>float</c>,
-    /// <c>bool</c>, <c>str</c>, <c>none</c>, a list with an element type (<c>list[int]</c>), or the name of a
-    /// host handle type (<c>Entity</c>). Whether two types fit together is decided elsewhere.
+    /// <c>bool</c>, <c>str</c>, <c>none</c>, a list with an element type (<c>list[int]</c>), a type variable
+    /// (<c>$T</c>), or the name of a host handle type (<c>Entity</c>). Whether two types fit together is decided
+    /// by <see cref="PinCompatibility"/>.
     /// </summary>
     public sealed class PinType : IEquatable<PinType>
     {
@@ -26,6 +27,12 @@ namespace CSharpPython
 
         public bool IsList => Element != null;
 
+        /// <summary>
+        /// True for a type variable such as <c>$T</c>, a wildcard that stands for whichever type the wires of the node
+        /// give it (see <c>BlockTypeChecker</c>). Written <c>$T</c> in a description.
+        /// </summary>
+        public bool IsVariable => Name.Length > 0 && Name[0] == '$';
+
         private PinType(string name, PinType element)
         {
             Name = name;
@@ -36,6 +43,13 @@ namespace CSharpPython
         {
             if (element == null) throw new ArgumentNullException(nameof(element));
             return new PinType("list", element);
+        }
+
+        /// <summary>A type variable: <c>Variable("T")</c> is written <c>$T</c>.</summary>
+        public static PinType Variable(string name)
+        {
+            if (name == null || name.Length == 0 || !IsName(name)) throw new ArgumentException("Bad type variable name '" + name + "'.");
+            return new PinType("$" + name, null);
         }
 
         /// <summary>A host handle type such as <c>Character</c>.</summary>
@@ -59,6 +73,7 @@ namespace CSharpPython
 
         private static PinType Named(string name)
         {
+            if (name.Length > 1 && name[0] == '$') return Variable(name.Substring(1));
             if (name.Length == 0 || !IsName(name)) throw new ArgumentException("Bad type name '" + name + "'.");
             switch (name)
             {

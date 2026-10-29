@@ -6,6 +6,8 @@
 - The built-in functions and the `math` and `random` modules have types (`HostSignature` on `NativeFunction.Typed` for host functions; the built-ins are described by an internal table).
 - `PinCompatibility.Check(from, to)` says whether an output of one type may be wired to an input of another, with the reason when it may not: `any` fits on either side, `int` fits `float`, lists need the same element type, and every other mismatch is refused.
 - `BlockLibrary` functions carry pin types (`FunctionSpec.ParameterTypes` and `Outputs`) from the typed descriptions, and `PinTypeIndex` finds the functions that fit a pin: `Accepting(type)` lists the inputs an output may be wired to, and `Producing(type)` lists the outputs that fit an input.
+- Blocks are type-checked. Every built-in block has pin types (`BlockSpec.InputType` and `OutputType`), with wildcard pins written `$T` that take their type from the wires (`index`, `append`, `set_index` and `choose`), and the compiler reports a wire that does not fit against its block and pin. **Block graphs that wire a value of the wrong type (a string into a `repeat` count, a string appended to a list of numbers) no longer compile.** `BlockTypeChecker` checks a graph, gives the type of a block's value, and says whether a wire may be drawn (`CheckWire`) with the reason when it may not.
+- Pin types of `print` and other built-ins that were registered with their own pin names are matched to the parameter they stand for, not by position.
 
 ## 0.2.2
 

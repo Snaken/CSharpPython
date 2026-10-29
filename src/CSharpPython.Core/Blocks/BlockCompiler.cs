@@ -163,6 +163,7 @@ namespace CSharpPython.Blocks
                 _fn = fn;
                 _out = new List<Line>();
                 GenerateFunction();
+                _diags.AddRange(new FunctionTypes(fn, _lib, new HashSet<string>(_functions.Keys)).Diagnostics());
                 chunks.Add(_out);
             }
             _fn = null;

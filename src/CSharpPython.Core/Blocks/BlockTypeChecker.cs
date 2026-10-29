@@ -1,0 +1,371 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using CSharpPython.Syntax;
+
+namespace CSharpPython.Blocks
+{
+    /// <summary>
+    /// Checks the types of the wires in a graph. <see cref="BlockCompiler"/> uses it, so a graph with a bad wire never
+    /// compiles, and an editor calls <see cref="CheckWire"/> as the player draws a wire to refuse it with the reason.
+    /// </summary>
+    /// <remarks>
+    /// Every block has a type for each input pin and for its value (see <see cref="BlockSpec.InputType"/> and
+    /// <see cref="FunctionSpec.ParameterTypes"/>), and <see cref="PinCompatibility"/> decides each wire. A pin
+    /// written <c>$T</c> is a wildcard: every pin of the block that mentions <c>$T</c> must agree, <c>$T</c> is the
+    /// widest of the types wired to those pins (an <c>int</c> and a <c>float</c> make <c>float</c>), and the block's
+    /// value is typed from it. A <c>list</c> block is the exception: its items need not match. Wires are read in pin order, so the answer does not depend on the order they were
+    /// drawn in. A typed-in literal has the type of the literal; <c>None</c> and variables are <c>any</c>.
+    /// The operators (<c>add</c>, <c>mul</c>, ...) take anything and give <c>int</c> or <c>float</c> for numbers,
+    /// <c>str</c> or a list when both sides are, and <c>any</c> otherwise. Problems that are not about types
+    /// (an unknown block, a missing input) are left to the compiler.
+    /// </remarks>
+    public static class BlockTypeChecker
+    {
+        /// <summary>Every wire in the graph whose type does not fit, as error diagnostics.</summary>
+        public static IReadOnlyList<BlockDiagnostic> Check(BlockGraph graph, BlockLibrary library = null)
+        {
+            if (graph == null) throw new ArgumentNullException(nameof(graph));
+            var lib = library ?? new BlockLibrary();
+            var userFunctions = UserFunctions(graph);
+            var diagnostics = new List<BlockDiagnostic>();
+            foreach (var fn in graph.Functions)
+                if (fn != null) diagnostics.AddRange(new FunctionTypes(fn, lib, userFunctions).Diagnostics());
+            return diagnostics;
+        }
+
+        /// <summary>
+        /// The type of a block's value in a function, with wildcards resolved from its wires, or null if there is no
+        /// such block or it is a step in the flow with no value. An editor uses it to colour a pin.
+        /// </summary>
+        public static PinType OutputType(BlockGraph graph, string function, string nodeId, BlockLibrary library = null)
+        {
+            if (graph == null) throw new ArgumentNullException(nameof(graph));
+            var fn = graph.Functions.FirstOrDefault(f => f != null && f.Name == function);
+            var node = fn?.Nodes.FirstOrDefault(n => n != null && n.Id == nodeId);
+            if (node == null) return null;
+            var lib = library ?? new BlockLibrary();
+            if (node.Block != "call" && lib.FindBlock(node.Block)?.Kind == BlockKind.Flow) return null;
+            return new FunctionTypes(fn, lib, UserFunctions(graph)).OutputOf(node);
+        }
+
+        /// <summary>
+        /// Whether the output of <paramref name="fromNode"/> may be wired to the input <paramref name="pin"/> of
+        /// <paramref name="toNode"/>, replacing any wire already there. A wire is refused when it does not fit, and
+        /// also when it would break the wires of blocks further along (for example changing a list's type under an
+        /// "item at" block). The graph is not changed.
+        /// </summary>
+        public static PinCheck CheckWire(BlockGraph graph, string function, string toNode, string pin, string fromNode, BlockLibrary library = null)
+        {
+            if (graph == null) throw new ArgumentNullException(nameof(graph));
+            var fn = graph.Functions.FirstOrDefault(f => f != null && f.Name == function);
+            if (fn == null) throw new ArgumentException("There is no function '" + function + "'.", nameof(function));
+            var target = fn.Nodes.FirstOrDefault(n => n != null && n.Id == toNode);
+            if (target == null) throw new ArgumentException("There is no block '" + toNode + "' in '" + function + "'.", nameof(toNode));
+            var source = fn.Nodes.FirstOrDefault(n => n != null && n.Id == fromNode);
+            if (source == null) return PinCheck.No("The block '" + fromNode + "' is not in this function.");
+
+            var lib = library ?? new BlockLibrary();
+            var userFunctions = UserFunctions(graph);
+            if (source.Block != "call" && lib.FindBlock(source.Block)?.Kind == BlockKind.Flow)
+                return PinCheck.No("'" + source.Block + "' is a step in the flow and has no value to wire.");
+
+            var before = new HashSet<string>(new FunctionTypes(fn, lib, userFunctions).Diagnostics().Select(Key));
+            var after = new FunctionTypes(WithWire(fn, target, pin, fromNode), lib, userFunctions).Diagnostics();
+            var added = after.FirstOrDefault(d => !before.Contains(Key(d)));
+            return added == null ? PinCheck.Yes : PinCheck.No(added.Message);
+        }
+
+        private static string Key(BlockDiagnostic d) => d.NodeId + "|" + d.Pin + "|" + d.Message;
+
+        private static HashSet<string> UserFunctions(BlockGraph graph) =>
+            new HashSet<string>(graph.Functions.Where(f => f != null && !string.IsNullOrEmpty(f.Name)).Select(f => f.Name));
+
+        // A copy of the function in which one input pin is wired to another block.
+        private static BlockFunction WithWire(BlockFunction fn, BlockNode target, string pin, string fromNode)
+        {
+            var changed = new BlockNode(target.Id, target.Block, target.Name) { Flow = target.Flow };
+            foreach (var input in target.Inputs ?? new List<BlockInput>())
+                if (input != null && input.Pin != pin) changed.Inputs.Add(input);
+            changed.Connect(pin, fromNode);
+
+            var copy = new BlockFunction { Name = fn.Name, Start = fn.Start, Parameters = fn.Parameters };
+            foreach (var n in fn.Nodes) copy.Nodes.Add(n == target ? changed : n);
+            return copy;
+        }
+    }
+
+    // The types of one function. Each block is solved once: its wires are matched to its pins, then its value gets a type.
+    internal sealed class FunctionTypes
+    {
+        private sealed class Solution
+        {
+            public PinType Output = PinType.Any;
+            public readonly List<BlockDiagnostic> Errors = new List<BlockDiagnostic>();
+        }
+
+        private struct Wire
+        {
+            public string Pin;
+            public PinType Type;
+            public int Order;
+            public bool Failed;
+        }
+
+        private readonly BlockFunction _fn;
+        private readonly BlockLibrary _lib;
+        private readonly HashSet<string> _userFunctions;
+        private readonly Dictionary<string, BlockNode> _nodes = new Dictionary<string, BlockNode>();
+        private readonly Dictionary<string, Solution> _solved = new Dictionary<string, Solution>();
+        private readonly HashSet<string> _busy = new HashSet<string>();
+
+        public FunctionTypes(BlockFunction fn, BlockLibrary lib, HashSet<string> userFunctions)
+        {
+            _fn = fn;
+            _lib = lib;
+            _userFunctions = userFunctions;
+            foreach (var n in fn.Nodes)
+                if (n != null && !string.IsNullOrEmpty(n.Id) && !_nodes.ContainsKey(n.Id)) _nodes[n.Id] = n;
+        }
+
+        public List<BlockDiagnostic> Diagnostics()
+        {
+            var all = new List<BlockDiagnostic>();
+            foreach (var n in _nodes.Values) all.AddRange(Solve(n).Errors);
+            return all;
+        }
+
+        public PinType OutputOf(BlockNode node) => Solve(node).Output;
+
+        private Solution Solve(BlockNode node)
+        {
+            if (_solved.TryGetValue(node.Id, out var done)) return done;
+            // A block that depends on itself is reported by the compiler; here it is just untyped.
+            if (!_busy.Add(node.Id)) return new Solution();
+            try
+            {
+                var solution = new Solution();
+                Patterns(node, out var pinType, out var outputPattern);
+                var bindings = Match(node, pinType, solution);
+                solution.Output = Refine(node, Substitute(outputPattern, bindings));
+                _solved[node.Id] = solution;
+                return solution;
+            }
+            finally
+            {
+                _busy.Remove(node.Id);
+            }
+        }
+
+        // ---- Pin types of a block ----
+
+        private void Patterns(BlockNode node, out Func<string, PinType> pinType, out PinType output)
+        {
+            pinType = pin => PinType.Any;
+            output = PinType.Any;
+            if (node.Block == "call")
+            {
+                var spec = node.Name != null && !_userFunctions.Contains(node.Name) ? _lib.FindFunction(node.Name) : null;
+                if (spec == null) return;
+                pinType = pin => ArgumentType(spec, pin);
+                output = spec.Outputs.Count == 1 ? spec.Outputs[0].Type : spec.Outputs.Count == 0 ? PinType.None : PinType.Any;
+                return;
+            }
+            var block = _lib.FindBlock(node.Block);
+            if (block == null) return;
+            pinType = block.InputType;
+            output = block.OutputType ?? PinType.Any;
+        }
+
+        private static PinType ArgumentType(FunctionSpec spec, string pin)
+        {
+            int index = Number(pin, "arg");
+            return index >= 0 && index < spec.ParameterTypes.Count ? spec.ParameterTypes[index] : PinType.Any;
+        }
+
+        // The number at the end of a pin such as arg2 or item0, or -1 when the pin is not named like that.
+        private static int Number(string pin, string stem)
+        {
+            if (pin == null || !pin.StartsWith(stem, StringComparison.Ordinal) || pin.Length == stem.Length) return -1;
+            return int.TryParse(pin.Substring(stem.Length), NumberStyles.None, CultureInfo.InvariantCulture, out int n) ? n : -1;
+        }
+
+        // ---- Matching wires to pins ----
+
+        // Reads the wires in pin order, works out each wildcard, and reports every wire that does not fit.
+        private Dictionary<string, PinType> Match(BlockNode node, Func<string, PinType> pinType, Solution solution)
+        {
+            var bindings = new Dictionary<string, PinType>();
+            var wires = Wires(node);
+            for (int i = 0; i < wires.Count; i++)
+            {
+                var wire = wires[i];
+                wire.Failed = !Bind(node, pinType(wire.Pin), wire, bindings, solution);
+                wires[i] = wire;
+            }
+            foreach (var wire in wires)
+            {
+                if (wire.Failed) continue;
+                var expected = Substitute(pinType(wire.Pin), bindings);
+                var check = PinCompatibility.Check(wire.Type, expected);
+                if (!check.Allowed) solution.Errors.Add(Error(node, wire.Pin, "the input '" + wire.Pin + "' cannot take this wire: " + check.Reason));
+            }
+            return bindings;
+        }
+
+        private List<Wire> Wires(BlockNode node)
+        {
+            var spec = node.Block == "call" ? null : _lib.FindBlock(node.Block);
+            var wires = new List<Wire>();
+            foreach (var input in node.Inputs ?? new List<BlockInput>())
+            {
+                if (input == null || input.Pin == null) continue;
+                var type = WireType(input);
+                if (type == null) continue;
+                int order = spec == null ? -1 : spec.Inputs.ToList().IndexOf(input.Pin);
+                if (order < 0) order = 1000 + Math.Max(Number(input.Pin, "arg"), Number(input.Pin, "item"));
+                wires.Add(new Wire { Pin = input.Pin, Type = type, Order = order });
+            }
+            // A stable sort: wires on the same pin (a mistake the compiler reports) stay in their written order.
+            return wires.Select((w, i) => (w, i)).OrderBy(x => x.w.Order).ThenBy(x => x.i).Select(x => x.w).ToList();
+        }
+
+        // Records what a wire says about the wildcards in its pin. False when it contradicts an earlier wire.
+        private bool Bind(BlockNode node, PinType pattern, Wire wire, Dictionary<string, PinType> bindings, Solution solution)
+        {
+            var found = new List<KeyValuePair<string, PinType>>();
+            Unify(pattern, wire.Type, found);
+            foreach (var kv in found)
+            {
+                if (!bindings.TryGetValue(kv.Key, out var bound))
+                {
+                    bindings[kv.Key] = kv.Value;
+                    continue;
+                }
+                var joined = Join(bound, kv.Value);
+                if (joined == null)
+                {
+                    solution.Errors.Add(Error(node, wire.Pin, "the inputs of this block must have matching types: '" + wire.Pin +
+                        "' has type " + kv.Value + ", but an earlier input has type " + bound));
+                    return false;
+                }
+                bindings[kv.Key] = joined;
+            }
+            return true;
+        }
+
+        private static void Unify(PinType pattern, PinType actual, List<KeyValuePair<string, PinType>> found)
+        {
+            if (pattern.IsVariable) found.Add(new KeyValuePair<string, PinType>(pattern.Name, actual));
+            else if (pattern.IsList && actual.IsList) Unify(pattern.Element, actual.Element, found);
+        }
+
+        // The type both a and b fit into, or null when there is none. int and float give float; lists must agree.
+        private static PinType Join(PinType a, PinType b)
+        {
+            if (a.Equals(b)) return a;
+            if (a.Equals(PinType.Any) || b.Equals(PinType.Any)) return PinType.Any;
+            if (IsNumber(a) && IsNumber(b)) return PinType.Float;
+            if (!a.IsList || !b.IsList) return null;
+            if (a.Element.Equals(PinType.Any) || b.Element.Equals(PinType.Any)) return PinType.ListOf(PinType.Any);
+            return null;
+        }
+
+        private static PinType Substitute(PinType pattern, Dictionary<string, PinType> bindings)
+        {
+            if (pattern.IsVariable) return bindings.TryGetValue(pattern.Name, out var bound) ? bound : PinType.Any;
+            return pattern.IsList ? PinType.ListOf(Substitute(pattern.Element, bindings)) : pattern;
+        }
+
+        private BlockDiagnostic Error(BlockNode node, string pin, string message) =>
+            new BlockDiagnostic(BlockSeverity.Error, message, _fn.Name, node.Id, pin);
+
+        // ---- Types of values ----
+
+        // The type a wire carries, or null when there is nothing to check (an empty pin, a block that is not here).
+        private PinType WireType(BlockInput input)
+        {
+            if (!string.IsNullOrEmpty(input.From))
+                return _nodes.TryGetValue(input.From, out var source) ? Solve(source).Output : null;
+            return string.IsNullOrWhiteSpace(input.Literal) ? null : LiteralType(input.Literal);
+        }
+
+        private PinType InputType(BlockNode node, string pin)
+        {
+            var input = (node.Inputs ?? new List<BlockInput>()).LastOrDefault(i => i != null && i.Pin == pin);
+            return (input == null ? null : WireType(input)) ?? PinType.Any;
+        }
+
+        // Blocks whose value depends on the types of their inputs, not only on the pin types.
+        private PinType Refine(BlockNode node, PinType output)
+        {
+            switch (node.Block)
+            {
+                case "literal":
+                    return InputType(node, "value");
+                case "list":
+                    return ListOfItems(node);
+                case "neg":
+                    var operand = InputType(node, "a");
+                    return IsNumber(operand) ? operand : PinType.Any;
+                case "add": case "sub": case "mul": case "div": case "floordiv": case "mod": case "pow":
+                    return Arithmetic(node.Block, InputType(node, "a"), InputType(node, "b"));
+                default:
+                    return output;
+            }
+        }
+
+        // A list block is a list of its items' type when they agree (int and float give float), else list[any]. Python
+        // allows mixed lists, so unlike append or choose the items are not required to match.
+        private PinType ListOfItems(BlockNode node)
+        {
+            PinType element = null;
+            foreach (var input in (node.Inputs ?? new List<BlockInput>()).Where(i => i != null && Number(i.Pin, "item") >= 0).OrderBy(i => Number(i.Pin, "item")))
+            {
+                var type = WireType(input);
+                if (type == null) continue;
+                element = element == null ? type : Join(element, type);
+                if (element == null) return PinType.ListOf(PinType.Any);
+            }
+            return PinType.ListOf(element ?? PinType.Any);
+        }
+
+        private static PinType Arithmetic(string op, PinType a, PinType b)
+        {
+            if (IsNumber(a) && IsNumber(b))
+            {
+                if (op == "pow") return PinType.Any;
+                if (op == "div") return PinType.Float;
+                return a.Equals(PinType.Float) || b.Equals(PinType.Float) ? PinType.Float : PinType.Int;
+            }
+            if (op == "add" && a.Equals(b) && (a.Equals(PinType.Str) || a.IsList)) return a;
+            if (op == "mul" && ((a.Equals(PinType.Str) && b.Equals(PinType.Int)) || (a.Equals(PinType.Int) && b.Equals(PinType.Str)))) return PinType.Str;
+            return PinType.Any;
+        }
+
+        private static bool IsNumber(PinType t) => t.Equals(PinType.Int) || t.Equals(PinType.Float);
+
+        // The type of a typed-in literal, or null when it is not a single literal (the compiler reports that).
+        private static PinType LiteralType(string text)
+        {
+            var tokens = Lexer.TokenizeTolerant(text.Trim(), out var problems);
+            if (problems.Count > 0) return null;
+            while (tokens.Count > 0 && IsLayout(tokens[tokens.Count - 1].Kind)) tokens.RemoveAt(tokens.Count - 1);
+            if (tokens.Count == 2 && tokens[0].Kind == TokenKind.Minus) tokens.RemoveAt(0);
+            if (tokens.Count != 1) return null;
+            switch (tokens[0].Kind)
+            {
+                case TokenKind.Int: return PinType.Int;
+                case TokenKind.Float: return PinType.Float;
+                case TokenKind.String: return PinType.Str;
+                case TokenKind.KwTrue:
+                case TokenKind.KwFalse: return PinType.Bool;
+                case TokenKind.KwNone: return PinType.Any;
+                default: return null;
+            }
+        }
+
+        private static bool IsLayout(TokenKind k) => k == TokenKind.EndOfFile || k == TokenKind.Newline || k == TokenKind.Dedent;
+    }
+}

@@ -1,6 +1,6 @@
 # Node view: design notes
 
-Status: design agreed. Step 1 is built: typed `Describe` strings (`HostSignature`, `PinType`), the `latent` flag, and types for the built-in functions, `math` and `random` (methods of built-in types are not typed yet). Step 2 is built for functions: `PinCompatibility` decides whether a wire is allowed, and `PinTypeIndex` searches functions by pin type. Built-in blocks (`add`, `if`) have no pin types yet, and wildcard pins are not built. Nothing after step 2 is built.
+Status: design agreed. Step 1 is built: typed `Describe` strings (`HostSignature`, `PinType`), the `latent` flag, and types for the built-in functions, `math` and `random` (methods of built-in types are not typed yet). Step 2 is built for functions: `PinCompatibility` decides whether a wire is allowed, and `PinTypeIndex` searches functions by pin type. Step 3 has started: built-in blocks have pin types and wildcard pins, and the compiler refuses wires that do not fit (`BlockTypeChecker`). Not built yet: the block types in the search index, several outputs, shared pure nodes, flow joins, branch-scoped values, typed variables and the editor section.
 
 The node view is a Blueprint-style editor: a script is a graph of nodes on a free canvas, joined by wires. The player picks a script's kind once. A script made as a node graph stays a node graph; changing the kind discards the graph.
 

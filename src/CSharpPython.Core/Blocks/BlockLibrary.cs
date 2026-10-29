@@ -31,7 +31,10 @@ namespace CSharpPython.Blocks
         /// <summary>True when the node's <see cref="BlockNode.Name"/> is required (a variable or function name).</summary>
         public bool NeedsName { get; }
 
-        internal BlockSpec(string name, string title, string category, BlockKind kind, string[] inputs, string[] flowPins, bool needsName)
+        /// <summary>The typed description of the pins, or null when every pin is <c>any</c>.</summary>
+        public HostSignature Typed { get; }
+
+        internal BlockSpec(string name, string title, string category, BlockKind kind, string[] inputs, string[] flowPins, bool needsName, HostSignature typed)
         {
             Name = name;
             Title = title;
@@ -40,6 +43,41 @@ namespace CSharpPython.Blocks
             Inputs = inputs;
             FlowPins = flowPins;
             NeedsName = needsName;
+            Typed = typed;
+        }
+
+        /// <summary>
+        /// The type of an input pin, which may be a type variable such as <c>$T</c> (a wildcard that takes its type
+        /// from the node's wires). A pin with no declared type is <see cref="PinType.Any"/>.
+        /// </summary>
+        public PinType InputType(string pin)
+        {
+            if (Typed == null || pin == null) return PinType.Any;
+            foreach (var p in Typed.Parameters)
+            {
+                if (p.Kind == ParameterKind.Normal && p.Name == pin) return p.Type;
+                if (p.Kind == ParameterKind.VarArgs && IsNumbered(pin, p.Name)) return p.Type;
+            }
+            return PinType.Any;
+        }
+
+        /// <summary>The type of the block's value, which may mention a type variable, or null for a step in the flow.</summary>
+        public PinType OutputType
+        {
+            get
+            {
+                if (Kind == BlockKind.Flow) return null;
+                if (Typed != null && Typed.HasResult && Typed.Outputs.Count == 1) return Typed.Outputs[0].Type;
+                return PinType.Any;
+            }
+        }
+
+        private static bool IsNumbered(string pin, string stem)
+        {
+            if (pin.Length <= stem.Length || !pin.StartsWith(stem, StringComparison.Ordinal)) return false;
+            for (int i = stem.Length; i < pin.Length; i++)
+                if (pin[i] < '0' || pin[i] > '9') return false;
+            return true;
         }
     }
 
@@ -89,22 +127,32 @@ namespace CSharpPython.Blocks
             RequiredParameters = required < 0 || required > parameters.Length ? parameters.Length : required;
             Signature = signature ?? string.Join(", ", parameters);
             Typed = typed;
-            ParameterTypes = PinTypesOf(parameters.Length, typed);
+            ParameterTypes = PinTypesOf(parameters, typed);
             Outputs = OutputsOf(typed);
         }
 
-        // The pins are the named parameters in order, so the n-th pin takes the n-th named parameter's type.
-        private static PinType[] PinTypesOf(int count, HostSignature typed)
+        // A pin takes the type of the parameter with its name. A built-in registered with its own pin names (print's
+        // "value") takes the type of the positional parameter in the same place, and a pin with no such parameter is any.
+        private static PinType[] PinTypesOf(string[] pins, HostSignature typed)
         {
-            var types = new PinType[count];
-            for (int i = 0; i < count; i++) types[i] = PinType.Any;
+            var types = new PinType[pins.Length];
+            for (int i = 0; i < pins.Length; i++) types[i] = PinType.Any;
             if (typed == null) return types;
-            int pin = 0;
+
+            var byName = new Dictionary<string, PinType>();
+            var positional = new List<HostParameter>();
+            bool keywordOnly = false;
             foreach (var p in typed.Parameters)
             {
+                if (p.Kind == ParameterKind.VarArgs || (p.Kind == ParameterKind.Marker && p.Name == "*")) keywordOnly = true;
                 if (p.Kind != ParameterKind.Normal) continue;
-                if (pin == count) break;
-                types[pin++] = p.Type;
+                byName[p.Name] = p.Type;
+                if (!keywordOnly) positional.Add(p);
+            }
+            for (int i = 0; i < pins.Length; i++)
+            {
+                if (byName.TryGetValue(pins[i], out var named)) types[i] = named;
+                else if (i < positional.Count && !Array.Exists(pins, pin => pin == positional[i].Name)) types[i] = positional[i].Type;
             }
             return types;
         }
@@ -314,7 +362,7 @@ namespace CSharpPython.Blocks
 
         private void AddBlock(string name, string title, string category, BlockKind kind, string[] inputs, string[] flowPins, bool needsName)
         {
-            var spec = new BlockSpec(name, title, category, kind, inputs, flowPins, needsName);
+            var spec = new BlockSpec(name, title, category, kind, inputs, flowPins, needsName, BlockTypes.Find(name));
             _blocks[name] = spec;
             _blockOrder.Add(spec);
         }

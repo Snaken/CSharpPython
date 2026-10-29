@@ -24,7 +24,7 @@ namespace CSharpPython
     /// the compiler checks every wire of a graph with it, so a graph with a bad wire never compiles.
     /// </summary>
     /// <remarks>
-    /// <c>any</c> fits on either side, because an untyped host function gives <c>any</c> pins. An <c>int</c> fits a
+    /// <c>any</c> (and an unresolved type variable) fits on either side, because an untyped host function gives <c>any</c> pins. An <c>int</c> fits a
     /// <c>float</c> pin, as in Python. Every other mismatch is refused, including <c>bool</c> to <c>int</c> and
     /// <c>float</c> to <c>int</c>. Lists must have the same element type (or <c>any</c> on one side), because a
     /// list can be changed through either name. Handle types fit only the same handle type.
@@ -36,18 +36,21 @@ namespace CSharpPython
         {
             if (from == null || to == null) throw new System.ArgumentNullException(from == null ? nameof(from) : nameof(to));
             if (from.Equals(PinType.None)) return PinCheck.No("A pin of type none has no value to wire.");
-            if (from.Equals(PinType.Any) || to.Equals(PinType.Any)) return PinCheck.Yes;
+            if (IsOpen(from) || IsOpen(to)) return PinCheck.Yes;
             if (from.Equals(to)) return PinCheck.Yes;
             if (from.Equals(PinType.Int) && to.Equals(PinType.Float)) return PinCheck.Yes;
 
             if (from.IsList && to.IsList)
             {
-                if (from.Element.Equals(PinType.Any) || to.Element.Equals(PinType.Any)) return PinCheck.Yes;
-                return PinCheck.No("A " + from + " cannot be used as a " + to + ": a list keeps its own element type.");
+                if (IsOpen(from.Element) || IsOpen(to.Element)) return PinCheck.Yes;
+                return PinCheck.No("A wire of type " + from + " cannot go to a pin of type " + to + ": a list keeps its own element type.");
             }
 
-            return PinCheck.No("A " + from + " does not fit a " + to + " pin.");
+            return PinCheck.No("A wire of type " + from + " cannot go to a pin of type " + to + ".");
         }
+
+        // An unresolved type variable fits anything, like any.
+        private static bool IsOpen(PinType t) => t.Equals(PinType.Any) || t.IsVariable;
 
         /// <summary>True when <see cref="Check"/> allows the wire.</summary>
         public static bool CanConnect(PinType from, PinType to) => Check(from, to).Allowed;
