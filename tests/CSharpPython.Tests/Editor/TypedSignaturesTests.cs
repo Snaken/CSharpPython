@@ -20,7 +20,7 @@ namespace CSharpPython.Tests.Editor
         {
             var vm = new PyVm();
             foreach (var module in new[] { "math", "random" })
-                foreach (var kv in vm.Modules[module].Members.Where(m => m.Value.Kind == ValueKind.Native && !m.Key.StartsWith("_")))
+                foreach (var kv in vm.Modules[module].Members.Where(m => m.Value.Kind == ValueKind.Native && !m.Key.StartsWith('_')))
                     Assert.That(TypedSignatures.Find(module + "." + kv.Key)?.HasResult, Is.True, module + "." + kv.Key);
             foreach (var kv in vm.Builtins.Where(b => b.Value.Kind == ValueKind.Native && Signatures.Find(b.Key) != null))
                 Assert.That(TypedSignatures.Find(kv.Key)?.HasResult, Is.True, kv.Key);
