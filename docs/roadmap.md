@@ -43,7 +43,7 @@ Everything known to be missing, grouped by area. The order inside a group is rou
 - A debugger: breakpoints, stepping and variable inspection, built on the step budget.
 - Hover and signature help for `self.method(` and `Class.method`.
 - A formatter, code actions, unused-name warnings and a console that runs a line against a live task.
-- Blocks: more block kinds, loops that wait for a changing call result, variadic calls and several outputs per block.
+- Blocks: more block kinds, loops that wait for a changing call result, and variadic calls.
 - A node view in the style of Unreal Engine Blueprints, next to the block view: nodes on a free canvas, white execution wires for control flow and typed data wires for values, event nodes that start a chain, and latent nodes such as a delay. The graph is the source of truth, wires are type-checked as they are drawn, and the editor can list the nodes that accept or produce a given type. See [Node view: design notes](node-view-design.md).
 - One example for each way of writing a script: Python view (the text editor), Block view and Node view. Each runs the same small game script on a `GameObject`, so the three can be compared side by side.
 

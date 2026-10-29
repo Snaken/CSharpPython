@@ -15,15 +15,23 @@ namespace CSharpPython.Blocks
     {
         public string Pin;
         public string From;
+
+        /// <summary>
+        /// Which output of <see cref="From"/> this input reads, for a block with several outputs (the name from its
+        /// description, such as <c>hit</c>). Empty for a block with one output.
+        /// </summary>
+        public string FromPin;
+
         public string Literal;
 
         public BlockInput() { }
 
-        public BlockInput(string pin, string from, string literal)
+        public BlockInput(string pin, string from, string literal, string fromPin = null)
         {
             Pin = pin;
             From = from;
             Literal = literal;
+            FromPin = fromPin;
         }
     }
 
@@ -68,10 +76,10 @@ namespace CSharpPython.Blocks
             Name = name;
         }
 
-        /// <summary>Connects another block's output to an input pin.</summary>
-        public BlockNode Connect(string pin, string fromNode)
+        /// <summary>Connects another block's output to an input pin. Name the output with <paramref name="fromPin"/> when that block has several.</summary>
+        public BlockNode Connect(string pin, string fromNode, string fromPin = null)
         {
-            Inputs.Add(new BlockInput(pin, fromNode, null));
+            Inputs.Add(new BlockInput(pin, fromNode, null, fromPin));
             return this;
         }
 

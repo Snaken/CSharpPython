@@ -8,6 +8,7 @@
 - `BlockLibrary` functions carry pin types (`FunctionSpec.ParameterTypes` and `Outputs`) from the typed descriptions, and `PinTypeIndex` finds the functions that fit a pin: `Accepting(type)` lists the inputs an output may be wired to, and `Producing(type)` lists the outputs that fit an input.
 - Blocks are type-checked. Every built-in block has pin types (`BlockSpec.InputType` and `OutputType`), with wildcard pins written `$T` that take their type from the wires (`index`, `append`, `set_index` and `choose`), and the compiler reports a wire that does not fit against its block and pin. **Block graphs that wire a value of the wrong type (a string into a `repeat` count, a string appended to a list of numbers) no longer compile.** `BlockTypeChecker` checks a graph, gives the type of a block's value, and says whether a wire may be drawn (`CheckWire`) with the reason when it may not.
 - Pin types of `print` and other built-ins that were registered with their own pin names are matched to the parameter they stand for, not by position.
+- A block can have several outputs. A host function described as `-> (hit: bool, point: Vec)` gives one output per name, and an input picks one with the new `BlockInput.FromPin` (`Connect("arg0", "ray", "hit")`). A call in the flow is unpacked into one local per output, and a pure call is indexed where it is used. Each output is type-checked on its own, and `BlockTypeChecker.OutputType` and `CheckWire` take an optional output name. Saved graphs gain an optional `FromPin` field; older files load unchanged.
 
 ## 0.2.2
 

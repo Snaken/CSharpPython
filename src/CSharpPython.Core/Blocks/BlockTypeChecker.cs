@@ -37,9 +37,10 @@ namespace CSharpPython.Blocks
 
         /// <summary>
         /// The type of a block's value in a function, with wildcards resolved from its wires, or null if there is no
-        /// such block or it is a step in the flow with no value. An editor uses it to colour a pin.
+        /// such block or it is a step in the flow with no value. An editor uses it to colour a pin. For a block with
+        /// several outputs, name one with <paramref name="outputPin"/>; without it the answer is <c>any</c>.
         /// </summary>
-        public static PinType OutputType(BlockGraph graph, string function, string nodeId, BlockLibrary library = null)
+        public static PinType OutputType(BlockGraph graph, string function, string nodeId, BlockLibrary library = null, string outputPin = null)
         {
             if (graph == null) throw new ArgumentNullException(nameof(graph));
             var fn = graph.Functions.FirstOrDefault(f => f != null && f.Name == function);
@@ -47,16 +48,17 @@ namespace CSharpPython.Blocks
             if (node == null) return null;
             var lib = library ?? new BlockLibrary();
             if (node.Block != "call" && lib.FindBlock(node.Block)?.Kind == BlockKind.Flow) return null;
-            return new FunctionTypes(fn, lib, UserFunctions(graph)).OutputOf(node);
+            return new FunctionTypes(fn, lib, UserFunctions(graph)).OutputOf(node, outputPin);
         }
 
         /// <summary>
         /// Whether the output of <paramref name="fromNode"/> may be wired to the input <paramref name="pin"/> of
         /// <paramref name="toNode"/>, replacing any wire already there. A wire is refused when it does not fit, and
         /// also when it would break the wires of blocks further along (for example changing a list's type under an
-        /// "item at" block). The graph is not changed.
+        /// "item at" block). For a block with several outputs, name the one being wired with <paramref name="fromPin"/>.
+        /// The graph is not changed.
         /// </summary>
-        public static PinCheck CheckWire(BlockGraph graph, string function, string toNode, string pin, string fromNode, BlockLibrary library = null)
+        public static PinCheck CheckWire(BlockGraph graph, string function, string toNode, string pin, string fromNode, BlockLibrary library = null, string fromPin = null)
         {
             if (graph == null) throw new ArgumentNullException(nameof(graph));
             var fn = graph.Functions.FirstOrDefault(f => f != null && f.Name == function);
@@ -72,7 +74,7 @@ namespace CSharpPython.Blocks
                 return PinCheck.No("'" + source.Block + "' is a step in the flow and has no value to wire.");
 
             var before = new HashSet<string>(new FunctionTypes(fn, lib, userFunctions).Diagnostics().Select(Key));
-            var after = new FunctionTypes(WithWire(fn, target, pin, fromNode), lib, userFunctions).Diagnostics();
+            var after = new FunctionTypes(WithWire(fn, target, pin, fromNode, fromPin), lib, userFunctions).Diagnostics();
             var added = after.FirstOrDefault(d => !before.Contains(Key(d)));
             return added == null ? PinCheck.Yes : PinCheck.No(added.Message);
         }
@@ -83,12 +85,12 @@ namespace CSharpPython.Blocks
             new HashSet<string>(graph.Functions.Where(f => f != null && !string.IsNullOrEmpty(f.Name)).Select(f => f.Name));
 
         // A copy of the function in which one input pin is wired to another block.
-        private static BlockFunction WithWire(BlockFunction fn, BlockNode target, string pin, string fromNode)
+        private static BlockFunction WithWire(BlockFunction fn, BlockNode target, string pin, string fromNode, string fromPin)
         {
             var changed = new BlockNode(target.Id, target.Block, target.Name) { Flow = target.Flow };
             foreach (var input in target.Inputs ?? new List<BlockInput>())
                 if (input != null && input.Pin != pin) changed.Inputs.Add(input);
-            changed.Connect(pin, fromNode);
+            changed.Connect(pin, fromNode, fromPin);
 
             var copy = new BlockFunction { Name = fn.Name, Start = fn.Start, Parameters = fn.Parameters };
             foreach (var n in fn.Nodes) copy.Nodes.Add(n == target ? changed : n);
@@ -102,6 +104,9 @@ namespace CSharpPython.Blocks
         private sealed class Solution
         {
             public PinType Output = PinType.Any;
+
+            // The types of the named outputs of a call that returns several values, otherwise null.
+            public Dictionary<string, PinType> Named;
             public readonly List<BlockDiagnostic> Errors = new List<BlockDiagnostic>();
         }
 
@@ -136,7 +141,12 @@ namespace CSharpPython.Blocks
             return all;
         }
 
-        public PinType OutputOf(BlockNode node) => Solve(node).Output;
+        public PinType OutputOf(BlockNode node, string outputPin = null)
+        {
+            var solution = Solve(node);
+            if (solution.Named == null) return solution.Output;
+            return outputPin != null && solution.Named.TryGetValue(outputPin, out var named) ? named : PinType.Any;
+        }
 
         private Solution Solve(BlockNode node)
         {
@@ -149,6 +159,7 @@ namespace CSharpPython.Blocks
                 Patterns(node, out var pinType, out var outputPattern);
                 var bindings = Match(node, pinType, solution);
                 solution.Output = Refine(node, Substitute(outputPattern, bindings));
+                solution.Named = NamedOutputs(node);
                 _solved[node.Id] = solution;
                 return solution;
             }
@@ -176,6 +187,14 @@ namespace CSharpPython.Blocks
             if (block == null) return;
             pinType = block.InputType;
             output = block.OutputType ?? PinType.Any;
+        }
+
+        private Dictionary<string, PinType> NamedOutputs(BlockNode node)
+        {
+            if (node.Block != "call" || node.Name == null || _userFunctions.Contains(node.Name)) return null;
+            var spec = _lib.FindFunction(node.Name);
+            if (spec == null || spec.Outputs.Count < 2) return null;
+            return spec.Outputs.ToDictionary(o => o.Name, o => o.Type);
         }
 
         private static PinType ArgumentType(FunctionSpec spec, string pin)
@@ -287,7 +306,13 @@ namespace CSharpPython.Blocks
         private PinType WireType(BlockInput input)
         {
             if (!string.IsNullOrEmpty(input.From))
-                return _nodes.TryGetValue(input.From, out var source) ? Solve(source).Output : null;
+            {
+                if (!_nodes.TryGetValue(input.From, out var source)) return null;
+                var solved = Solve(source);
+                if (solved.Named == null) return solved.Output;
+                // A block with several outputs is typed by the one the wire names; the compiler reports a missing or wrong name.
+                return input.FromPin != null && solved.Named.TryGetValue(input.FromPin, out var named) ? named : null;
+            }
             return string.IsNullOrWhiteSpace(input.Literal) ? null : LiteralType(input.Literal);
         }
 

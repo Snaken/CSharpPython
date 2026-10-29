@@ -507,13 +507,27 @@ namespace CSharpPython.Blocks
                 return;
             }
             string text = Call(node).Text;
-            if (_referenced.Contains(node.Id))
+            if (!_referenced.Contains(node.Id))
+            {
+                Emit(depth, text, node);
+                return;
+            }
+            // A call with several results is unpacked into one local per output, so each can be wired on its own.
+            var outputs = SeveralOutputs(node);
+            if (outputs == null)
             {
                 string temp = NewTemp();
                 _temps[node.Id] = temp;
                 Emit(depth, temp + " = " + text, node);
+                return;
             }
-            else Emit(depth, text, node);
+            var locals = new List<string>();
+            foreach (var o in outputs)
+            {
+                locals.Add(NewTemp());
+                _temps[TempKey(node.Id, o.Name)] = locals[locals.Count - 1];
+            }
+            Emit(depth, string.Join(", ", locals) + " = " + text, node);
         }
 
         // ---- Pins ----
@@ -613,7 +627,7 @@ namespace CSharpPython.Blocks
                 Error("the input '" + pin + "' has no value; connect a block or type one in", node, pin);
                 return new Ex("None", false);
             }
-            if (!string.IsNullOrEmpty(input.From)) return Reference(node, pin, input.From);
+            if (!string.IsNullOrEmpty(input.From)) return Reference(node, pin, input.From, input.FromPin);
 
             string literal = CheckLiteral(input.Literal);
             if (literal == null)
@@ -624,7 +638,41 @@ namespace CSharpPython.Blocks
             return new Ex(literal, literal[0] == '-');
         }
 
-        private Ex Reference(BlockNode owner, string pin, string fromId)
+        // The outputs of a call to a host function that returns several values, or null for any other block.
+        private IReadOnlyList<HostOutput> SeveralOutputs(BlockNode node)
+        {
+            if (node.Block != "call" || string.IsNullOrEmpty(node.Name) || _functions.ContainsKey(node.Name)) return null;
+            var spec = _lib.FindFunction(node.Name);
+            return spec != null && spec.Outputs.Count > 1 ? spec.Outputs : null;
+        }
+
+        // The position of the output an input reads, or -1 for a block with one output. False (after reporting) when
+        // the input names no output of a block that has several, or names one of a block that has one.
+        private bool ChooseOutput(BlockNode owner, string pin, BlockNode source, string fromPin, out int index)
+        {
+            index = -1;
+            var outputs = SeveralOutputs(source);
+            if (outputs == null)
+            {
+                if (string.IsNullOrEmpty(fromPin)) return true;
+                Error("'" + (source.Block == "call" ? source.Name : source.Block) + "' has only one output, so the input '" + pin + "' should not name one", owner, pin);
+                return false;
+            }
+            string names = string.Join(", ", outputs.Select(o => o.Name));
+            if (string.IsNullOrEmpty(fromPin))
+            {
+                Error("'" + source.Name + "' has several outputs (" + names + "); say which one the input '" + pin + "' reads", owner, pin);
+                return false;
+            }
+            index = outputs.ToList().FindIndex(o => o.Name == fromPin);
+            if (index >= 0) return true;
+            Error("'" + source.Name + "' has no output '" + fromPin + "' (it has " + names + ")", owner, pin);
+            return false;
+        }
+
+        private static string TempKey(string nodeId, string output) => string.IsNullOrEmpty(output) ? nodeId : nodeId + "\u0001" + output;
+
+        private Ex Reference(BlockNode owner, string pin, string fromId, string fromPin)
         {
             if (!_nodes.TryGetValue(fromId, out var source))
             {
@@ -651,6 +699,7 @@ namespace CSharpPython.Blocks
                 Error(string.IsNullOrEmpty(source.Name) ? "a call block needs a function name" : "unknown function '" + source.Name + "'", source);
                 return new Ex("None", false);
             }
+            if (!ChooseOutput(owner, pin, source, fromPin, out int output)) return new Ex("None", false);
             if (kind != Callee.Pure)
             {
                 if (_noResults)
@@ -658,7 +707,7 @@ namespace CSharpPython.Blocks
                     Error("a loop condition cannot use the result of '" + source.Name + "'; compute it inside the loop and use if/break", owner, pin);
                     return new Ex("None", false);
                 }
-                if (!_temps.TryGetValue(fromId, out var temp) || !_scope.Has(fromId))
+                if (!_temps.TryGetValue(TempKey(fromId, fromPin), out var temp) || !_scope.Has(fromId))
                 {
                     Error("this uses the result of '" + source.Name + "' before it has run; put that block earlier in the flow, in the same or an enclosing branch", owner, pin);
                     return new Ex("None", false);
@@ -667,7 +716,9 @@ namespace CSharpPython.Blocks
                 return new Ex(temp, false);
             }
 
-            return Value(source);
+            // A pure call that returns several values is indexed where it is used.
+            var value = Value(source);
+            return output < 0 ? value : new Ex(value.Text + "[" + output.ToString(CultureInfo.InvariantCulture) + "]", false);
         }
 
         private Ex Value(BlockNode node)

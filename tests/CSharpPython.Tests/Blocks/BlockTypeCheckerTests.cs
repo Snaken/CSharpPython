@@ -175,7 +175,7 @@ namespace CSharpPython.Tests.Blocks
         }
 
         [Test]
-        public void TheResultOfASeveralOutputFunctionIsUntypedForNow()
+        public void ABlockWithSeveralOutputsIsAnyUntilAnOutputIsNamed()
         {
             Assert.That(Out(G(N("c", "call", "game.raycast").Literal("arg0", "\"o\"")), "c"), Is.EqualTo(PinType.Any));
         }

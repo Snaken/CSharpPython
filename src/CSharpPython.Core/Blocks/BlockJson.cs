@@ -40,7 +40,7 @@ namespace CSharpPython.Blocks
                     w.Begin('{');
                     w.Str("Id", n.Id); w.Str("Block", n.Block); w.Str("Name", n.Name);
                     w.Name("Inputs");
-                    w.Array(n.Inputs, i => { w.Begin('{'); w.Str("Pin", i.Pin); w.Str("From", i.From); w.Str("Literal", i.Literal); w.End('}'); });
+                    w.Array(n.Inputs, i => { w.Begin('{'); w.Str("Pin", i.Pin); w.Str("From", i.From); w.Str("FromPin", i.FromPin); w.Str("Literal", i.Literal); w.End('}'); });
                     w.Name("Flow");
                     w.Array(n.Flow, l => { w.Begin('{'); w.Str("Pin", l.Pin); w.Str("To", l.To); w.End('}'); });
                     w.End('}');
@@ -183,7 +183,7 @@ namespace CSharpPython.Blocks
                     foreach (var i in Items(no, "Inputs"))
                     {
                         var io = AsObject(i, "an input");
-                        node.Inputs.Add(new BlockInput(Text(io, "Pin"), Text(io, "From"), Text(io, "Literal")));
+                        node.Inputs.Add(new BlockInput(Text(io, "Pin"), Text(io, "From"), Text(io, "Literal"), Text(io, "FromPin")));
                     }
                     foreach (var l in Items(no, "Flow"))
                     {

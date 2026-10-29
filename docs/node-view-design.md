@@ -1,6 +1,6 @@
 # Node view: design notes
 
-Status: design agreed. Step 1 is built: typed `Describe` strings (`HostSignature`, `PinType`), the `latent` flag, and types for the built-in functions, `math` and `random` (methods of built-in types are not typed yet). Step 2 is built for functions: `PinCompatibility` decides whether a wire is allowed, and `PinTypeIndex` searches functions by pin type. Step 3 has started: built-in blocks have pin types and wildcard pins, and the compiler refuses wires that do not fit (`BlockTypeChecker`). Not built yet: the block types in the search index, several outputs, shared pure nodes, flow joins, branch-scoped values, typed variables and the editor section.
+Status: design agreed. Step 1 is built: typed `Describe` strings (`HostSignature`, `PinType`), the `latent` flag, and types for the built-in functions, `math` and `random` (methods of built-in types are not typed yet). Step 2 is built for functions: `PinCompatibility` decides whether a wire is allowed, and `PinTypeIndex` searches functions by pin type. Step 3 has started: built-in blocks have pin types and wildcard pins, and the compiler refuses wires that do not fit (`BlockTypeChecker`). Several outputs per node are built (`BlockInput.FromPin`). Not built yet: the block types in the search index, shared pure nodes, flow joins, branch-scoped values, typed variables and the editor section.
 
 The node view is a Blueprint-style editor: a script is a graph of nodes on a free canvas, joined by wires. The player picks a script's kind once. A script made as a node graph stays a node graph; changing the kind discards the graph.
 
@@ -50,7 +50,7 @@ So the question is less "a second system" than "which parts of this model does a
 | Need | Today |
 | --- | --- |
 | Typed pins | None. Host functions describe parameters as a name string (`Describe("spawn", "kind, count=1")`), with no types and no result type. |
-| Several outputs from one node | Not supported ("not in the first version"). |
+| Several outputs from one node | Built: an input names the output it reads (`BlockInput.FromPin`). |
 | Two flows joining into one node | Reported as an error ("flow cannot loop back or join up again"). Blueprint allows several execution wires into one pin. |
 | A value used by several nodes | A pure node is written inline at each use, so it runs once per consumer. Decision 11 changes this to run once per flow step. |
 | Waiting inside a loop condition | A `while` condition cannot use a stored call result. |
