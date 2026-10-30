@@ -94,9 +94,33 @@ namespace CSharpPython.Blocks
             public readonly Scope Parent;
             public readonly HashSet<string> Done = new HashSet<string>();
 
-            public Scope(Scope parent)
+            // The locals holding pure blocks that several inputs share, by block id (see Shared in the generator).
+            public readonly Dictionary<string, string> Shared = new Dictionary<string, string>();
+
+            // True for the body of a loop: each pass is a new flow step, so nothing computed outside is reused inside.
+            public readonly bool LoopBody;
+
+            public Scope(Scope parent, bool loopBody = false)
             {
                 Parent = parent;
+                LoopBody = loopBody;
+            }
+
+            public bool TryGetShared(string id, out string local)
+            {
+                for (var s = this; s != null; s = s.Parent)
+                {
+                    if (s.Shared.TryGetValue(id, out local)) return true;
+                    if (s.LoopBody) break;
+                }
+                local = null;
+                return false;
+            }
+
+            // A pause ends the flow step: nothing computed before it is reused after it.
+            public void ForgetShared()
+            {
+                for (var s = this; s != null; s = s.Parent) s.Shared.Clear();
             }
 
             public bool Has(string id)
@@ -134,6 +158,12 @@ namespace CSharpPython.Blocks
         private bool _noResults;
         private Scope _scope;
         private List<Line> _out;
+        // How many inputs read each block, and the indent of the statement being written (a shared value is written
+        // on a line of its own just before it).
+        private Dictionary<string, int> _readers;
+        private int _depth;
+        // Above zero while an operand that only sometimes runs is read (the right side of and/or, the branches of choose).
+        private int _lazy;
 
         public Generator(BlockGraph graph, BlockLibrary lib)
         {
@@ -297,6 +327,8 @@ namespace CSharpPython.Blocks
             _pinsChecked = new HashSet<string>();
             _evaluating = new HashSet<string>();
             _temps = new Dictionary<string, string>();
+            _readers = new Dictionary<string, int>();
+            _lazy = 0;
             _tempCount = 0;
             _loopDepth = 0;
             _scope = new Scope(null);
@@ -315,7 +347,11 @@ namespace CSharpPython.Blocks
             foreach (var n in _nodes.Values)
             {
                 foreach (var input in n.Inputs ?? new List<BlockInput>())
-                    if (input != null && !string.IsNullOrEmpty(input.From)) _referenced.Add(input.From);
+                {
+                    if (input == null || string.IsNullOrEmpty(input.From)) continue;
+                    _referenced.Add(input.From);
+                    _readers[input.From] = _readers.TryGetValue(input.From, out int count) ? count + 1 : 1;
+                }
 
                 bool assigns = n.Block == "set" || n.Block == "change" || n.Block == "for_each" || n.Block == "for_range" || (n.Block == "repeat" && !string.IsNullOrEmpty(n.Name));
                 if (!assigns || !IsIdentifier(n.Name) || paramSet.Contains(n.Name)) continue;
@@ -346,10 +382,10 @@ namespace CSharpPython.Blocks
         private void Emit(int depth, string text, BlockNode node) => _out.Add(new Line(Indent(depth) + text, node?.Id));
 
         // Emits a nested block of statements, writing `pass` if the branch is empty.
-        private void EmitBody(string start, int depth)
+        private void EmitBody(string start, int depth, bool loopBody = false)
         {
             var saved = _scope;
-            _scope = new Scope(saved);
+            _scope = new Scope(saved, loopBody);
             int before = _out.Count;
             EmitChain(start, depth);
             if (!HasStatement(before)) _out.Add(new Line(Indent(depth) + "pass", null));
@@ -396,6 +432,7 @@ namespace CSharpPython.Blocks
                     return;
                 }
 
+                _depth = depth;
                 BlockSpec spec = _lib.FindBlock(node.Block);
                 bool isCall = node.Block == "call";
                 if (!isCall && spec == null)
@@ -492,7 +529,7 @@ namespace CSharpPython.Blocks
         private void EmitLoopBody(BlockNode node, int depth)
         {
             _loopDepth++;
-            EmitBody(FlowTarget(node, "body"), depth + 1);
+            EmitBody(FlowTarget(node, "body"), depth + 1, loopBody: true);
             _loopDepth--;
         }
 
@@ -507,6 +544,7 @@ namespace CSharpPython.Blocks
                 return;
             }
             string text = Call(node).Text;
+            if (EndsFlowStep(node, kind)) _scope.ForgetShared();
             if (!_referenced.Contains(node.Id))
             {
                 Emit(depth, text, node);
@@ -529,6 +567,11 @@ namespace CSharpPython.Blocks
             }
             Emit(depth, string.Join(", ", locals) + " = " + text, node);
         }
+
+        // A call that can pause the script (a latent host function, or a function in the graph, which may call one)
+        // ends the flow step: the game moves on while the script waits.
+        private bool EndsFlowStep(BlockNode node, Callee kind) =>
+            kind == Callee.User || (_lib.FindFunction(node.Name)?.Latent ?? false);
 
         // ---- Pins ----
 
@@ -717,8 +760,28 @@ namespace CSharpPython.Blocks
             }
 
             // A pure call that returns several values is indexed where it is used.
-            var value = Value(source);
+            var value = Shared(source);
             return output < 0 ? value : new Ex(value.Text + "[" + output.ToString(CultureInfo.InvariantCulture) + "]", false);
+        }
+
+        // A pure block that several inputs read is worked out once per flow step: the first time an input needs it, it
+        // is written to a local on the line before the statement, and the other inputs read the local. A variable
+        // that changes in between does not change it. A loop pass, and the part of the flow after a pause, is a new step.
+        // Plain variable reads and literals are not shared (they are not computed), and neither is a value read where it
+        // only sometimes runs (the right side of and/or, the branches of choose), or in a loop condition, which runs
+        // again on every pass; those are written inline as before.
+        private Ex Shared(BlockNode source)
+        {
+            bool shareable = source.Block != "literal" && source.Block != "get" && _readers.TryGetValue(source.Id, out int readers) && readers > 1;
+            if (!shareable || _noResults) return Value(source);
+            if (_scope.TryGetShared(source.Id, out var known)) return new Ex(known, false);
+
+            var value = Value(source);
+            if (_lazy > 0) return value;
+            string local = NewTemp();
+            _scope.Shared[source.Id] = local;
+            Emit(_depth, local + " = " + value.Text, source);
+            return new Ex(local, false);
         }
 
         private Ex Value(BlockNode node)
@@ -746,7 +809,21 @@ namespace CSharpPython.Blocks
                     case "is_none":
                         return new Ex(Input(node, "a").Atom + " is None", true);
                     case "choose":
-                        return new Ex(Input(node, "a").Atom + " if " + Input(node, "cond").Atom + " else " + Input(node, "b").Atom, true);
+                        _lazy++;
+                        var whenTrue = Input(node, "a");
+                        _lazy--;
+                        var condition = Input(node, "cond");
+                        _lazy++;
+                        var whenFalse = Input(node, "b");
+                        _lazy--;
+                        return new Ex(whenTrue.Atom + " if " + condition.Atom + " else " + whenFalse.Atom, true);
+                    case "and":
+                    case "or":
+                        var left = Input(node, "a");
+                        _lazy++;
+                        var right = Input(node, "b");
+                        _lazy--;
+                        return new Ex(left.Atom + " " + BinaryOps[node.Block] + " " + right.Atom, true);
                     case "get_attr":
                         return new Ex(AttributeBase(Input(node, "object")) + "." + node.Name, false);
                     case "index":

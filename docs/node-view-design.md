@@ -1,6 +1,6 @@
 # Node view: design notes
 
-Status: design agreed. Step 1 is built: typed `Describe` strings (`HostSignature`, `PinType`), the `latent` flag, and types for the built-in functions, `math` and `random` (methods of built-in types are not typed yet). Step 2 is built for functions: `PinCompatibility` decides whether a wire is allowed, and `PinTypeIndex` searches functions by pin type. Step 3 has started: built-in blocks have pin types and wildcard pins, and the compiler refuses wires that do not fit (`BlockTypeChecker`). Several outputs per node are built (`BlockInput.FromPin`). Not built yet: the block types in the search index, shared pure nodes, flow joins, branch-scoped values, typed variables and the editor section.
+Status: design agreed. Step 1 is built: typed `Describe` strings (`HostSignature`, `PinType`), the `latent` flag, and types for the built-in functions, `math` and `random` (methods of built-in types are not typed yet). Step 2 is built for functions: `PinCompatibility` decides whether a wire is allowed, and `PinTypeIndex` searches functions by pin type. Step 3 has started: built-in blocks have pin types and wildcard pins, and the compiler refuses wires that do not fit (`BlockTypeChecker`). Several outputs per node are built (`BlockInput.FromPin`). Shared pure nodes are built (decision 11). Not built yet: the block types in the search index, flow joins, branch-scoped values, typed variables and the editor section.
 
 The node view is a Blueprint-style editor: a script is a graph of nodes on a free canvas, joined by wires. The player picks a script's kind once. A script made as a node graph stays a node graph; changing the kind discards the graph.
 
@@ -24,7 +24,7 @@ The node view is a Blueprint-style editor: a script is a graph of nodes on a fre
 
 **Running**
 
-11. **A pure node with several consumers runs once, and the result is shared, per flow step.** The value is computed the first time a consumer needs it during the nearest enclosing flow step and reused after that. Inside a loop body that means once per iteration. A variable changed between two uses does not change the shared value. A node that must give a new value on each request (a random number) will be a separate kind later, as will one that computes on first use and then keeps its value.
+11. **A pure node with several consumers runs once, and the result is shared, per flow step.** The value is computed the first time a consumer needs it during the nearest enclosing flow step and reused after that. Inside a loop body that means once per iteration. A variable changed between two uses does not change the shared value. A node that must give a new value on each request (a random number) will be a separate kind later, as will one that computes on first use and then keeps its value. As built: a flow step ends at a latent call and at each loop pass; variable reads and literals are not shared; a value is never worked out early where it only sometimes runs (the right side of `and`/`or`, the branches of `choose`, a `while` condition).
 12. **A value that only exists inside a branch cannot be wired outside it.** A `for each` node's element output is valid only inside its loop body. Wiring it elsewhere is a compile-time error and the editor refuses the wire.
 13. **Flow joins are allowed.** Two execution wires may enter one node. The code after the join is emitted once as a local function and called from each path that reaches it, because Python has no goto.
 14. **Latent nodes are marked by the host.** A host function that can wait carries a `latent` flag in its description. The editor draws a clock mark on it, and the compiler knows the flow can pause there (this matters for decision 11).
@@ -52,7 +52,7 @@ So the question is less "a second system" than "which parts of this model does a
 | Typed pins | None. Host functions describe parameters as a name string (`Describe("spawn", "kind, count=1")`), with no types and no result type. |
 | Several outputs from one node | Built: an input names the output it reads (`BlockInput.FromPin`). |
 | Two flows joining into one node | Reported as an error ("flow cannot loop back or join up again"). Blueprint allows several execution wires into one pin. |
-| A value used by several nodes | A pure node is written inline at each use, so it runs once per consumer. Decision 11 changes this to run once per flow step. |
+| A value used by several nodes | Built: a pure node several inputs read is worked out once per flow step (a loop pass or a latent call starts a new step). Variable reads and literals are not shared. |
 | Waiting inside a loop condition | A `while` condition cannot use a stored call result. |
 | Variadic calls | Not supported. |
 

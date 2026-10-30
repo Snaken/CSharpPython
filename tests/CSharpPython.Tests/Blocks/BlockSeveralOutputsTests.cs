@@ -87,13 +87,13 @@ namespace CSharpPython.Tests.Blocks
         }
 
         [Test]
-        public void APureCallWithSeveralOutputsIsIndexedWhereItIsUsed()
+        public void APureCallWithSeveralOutputsIsCalledOnceAndIndexedWhereItIsUsed()
         {
             var f = Fn(new[] { "p1", "p2" },
                 N("modf", "call", "math.modf").Literal("arg0", "3.75"),
                 Print("p1", "modf", "fractional"), Print("p2", "modf", "whole"));
             var r = Compile(f);
-            Assert.That(r.Source, Does.Contain("print(math.modf(3.75)[0])").And.Contain("print(math.modf(3.75)[1])"));
+            Assert.That(r.Source, Does.Contain("_b1 = math.modf(3.75)\n    print(_b1[0])\n    print(_b1[1])"));
             Assert.That(Run(f), Is.EqualTo("0.75\n3.0\n"));
         }
 

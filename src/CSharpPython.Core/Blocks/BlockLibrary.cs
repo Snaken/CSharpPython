@@ -106,6 +106,9 @@ namespace CSharpPython.Blocks
         /// <summary>The parameter list as an editor should show it, such as <c>"x, base=10"</c>.</summary>
         public string Signature { get; }
 
+        /// <summary>True when a call can pause the script. The compiler treats a pause as the end of a flow step, so values shared before it are worked out again after it.</summary>
+        public bool Latent { get; }
+
         /// <summary>The typed description this function was added with, or null when its pins are all <c>any</c>.</summary>
         public HostSignature Typed { get; }
 
@@ -118,8 +121,9 @@ namespace CSharpPython.Blocks
         /// </summary>
         public IReadOnlyList<HostOutput> Outputs { get; }
 
-        internal FunctionSpec(string name, string module, string[] parameters, bool pure, int required, string signature, HostSignature typed)
+        internal FunctionSpec(string name, string module, string[] parameters, bool pure, int required, string signature, HostSignature typed, bool latent)
         {
+            Latent = latent;
             Name = name;
             Module = module;
             Parameters = parameters;
@@ -270,11 +274,11 @@ namespace CSharpPython.Blocks
         /// Makes a built-in function (when <paramref name="module"/> is null) or a host module function callable from
         /// blocks. The compiler adds <c>import module</c> automatically. Registering a name again replaces it.
         /// </summary>
-        public BlockLibrary AddFunction(string name, string[] parameters, bool pure = false, string module = null, int required = -1, string signature = null, HostSignature typed = null)
+        public BlockLibrary AddFunction(string name, string[] parameters, bool pure = false, string module = null, int required = -1, string signature = null, HostSignature typed = null, bool latent = false)
         {
             if (string.IsNullOrEmpty(name)) throw new ArgumentException("A function needs a name.", nameof(name));
             typed = typed ?? TypedSignatures.Find(module == null ? name : module + "." + name);
-            var spec = new FunctionSpec(name, module, parameters ?? None, pure, required, signature, typed);
+            var spec = new FunctionSpec(name, module, parameters ?? None, pure, required, signature, typed, latent);
             string key = module == null ? name : module + "." + name;
             if (_functions.ContainsKey(key)) _functionOrder.Remove(_functions[key]);
             _functions[key] = spec;
@@ -311,7 +315,7 @@ namespace CSharpPython.Blocks
                     if (eq >= 0 && required < 0) required = parameters.Count;
                     parameters.Add(pname);
                 }
-                AddFunction(name, parameters.ToArray(), pure, module, required, signature, TypedSignatures.For(native, module + "." + name, 0));
+                AddFunction(name, parameters.ToArray(), pure, module, required, signature, TypedSignatures.For(native, module + "." + name, 0), native.Latent);
             }
             return true;
         }

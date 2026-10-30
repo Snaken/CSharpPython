@@ -75,8 +75,9 @@ namespace CSharpPython.Tests.Blocks
             f.Add(N("has2", "contains").Literal("a", "9").Connect("b", "xs"));
             // chain order: s, p1..p4 are linked by Chain in the order given
             var g = Graph(f);
-            Assert.That(Source(g), Does.Contain("print(2 in xs)").And.Contain("print(None is None)")
-                .And.Contain("print(\"yes\" if (2 in xs) else \"no\")").And.Contain("print(not (9 in xs))"));
+            // "has" feeds two inputs, so it is worked out once; the variable read "xs" is not shared.
+            Assert.That(Source(g), Does.Contain("_b1 = 2 in xs\n    print(_b1)").And.Contain("print(None is None)")
+                .And.Contain("print(\"yes\" if _b1 else \"no\")").And.Contain("print(not (9 in xs))"));
             Assert.That(Run(g), Is.EqualTo("True\nTrue\nyes\nTrue\n"));
         }
 
