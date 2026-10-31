@@ -297,7 +297,7 @@ namespace CSharpPython.Blocks
             return tokens;
         }
 
-        private static bool IsIdentifier(string name)
+        internal static bool IsIdentifier(string name)
         {
             if (string.IsNullOrEmpty(name)) return false;
             var tokens = Significant(name, out bool clean);
