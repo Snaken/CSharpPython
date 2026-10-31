@@ -24,6 +24,29 @@ namespace CSharpPython
         /// </summary>
         public int MaxIntBits = 16384;
 
+        /// <summary>The default of <see cref="MaxSourceLength"/>: one million characters.</summary>
+        public const int DefaultMaxSourceLength = 1000000;
+
+        /// <summary>
+        /// The most characters of source text <see cref="PyVm.Compile"/> accepts, or 0 for no limit. Longer text throws a
+        /// <see cref="CSharpPython.Syntax.PySyntaxError"/> before anything is parsed, because compiling takes memory in proportion to the
+        /// text (a 50 MB string literal took over 600 MB) and a host that compiles text players wrote should bound it.
+        /// The default is one million characters, far more than a game script needs. A negative value is refused when the
+        /// <see cref="PyVm"/> is made. See docs/resource-limits.md.
+        /// </summary>
+        public int MaxSourceLength = DefaultMaxSourceLength;
+
+        /// <summary>
+        /// A secret that makes snapshots tamper-proof, or null for plain snapshots. With a key, <see cref="PyTask.Save"/>
+        /// writes a signature (HMAC-SHA256) in front of the snapshot and <see cref="PyVm.Restore"/> refuses data that was
+        /// not signed with the same key or was changed, with a <see cref="SnapshotException"/>. Without one, a snapshot is
+        /// untrusted input: whoever can edit the saved bytes can reset the step budget and change any value the script
+        /// holds, including the handles it uses. The key must be at least 16 bytes and kept out of the player's reach (a
+        /// key shipped in a game the player can read protects against careless editing, not against a determined one).
+        /// A signed snapshot cannot be restored by a VM without the key, and the other way round. See docs/snapshots.md.
+        /// </summary>
+        public byte[] SnapshotKey;
+
         /// <summary>The default of <see cref="MaxMemoryBytes"/>: 64 MB.</summary>
         public const long DefaultMaxMemoryBytes = 64L * 1024 * 1024;
 

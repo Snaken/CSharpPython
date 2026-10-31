@@ -138,7 +138,7 @@ namespace CSharpPython
             Random?.Write(w);
 
             w.Flush();
-            return stream.ToArray();
+            return SnapshotSignature.Sign(Vm.Options.SnapshotKey, stream.ToArray());
         }
 
         internal static PyTask RestoreTask(PyVm vm, Script script, byte[] data)
@@ -149,7 +149,7 @@ namespace CSharpPython
             if (data == null) throw new ArgumentNullException(nameof(data));
             try
             {
-                return ReadTask(vm, script, data);
+                return ReadTask(vm, script, SnapshotSignature.Verify(vm.Options.SnapshotKey, data));
             }
             catch (SnapshotException)
             {

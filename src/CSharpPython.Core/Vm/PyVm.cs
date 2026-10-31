@@ -24,6 +24,10 @@ namespace CSharpPython
             Options = options ?? new VmOptions();
             if (Options.MaxSequenceLength < 1 || Options.MaxSequenceLength > VmOptions.SequenceLengthCeiling)
                 throw new ArgumentOutOfRangeException(nameof(options), "MaxSequenceLength must be between 1 and " + VmOptions.SequenceLengthCeiling + ".");
+            if (Options.MaxSourceLength < 0)
+                throw new ArgumentOutOfRangeException(nameof(options), "MaxSourceLength cannot be negative; use 0 for no limit.");
+            if (Options.SnapshotKey != null && Options.SnapshotKey.Length < 16)
+                throw new ArgumentException("SnapshotKey must be at least 16 bytes, or null for unsigned snapshots.", nameof(options));
             if (Options.MaxMemoryBytes < 0)
                 throw new ArgumentOutOfRangeException(nameof(options), "MaxMemoryBytes cannot be negative; use 0 for no limit.");
             CSharpPython.Builtins.Install(Builtins, Modules);
@@ -83,9 +87,11 @@ namespace CSharpPython
             return type;
         }
 
-        /// <summary>Compiles source text. Throws <see cref="PySyntaxError"/> with the line and column of a mistake.</summary>
+        /// <summary>Compiles source text. Throws <see cref="PySyntaxError"/> with the line and column of a mistake, or for text longer than <see cref="VmOptions.MaxSourceLength"/>.</summary>
         public Script Compile(string source, string sourceName = "<script>")
         {
+            if (source != null && Options.MaxSourceLength > 0 && source.Length > Options.MaxSourceLength)
+                throw new PySyntaxError("the script is too long (" + source.Length + " characters; the limit is " + Options.MaxSourceLength + ")", 1, 1);
             var module = Parser.ParseModule(source);
             return new Script(Compiler.Compile(module, sourceName));
         }

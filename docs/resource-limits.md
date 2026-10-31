@@ -9,6 +9,7 @@ How a host keeps a player's script from using too much time or memory. Written f
 | Size of one integer | `MaxIntBits` | 16,384 | any |
 | Call depth | `MaxCallDepth` | 200 | any |
 | Items in one string, list, tuple, dict, set or deque | `MaxSequenceLength` | 100,000 | 1 to 4,194,304 |
+| Characters of source `Compile` accepts | `MaxSourceLength` | 1,000,000 | 0 for no limit, or any size |
 | Memory one task can reach (an estimate) | `MaxMemoryBytes` | 64 MB | 0 for no limit, or any size |
 
 ## Native work costs steps
@@ -50,3 +51,11 @@ A dict or set whose keys all share one hash degrades to a list: every insert wal
 ## Exception chains
 
 An exception raised inside an `except` block remembers the one being handled (`__context__`), and each exception keeps the call stack it was raised from. A script that keeps raising inside handlers could therefore keep every exception it had ever raised. The `__context__` chain is cut after 64 links, which is far more than any real script builds. The traceback of each exception (16 bytes a frame in the estimate) counts towards `MaxMemoryBytes`, so a script that keeps exceptions alive some other way, for example through `__cause__` or a list, is stopped by the memory limit.
+
+## Size of the source
+
+Compiling takes memory in proportion to the text: a 50 MB string literal took over 600 MB and a three million item list literal 1.4 GB, and none of the limits above applies until the script runs. `MaxSourceLength` is the most characters `PyVm.Compile` (and `Start(string)`) accepts. Longer text throws a `PySyntaxError` ("the script is too long") before anything is parsed, so a host that already shows compile errors to a player shows this one too. The default is one million characters, far more than a game script needs; 0 turns the limit off and any positive size may be set. A negative value throws `ArgumentOutOfRangeException` from the `PyVm` constructor.
+
+## Saved snapshots
+
+A snapshot is untrusted input unless the host protects it. `SnapshotKey` signs snapshots so an edited save is refused; see [snapshots](snapshots.md).
