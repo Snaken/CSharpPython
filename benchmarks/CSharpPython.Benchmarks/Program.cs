@@ -21,6 +21,7 @@ namespace CSharpPython.Benchmarks
                 string source = File.ReadAllText(file);
                 var vm = new PyVm();
                 vm.Options.StepsPerSlice = 100000;
+                vm.Options.MaxSequenceLength = 1000000; // strings.py joins a 340,000-character string, above the default of 100,000
 
                 // Warm up for a second first, so the JIT has promoted the interpreter loop to fully optimised code, as it
                 // would be in a game that runs scripts for a while. Then keep the best of several runs.

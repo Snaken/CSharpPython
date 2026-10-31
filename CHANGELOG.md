@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The benchmarks raise `MaxSequenceLength` to one million, because `strings.py` joins a 340,000-character string and the default of 100,000 now stops it. The table in `docs/performance.md` is measured again: every script runs 1.4 to 2.8 times slower than CPython.
 - **Security: strings are hashed by the library, with the process seed.** The string hash relied on `string.GetHashCode()`, which is randomized on .NET Core but not on every runtime (Unity's Mono and IL2CPP may use a fixed one), so a script could find colliding strings offline and make dict and set inserts quadratic. `hash("a")` now differs from run to run on every runtime.
 - Fixed `math.isqrt` of an integer over about 1000 digits, which ended the script with a `HostError` (an `OverflowException` from a floating-point estimate).
 - The registry of exception types is capped at 4,096 names, so crafted snapshots cannot grow it without limit; `docs/host-api.md` has a new Threads section.
