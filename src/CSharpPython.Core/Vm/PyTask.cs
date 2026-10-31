@@ -208,6 +208,26 @@ namespace CSharpPython
         /// </summary>
         public TaskState Run()
         {
+            // Nothing a script does may reach the host as an exception: the work outside the interpreter loop (starting an
+            // event handler, measuring memory) is covered here, and the loop itself fails the task in Execute.
+            try
+            {
+                return RunSlice();
+            }
+            catch (OutOfMemoryException e)
+            {
+                Fail(new PyRuntimeError("MemoryLimitExceeded", "the script ran out of memory and was stopped", _script.Name, Array.Empty<TraceFrame>(), e));
+                return _state;
+            }
+            catch (Exception e)
+            {
+                Fail(new PyRuntimeError("HostError", "an internal error stopped the script (" + e.GetType().Name + ")", _script.Name, Array.Empty<TraceFrame>(), e));
+                return _state;
+            }
+        }
+
+        private TaskState RunSlice()
+        {
             if (_state == TaskState.Error) return _state;
 
             bool waiting = _state == TaskState.Waiting;
@@ -335,7 +355,15 @@ namespace CSharpPython
                         "the script ran more than " + Vm.Options.MaxSteps + " steps and was stopped", _script.Name, CurrentTrace()));
                     return TaskState.Error;
                 }
-                catch (Exception e) when (!(e is OutOfMemoryException))
+                catch (OutOfMemoryException e)
+                {
+                    // The memory estimate missed something and the runtime ran out. The host keeps running: the task ends
+                    // and its state is dropped so the memory can be reclaimed.
+                    Fail(new PyRuntimeError("MemoryLimitExceeded", "the script ran out of memory and was stopped", _script.Name, CurrentTrace(), e));
+                    Array.Clear(_stack, 0, _stack.Length);
+                    return TaskState.Error;
+                }
+                catch (Exception e)
                 {
                     // A bug in a host function. Stop the script rather than the whole game. The text of a .NET exception
                     // can say more than a player should see, so the error names only its type; the host has the

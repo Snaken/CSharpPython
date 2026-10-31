@@ -155,7 +155,7 @@ namespace CSharpPython
             {
                 throw;
             }
-            catch (Exception e) when (!(e is OutOfMemoryException))
+            catch (Exception e)
             {
                 throw new SnapshotException("the snapshot is damaged", e);
             }
