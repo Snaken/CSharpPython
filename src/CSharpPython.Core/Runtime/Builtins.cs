@@ -98,10 +98,10 @@ namespace CSharpPython
             yield return F("max", 1, -1, (c, a) => MinMax(c, a, true), true);
             yield return F("sum", 1, 2, Sum);
             yield return F("round", 1, 2, Round);
-            yield return F("sorted", 1, 1, Sorted, true);
+            yield return F("sorted", 1, 1, Work.Metered(Sorted, sorting: true), true);
             yield return F("list", 0, 1, (c, a) => Value.FromList(new PyList(a.Length == 0 ? new List<Value>() : Ops.ToList(a[0]))));
-            yield return F("tuple", 0, 1, (c, a) => Value.FromTuple(new PyTuple(a.Length == 0 ? new Value[0] : Ops.ToList(a[0]).ToArray())));
-            yield return F("set", 0, 1, (c, a) => a.Length == 0 ? Value.FromSet(new PySet()) : Value.FromSet(Methods.ToSet(a[0]).Copy()));
+            yield return F("tuple", 0, 1, Work.Metered((c, a) => Value.FromTuple(new PyTuple(a.Length == 0 ? new Value[0] : Ops.ToList(a[0]).ToArray()))));
+            yield return F("set", 0, 1, Work.Metered((c, a) => a.Length == 0 ? Value.FromSet(new PySet()) : Value.FromSet(Methods.ToSet(a[0]).Copy())));
             yield return F("staticmethod", 1, 1, (c, a) =>
             {
                 if (!PyTypes.IsCallable(a[0])) throw new PyError("TypeError", "staticmethod() argument must be callable");
@@ -120,16 +120,16 @@ namespace CSharpPython
                 return Value.FromDescriptor(new PyDescriptor(DescriptorKind.Property, default,
                     a.Length > 0 ? a[0] : default, a.Length > 1 ? a[1] : default, a.Length > 2 ? a[2] : default));
             });
-            yield return F("frozenset", 0, 1, (c, a) =>
+            yield return F("frozenset", 0, 1, Work.Metered((c, a) =>
             {
                 var set = a.Length == 0 ? new PySet() : Methods.ToSet(a[0]).Copy();
                 set.Frozen = true;
                 return Value.FromSet(set);
-            });
+            }));
             yield return F("slice", 1, 3, (c, a) => a.Length == 1
                 ? Ops.MakeSlice(Value.None, a[0], Value.None)
                 : Ops.MakeSlice(a[0], a[1], a.Length > 2 ? a[2] : Value.None));
-            yield return F("dict", 0, 1, MakeDict, true);
+            yield return F("dict", 0, 1, Work.Metered(MakeDict), true);
             yield return F("enumerate", 1, 2, Enumerate, true);
             yield return F("zip", 0, -1, (c, a) =>
             {
@@ -156,7 +156,7 @@ namespace CSharpPython
             yield return F("dir", 1, 1, (c, a) => Dir(a[0]));
             yield return F("vars", 1, 1, (c, a) => Vars(a[0]));
             yield return F("ascii", 1, 1, (c, a) => Value.FromString(Ascii(Ops.Repr(a[0]))));
-            yield return F("reversed", 1, 1, Reversed);
+            yield return F("reversed", 1, 1, Work.Metered(Reversed));
             yield return F("any", 1, 1, (c, a) => Value.FromBool(AnyAll(c, a[0], true)));
             yield return F("all", 1, 1, (c, a) => Value.FromBool(!AnyAll(c, a[0], false)));
             yield return F("chr", 1, 1, (c, a) =>

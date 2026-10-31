@@ -140,6 +140,7 @@ namespace CSharpPython
 
         private static bool SequenceEqual(IReadOnlyList<Value> x, IReadOnlyList<Value> y, int depth)
         {
+            Work.Items(x.Count);
             if (ReferenceEquals(x, y)) return true;
             if (x.Count != y.Count) return false;
             if (depth > MaxCompareDepth) throw new PyError("RecursionError", "maximum recursion depth exceeded in comparison");
@@ -150,6 +151,7 @@ namespace CSharpPython
 
         private static bool DictEqual(PyDict x, PyDict y, int depth)
         {
+            Work.Items(x.Count);
             if (ReferenceEquals(x, y)) return true;
             if (x.Count != y.Count) return false;
             if (depth > MaxCompareDepth) throw new PyError("RecursionError", "maximum recursion depth exceeded in comparison");
@@ -255,6 +257,7 @@ namespace CSharpPython
                     {
                         string x = (string)a.RawObject, y = (string)b.RawObject;
                         if ((long)x.Length + y.Length > MaxSequenceLength) throw new PyError("MemoryError", "string too long");
+                        Work.Items((long)x.Length + y.Length);
                         return Value.FromString(string.Concat(x, y));
                     }
                     case ValueKind.List:
@@ -262,6 +265,7 @@ namespace CSharpPython
                         var x = ((PyList)a.RawObject).Items;
                         var y = ((PyList)b.RawObject).Items;
                         if ((long)x.Count + y.Count > MaxSequenceLength) throw new PyError("MemoryError", "list too long");
+                        Work.Items((long)x.Count + y.Count);
                         var result = new List<Value>(x.Count + y.Count);
                         result.AddRange(x);
                         result.AddRange(y);
@@ -283,6 +287,7 @@ namespace CSharpPython
                         var x = ((PyTuple)a.RawObject).Items;
                         var y = ((PyTuple)b.RawObject).Items;
                         if ((long)x.Length + y.Length > MaxSequenceLength) throw new PyError("MemoryError", "tuple too long");
+                        Work.Items((long)x.Length + y.Length);
                         var result = new Value[x.Length + y.Length];
                         x.CopyTo(result, 0);
                         y.CopyTo(result, x.Length);
@@ -339,6 +344,7 @@ namespace CSharpPython
         private static Value Repeat(Value seq, long times)
         {
             if (times < 0) times = 0;
+            Work.Items(Math.Min(Work.SizeOf(seq) * times, MaxSequenceLength));
             switch (seq.Kind)
             {
                 case ValueKind.Str:
@@ -563,6 +569,7 @@ namespace CSharpPython
 
         private static bool CompareSequences(IReadOnlyList<Value> x, IReadOnlyList<Value> y, Order o, int depth)
         {
+            Work.Items(x.Count);
             if (depth > MaxCompareDepth) throw new PyError("RecursionError", "maximum recursion depth exceeded in comparison");
             int n = Math.Min(x.Count, y.Count);
             for (int i = 0; i < n; i++)
@@ -642,6 +649,7 @@ namespace CSharpPython
 
         public static bool Contains(Value container, Value item)
         {
+            if (container.Kind != ValueKind.Dict && container.Kind != ValueKind.Set) Work.Items(Work.SizeOf(container));
             switch (container.Kind)
             {
                 case ValueKind.Str:
@@ -928,6 +936,7 @@ namespace CSharpPython
 
         private static Value GetSlice(Value target, PySlice slice)
         {
+            Work.Items(Work.SizeOf(target));
             switch (target.Kind)
             {
                 case ValueKind.List:

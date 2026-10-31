@@ -91,8 +91,23 @@ namespace CSharpPython
             }
         }
 
+        // The methods that take time in proportion to the size of a value; every str method does. The others (append, pop, get, add ...) do not.
+        private static readonly HashSet<string> Linear = new HashSet<string>
+        {
+            "list.extend", "list.insert", "list.remove", "list.index", "list.count", "list.copy", "list.reverse",
+            "tuple.index", "tuple.count",
+            "dict.update", "dict.copy", "dict.fromkeys",
+            "set.union", "set.intersection", "set.difference", "set.symmetric_difference", "set.issubset", "set.issuperset",
+            "set.isdisjoint", "set.update", "set.intersection_update", "set.difference_update", "set.symmetric_difference_update", "set.copy",
+            "deque.extend", "deque.extendleft", "deque.index", "deque.count", "deque.remove", "deque.insert", "deque.reverse",
+            "deque.rotate", "deque.copy",
+        };
+
         private static void Add(Dictionary<string, NativeFunction> table, string typeName, string name, int min, int max, NativeFn fn, bool keywords = false)
         {
+            // A method that walks or copies its receiver or an argument is charged for the length (see Work).
+            if (typeName == "str" || Linear.Contains(typeName + "." + name)) fn = Work.Metered(fn);
+            else if (typeName + "." + name == "list.sort") fn = Work.Metered(fn, sorting: true);
             // 'min' and 'max' count arguments after self; the stored function counts self too.
             table[name] = new NativeFunction(typeName + "." + name, fn, min + 1, max < 0 ? -1 : max + 1, keywords);
         }
