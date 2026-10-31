@@ -24,6 +24,20 @@ namespace CSharpPython
         /// </summary>
         public int MaxIntBits = 16384;
 
+        /// <summary>The default of <see cref="MaxSequenceLength"/>.</summary>
+        public const int DefaultMaxSequenceLength = 100000;
+
+        /// <summary>The most <see cref="MaxSequenceLength"/> may be set to: the size the VM was built and tested for.</summary>
+        public const int SequenceLengthCeiling = 1 << 22;
+
+        /// <summary>
+        /// The most items one string, list, tuple, dict, set or deque may hold, and the widest a format field may be.
+        /// Building something bigger raises a catchable <c>MemoryError</c>. The default, 100,000, suits a game; a host that
+        /// needs more can raise it up to <see cref="SequenceLengthCeiling"/> (4,194,304). Any other value is refused
+        /// when the <see cref="PyVm"/> is made. See docs/resource-limits.md.
+        /// </summary>
+        public int MaxSequenceLength = DefaultMaxSequenceLength;
+
         /// <summary>
         /// Turns on <see cref="PyTask.Save"/> and <see cref="PyVm.Restore"/>. It is off by default so that a game
         /// that never saves script state does not depend on it; calling them while it is off throws.

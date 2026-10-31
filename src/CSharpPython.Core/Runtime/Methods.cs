@@ -103,10 +103,19 @@ namespace CSharpPython
             "deque.rotate", "deque.copy",
         };
 
+        // The methods that add items to their receiver or build a container, which must stay within MaxSequenceLength.
+        private static readonly HashSet<string> Grows = new HashSet<string>
+        {
+            "list.extend", "list.insert", "list.copy", "dict.update", "dict.setdefault", "dict.copy", "dict.fromkeys",
+            "set.add", "set.update", "set.union", "set.copy", "set.symmetric_difference",
+            "deque.append", "deque.appendleft", "deque.extend", "deque.extendleft", "deque.insert", "deque.copy",
+        };
+
         private static void Add(Dictionary<string, NativeFunction> table, string typeName, string name, int min, int max, NativeFn fn, bool keywords = false)
         {
             // A method that walks or copies its receiver or an argument is charged for the length (see Work).
             if (typeName == "str" || Linear.Contains(typeName + "." + name)) fn = Work.Metered(fn);
+            if (typeName != "str" && Grows.Contains(typeName + "." + name)) fn = Work.Bounded(fn);
             else if (typeName + "." + name == "list.sort") fn = Work.Metered(fn, sorting: true);
             // 'min' and 'max' count arguments after self; the stored function counts self too.
             table[name] = new NativeFunction(typeName + "." + name, fn, min + 1, max < 0 ? -1 : max + 1, keywords);

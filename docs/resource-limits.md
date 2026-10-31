@@ -8,7 +8,7 @@ How a host keeps a player's script from using too much time or memory. Written f
 | Steps in one `Update()` | `StepsPerSlice` | 10,000 | any |
 | Size of one integer | `MaxIntBits` | 16,384 | any |
 | Call depth | `MaxCallDepth` | 200 | any |
-| Items in one string, list, tuple, dict, set or deque | `MaxSequenceLength` | 100,000 | 1 to 4,194,304 (planned) |
+| Items in one string, list, tuple, dict, set or deque | `MaxSequenceLength` | 100,000 | 1 to 4,194,304 |
 | Memory one task can reach | `MaxMemoryBytes` | 64 MB (planned) | 0 for no limit, or any size (planned) |
 
 ## Native work costs steps
@@ -23,7 +23,14 @@ A native operation on a large value used to be one step however long the value w
 
 The cost is a measured estimate, not an exact time: it keeps `MaxSteps` a meaningful bound on running time, within a factor of a few.
 
-## Planned: collection and memory limits
+## Items in one collection
 
-- `MaxSequenceLength` becomes a per-VM option (it is a fixed 4,194,304 now), read from the running task the way `MaxIntBits` is. The default drops to 100,000, which suits a game; a host can raise it, up to the ceiling of 4,194,304 that the VM was tested at. A value outside 1 to the ceiling is refused when the VM is made.
+`MaxSequenceLength` is the most items one string, list, tuple, dict, set or deque may hold, and the widest a format field may be. It is read from the running task's VM, the way `MaxIntBits` is, so two VMs can have different limits. The default, 100,000, suits a game. A host can raise it up to 4,194,304, the size the VM was built and tested for; any value outside 1 to 4,194,304 throws `ArgumentOutOfRangeException` when the `PyVm` is made.
+
+Every way a container grows is checked: `append`, `extend`, `insert`, slice assignment, `+`, `*`, `join`, comprehensions, dict and set stores, `update`, `setdefault`, `add`, `union` and the deque methods. Going over raises a catchable `MemoryError` (a format width past the limit raises `ValueError`, as before). A container cannot be more than one operation over the limit, and a string or list built by copying costs steps as well (see above), so a loop that doubles a string stops at `MaxSteps` before it gets far.
+
+The limit is per object, so many objects at the limit still add up (100 lists of 100,000 items is 10 million items). That is what `MaxMemoryBytes` is for.
+
+## Planned: memory limit
+
 - `MaxMemoryBytes` limits what one task can reach. It is an estimate of live size (it adds up approximate sizes of the globals, stack and frames of the task and everything they hold), not an allocation counter, so a script that runs for hours and builds a new string every frame is fine. The estimate is refreshed on a schedule that grows with the size of the heap, and straight after a single large allocation. Going over raises an uncatchable `MemoryError`, as `MaxSteps` raises `StepLimitExceeded`. The default is 64 MB; 0 turns the limit off; a host may set any size.

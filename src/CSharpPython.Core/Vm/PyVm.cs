@@ -22,6 +22,8 @@ namespace CSharpPython
         public PyVm(VmOptions options = null)
         {
             Options = options ?? new VmOptions();
+            if (Options.MaxSequenceLength < 1 || Options.MaxSequenceLength > VmOptions.SequenceLengthCeiling)
+                throw new ArgumentOutOfRangeException(nameof(options), "MaxSequenceLength must be between 1 and " + VmOptions.SequenceLengthCeiling + ".");
             CSharpPython.Builtins.Install(Builtins, Modules);
         }
 

@@ -43,6 +43,18 @@ namespace CSharpPython
         }
 
         /// <summary>
+        /// Wraps a native method that grows its receiver or builds a new container so that the receiver and the result
+        /// stay within <see cref="VmOptions.MaxSequenceLength"/> (a catchable <c>MemoryError</c> otherwise).
+        /// </summary>
+        public static NativeFn Bounded(NativeFn fn) => (ctx, args) =>
+        {
+            var result = fn(ctx, args);
+            if (args.Length > 0) Ops.CheckRoom(SizeOf(args[0]), "sequence");
+            Ops.CheckRoom(SizeOf(result), "sequence");
+            return result;
+        };
+
+        /// <summary>
         /// Wraps a native method or function so that each call is charged for the size of its receiver and of its
         /// arguments (a list to extend by, an iterable to join) before the work is done.
         /// </summary>

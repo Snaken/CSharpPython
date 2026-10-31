@@ -576,7 +576,9 @@ namespace CSharpPython
                     case Op.SetAdd:
                     {
                         Value item = _stack[--_sp];
-                        ((PySet)_stack[_sp - 1].RawObject).Add(item);
+                        var added = (PySet)_stack[_sp - 1].RawObject;
+                        added.Add(item);
+                        Ops.CheckRoom(added.Count, "set");
                         break;
                     }
                     case Op.SetUpdate:
@@ -1250,13 +1252,16 @@ namespace CSharpPython
             Value source = _stack[--_sp];
             var set = (PySet)_stack[_sp - 1].RawObject;
             foreach (var item in SpreadItems(source, true)) set.Add(item);
+            Ops.CheckRoom(set.Count, "set");
         }
 
         private void ColdDictSet()
         {
             Value val = _stack[--_sp];
             Value key = _stack[--_sp];
-            ((PyDict)_stack[_sp - 1].RawObject).Set(key, val);
+            var dict = (PyDict)_stack[_sp - 1].RawObject;
+            dict.Set(key, val);
+            Ops.CheckRoom(dict.Count, "dict");
         }
 
         private void ColdDictUpdate()
@@ -1266,6 +1271,7 @@ namespace CSharpPython
                 throw new PyError("TypeError", "'" + source.TypeName + "' object is not a mapping");
             var dict = (PyDict)_stack[_sp - 1].RawObject;
             foreach (var pair in new List<KeyValuePair<Value, Value>>(((PyDict)source.RawObject).Pairs())) dict.Set(pair.Key, pair.Value);
+            Ops.CheckRoom(dict.Count, "dict");
         }
 
         private void ColdDictSetUnique()
@@ -1276,6 +1282,7 @@ namespace CSharpPython
             if (dict.ContainsKey(key))
                 throw new PyError("TypeError", "got multiple values for keyword argument '" + (string)key.RawObject + "'");
             dict.Set(key, val);
+            Ops.CheckRoom(dict.Count, "dict");
         }
 
         private void ColdDictMerge()

@@ -76,8 +76,8 @@ namespace CSharpPython.Tests.Vm
         [Test]
         public void ResultsAreUnchanged()
         {
-            Assert.That(Vm.Py.Out("l = list(range(100000))\nprint(-1 in l, 99999 in l, l.count(5), l.index(777), len(l + l), len(sorted(l, reverse=True)), l[-1])"),
-                Is.EqualTo("False True 1 777 200000 100000 99999"));
+            Assert.That(Vm.Py.Out("l = list(range(50000))\nprint(-1 in l, 49999 in l, l.count(5), l.index(777), len(l + l), len(sorted(l, reverse=True)), l[-1])"),
+                Is.EqualTo("False True 1 777 100000 50000 49999"));
         }
     }
 }

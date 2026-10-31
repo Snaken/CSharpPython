@@ -7,8 +7,25 @@ namespace CSharpPython
     /// <summary>The Python semantics of operators on <see cref="Value"/>s. Errors are raised as <see cref="PyError"/>.</summary>
     internal static partial class Ops
     {
-        /// <summary>Upper bound for strings and sequences created by repetition or concatenation.</summary>
-        public const int MaxSequenceLength = 1 << 22;
+        /// <summary>
+        /// Upper bound for strings and sequences: the <see cref="VmOptions.MaxSequenceLength"/> of the running task's VM
+        /// (the default outside a task), kept within 1 and <see cref="VmOptions.SequenceLengthCeiling"/>.
+        /// </summary>
+        public static int MaxSequenceLength
+        {
+            get
+            {
+                var task = PyTask.Current;
+                int n = task != null ? task.Vm.Options.MaxSequenceLength : VmOptions.DefaultMaxSequenceLength;
+                return Math.Max(1, Math.Min(n, VmOptions.SequenceLengthCeiling));
+            }
+        }
+
+        /// <summary>Raises a catchable <c>MemoryError</c> when a container now holds more than <see cref="MaxSequenceLength"/> items.</summary>
+        internal static void CheckRoom(long count, string what)
+        {
+            if (count > MaxSequenceLength) throw new PyError("MemoryError", what + " too long");
+        }
 
         private const int MaxCompareDepth = 100;
 
@@ -822,8 +839,12 @@ namespace CSharpPython
                     return;
                 }
                 case ValueKind.Dict:
-                    ((PyDict)target.RawObject).Set(index, value);
+                {
+                    var dict = (PyDict)target.RawObject;
+                    dict.Set(index, value);
+                    CheckRoom(dict.Count, "dict");
                     return;
+                }
                 default:
                     throw TypeError("'" + TypeName(target) + "' object does not support item assignment");
             }
@@ -839,11 +860,13 @@ namespace CSharpPython
             {
                 items.RemoveRange((int)start, (int)count);
                 items.InsertRange((int)start, source);
+                CheckRoom(items.Count, "list");
                 return;
             }
             if (source.Count != count)
                 throw ValueError("attempt to assign sequence of size " + source.Count + " to extended slice of size " + count);
             for (long i = 0, k = start; i < count; i++, k += step) items[(int)k] = source[(int)i];
+            CheckRoom(items.Count, "list");
         }
 
         public static void DelItem(Value target, Value index)
