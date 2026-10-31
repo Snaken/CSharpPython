@@ -7,7 +7,7 @@ namespace CSharpPython.Blocks
     /// names. <c>$T</c> is a wildcard: every pin that mentions it takes its type from the wires of the node
     /// (<see cref="BlockTypeChecker"/>). <c>*item</c> stands for the numbered pins <c>item0</c>, <c>item1</c>, ...
     /// A block not listed has <c>any</c> inputs and an <c>any</c> output. The operators (<c>add</c>, <c>sub</c>, ...,
-    /// <c>neg</c>) and the <c>list</c> block take <c>any</c> and the checker works out their result from the wires.
+    /// <c>neg</c>) and the <c>list</c> block take <c>any</c> and the checker works out their result, and refuses impossible pairs, from the wires.
     /// </summary>
     internal static class BlockTypes
     {

@@ -17,8 +17,9 @@ namespace CSharpPython.Blocks
     /// widest of the types wired to those pins (an <c>int</c> and a <c>float</c> make <c>float</c>), and the block's
     /// value is typed from it. A <c>list</c> block is the exception: its items need not match. Wires are read in pin order, so the answer does not depend on the order they were
     /// drawn in. A typed-in literal has the type of the literal; <c>None</c> and variables are <c>any</c>.
-    /// The operators (<c>add</c>, <c>mul</c>, ...) take anything and give <c>int</c> or <c>float</c> for numbers,
-    /// <c>str</c> or a list when both sides are, and <c>any</c> otherwise. Problems that are not about types
+    /// The operators (<c>add</c>, <c>mul</c>, ...) give <c>int</c> or <c>float</c> for numbers,
+    /// <c>str</c> or a list when both sides are, and <c>any</c> otherwise; two typed inputs Python cannot combine
+    /// (text minus a number) are refused, while a pin of unknown type is not. Problems that are not about types
     /// (an unknown block, a missing input) are left to the compiler.
     /// </remarks>
     public static class BlockTypeChecker
@@ -196,6 +197,7 @@ namespace CSharpPython.Blocks
                 solution.Output = Refine(node, Substitute(outputPattern, bindings));
                 solution.Named = NamedOutputs(node);
                 CheckLoopTarget(node, solution);
+                CheckOperator(node, solution);
                 _solved[node.Id] = solution;
                 return solution;
             }
@@ -204,6 +206,60 @@ namespace CSharpPython.Blocks
                 _busy.Remove(node.Id);
             }
         }
+
+        // ---- Operators ----
+
+        private enum Kind { Unknown, Number, Text, List, Other }
+
+        private static Kind KindOf(PinType t)
+        {
+            if (t.Equals(PinType.Any) || t.IsVariable) return Kind.Unknown;
+            if (IsNumber(t) || t.Equals(PinType.Bool)) return Kind.Number;
+            if (t.Equals(PinType.Str)) return Kind.Text;
+            return t.IsList ? Kind.List : Kind.Other;
+        }
+
+        // An operator refuses a pair of known types Python cannot combine (text minus a number). A pin of unknown
+        // type (any, an unwired pin, a variable) is never refused: it is checked when it is known.
+        private void CheckOperator(BlockNode node, Solution solution)
+        {
+            string op = node.Block;
+            bool unary = op == "neg";
+            bool arithmetic = op == "add" || op == "sub" || op == "mul" || op == "div" || op == "floordiv" || op == "mod" || op == "pow";
+            bool order = op == "lt" || op == "le" || op == "gt" || op == "ge";
+            if (!unary && !arithmetic && !order && op != "contains") return;
+
+            var a = InputType(node, "a");
+            var b = unary ? PinType.Any : InputType(node, "b");
+            if (Allows(op, a, b)) return;
+            string title = _lib.FindBlock(op)?.Title ?? op;
+            string pin = unary || KindOf(b) == Kind.Unknown ? "a" : "b";
+            solution.Errors.Add(Error(node, pin, unary
+                ? "'" + title + "' needs a number, not " + a
+                : "'" + title + "' cannot take " + a + " and " + b + "."));
+        }
+
+        private static bool Allows(string op, PinType a, PinType b)
+        {
+            var ka = KindOf(a);
+            var kb = KindOf(b);
+            if (op == "neg") return ka == Kind.Unknown || ka == Kind.Number;
+            if (op == "contains") return kb == Kind.Unknown || kb == Kind.List || (kb == Kind.Text && (ka == Kind.Unknown || ka == Kind.Text));
+            if (ka == Kind.Unknown || kb == Kind.Unknown) return true;
+            switch (op)
+            {
+                case "add": return ka == kb && ka != Kind.Other;
+                case "mul":
+                    return (ka == Kind.Number && kb == Kind.Number)
+                        || (ka == Kind.Number && kb != Kind.Other && IsWhole(a)) || (kb == Kind.Number && ka != Kind.Other && IsWhole(b));
+                case "mod": return ka == Kind.Text || (ka == Kind.Number && kb == Kind.Number);
+                case "lt": case "le": case "gt": case "ge": return ka == kb && ka != Kind.Other;
+                default: return ka == Kind.Number && kb == Kind.Number;
+            }
+        }
+
+        // int or bool: what text or a list can be repeated by.
+        private static bool IsWhole(PinType t) => t.Equals(PinType.Int) || t.Equals(PinType.Bool);
 
         // A loop that stores its item or count in a typed global has to give that type.
         private void CheckLoopTarget(BlockNode node, Solution solution)
