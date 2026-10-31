@@ -9,7 +9,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
 
-    <Version>0.2.2</Version>
+    <Version>0.2.3</Version>
     <Authors>Rachael Hough</Authors>
     <Description>A Python-style language parser, compiler and bytecode VM written in plain C# for embedding in Unity games and other .NET hosts.</Description>
     <PackageId>CSharpPython</PackageId>

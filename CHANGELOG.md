@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.2.3
+
+The node view groundwork: typed pins, a type-checked and more capable Blocks compiler, the editing rules an editor needs (`BlockEditor`), and the current line of a running task. The language and the VM are unchanged, and the snapshot format is still version 16. **A saved task of a block script in which one value block feeds several inputs cannot be restored**, because the generated script is different (see the shared value entry), and **block graphs that wire a value of the wrong type no longer compile**.
 
 - Host functions can declare types: `Describe("spawn", "kind: str, count: int = 1 -> Entity")`, with several named results as `-> (hit: bool, point: Vec)`, and `latent: true` for a function that can pause the script. Types are `any`, `int`, `float`, `bool`, `str`, `none`, `list[T]` and host handle names. Untyped descriptions work as before and signature help still shows the plain parameter list. This is the first step of the [node view](docs/node-view-design.md).
 - The built-in functions and the `math` and `random` modules have types (`HostSignature` on `NativeFunction.Typed` for host functions; the built-ins are described by an internal table).
@@ -20,7 +22,7 @@
 - `PyTask.CurrentLine` and `PyTask.GetCallStack()` say where a task is, for an editor to highlight the running line (a waiting task is on the line of the call that waits; 0 once it has finished or failed). Reading them costs nothing while the task runs, and a restored task reports the same lines.
 - `SourceMap.Running(task)` and `SourceMap.ActiveNodes(task)` map a running task to the block it is at and the blocks that called into it.
 - `BlockCompileResult.DiagnosticsOf(nodeId)` gives the diagnostics for one block, errors first.
-- `BlockEditor` holds the host-independent editing rules for a block graph: `AddNode`, `RemoveNode`, `SetName`, `MoveNode`, `Connect`, `SetLiteral`, `Disconnect`, `Link`, `Unlink` and `SetStart`, `Search` by text and `SuggestForOutput`/`SuggestForInput` by pin type (returning `BlockChoice`), `AddFunction`, `RenameFunction`, `RemoveFunction`, `AddParameter`, `RemoveParameter`, `RenameParameter`, `AddVariable`, `RemoveVariable`, `RenameVariable`, `SetVariableType` and `SetVariableInitial` (renames update the blocks that use the name), and `Undo`/`Redo` with `BeginGroup`/`EndGroup` to make a drag or compound action one step, `Compile()` and `Placeholders()`, and the layout edits (`SetCollapsed`, comment boxes, reroute points and groups, all undoable), each returning an `EditResult` with the reason when refused, a `Changed` event after each edit, and `Limits` that stop the graph growing past them. More editing methods follow.
+- `BlockEditor` holds the host-independent editing rules for a block graph: `AddNode`, `RemoveNode`, `SetName`, `MoveNode`, `Connect`, `SetLiteral`, `Disconnect`, `Link`, `Unlink` and `SetStart`, `Search` by text and `SuggestForOutput`/`SuggestForInput` by pin type (returning `BlockChoice`), `AddFunction`, `RenameFunction`, `RemoveFunction`, `AddParameter`, `RemoveParameter`, `RenameParameter`, `AddVariable`, `RemoveVariable`, `RenameVariable`, `SetVariableType` and `SetVariableInitial` (renames update the blocks that use the name), and `Undo`/`Redo` with `BeginGroup`/`EndGroup` to make a drag or compound action one step, `Compile()` and `Placeholders()`, and the layout edits (`SetCollapsed`, comment boxes, reroute points and groups, all undoable), each returning an `EditResult` with the reason when refused, a `Changed` event after each edit, and `Limits` that stop the graph growing past them.
 
 ## 0.2.2
 
