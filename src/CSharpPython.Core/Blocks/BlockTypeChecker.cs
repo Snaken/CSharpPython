@@ -29,9 +29,10 @@ namespace CSharpPython.Blocks
             if (graph == null) throw new ArgumentNullException(nameof(graph));
             var lib = library ?? new BlockLibrary();
             var userFunctions = UserFunctions(graph);
+            var variables = BlockVariableTypes.Table(graph);
             var diagnostics = new List<BlockDiagnostic>();
             foreach (var fn in graph.Functions)
-                if (fn != null) diagnostics.AddRange(new FunctionTypes(fn, lib, userFunctions).Diagnostics());
+                if (fn != null) diagnostics.AddRange(new FunctionTypes(fn, lib, userFunctions, variables).Diagnostics());
             return diagnostics;
         }
 
@@ -48,7 +49,7 @@ namespace CSharpPython.Blocks
             if (node == null) return null;
             var lib = library ?? new BlockLibrary();
             if (node.Block != "call" && lib.FindBlock(node.Block) is BlockSpec spec && spec.Kind == BlockKind.Flow && !spec.LoopVariable) return null;
-            return new FunctionTypes(fn, lib, UserFunctions(graph)).OutputOf(node, outputPin);
+            return new FunctionTypes(fn, lib, UserFunctions(graph), BlockVariableTypes.Table(graph)).OutputOf(node, outputPin);
         }
 
         /// <summary>
@@ -70,13 +71,14 @@ namespace CSharpPython.Blocks
 
             var lib = library ?? new BlockLibrary();
             var userFunctions = UserFunctions(graph);
+            var variables = BlockVariableTypes.Table(graph);
             if (source.Block != "call" && lib.FindBlock(source.Block) is BlockSpec sourceSpec && sourceSpec.Kind == BlockKind.Flow && !sourceSpec.LoopVariable)
                 return PinCheck.No("'" + source.Block + "' is a step in the flow and has no value to wire.");
             var scope = new LoopScopes(fn, lib, userFunctions).Problem(source, target);
             if (scope != null) return PinCheck.No(scope);
 
-            var before = new HashSet<string>(new FunctionTypes(fn, lib, userFunctions).Diagnostics().Select(Key));
-            var after = new FunctionTypes(WithWire(fn, target, pin, fromNode, fromPin), lib, userFunctions).Diagnostics();
+            var before = new HashSet<string>(new FunctionTypes(fn, lib, userFunctions, variables).Diagnostics().Select(Key));
+            var after = new FunctionTypes(WithWire(fn, target, pin, fromNode, fromPin), lib, userFunctions, variables).Diagnostics();
             var added = after.FirstOrDefault(d => !before.Contains(Key(d)));
             return added == null ? PinCheck.Yes : PinCheck.No(added.Message);
         }
@@ -123,15 +125,17 @@ namespace CSharpPython.Blocks
         private readonly BlockFunction _fn;
         private readonly BlockLibrary _lib;
         private readonly HashSet<string> _userFunctions;
+        private readonly Dictionary<string, PinType> _variables;
         private readonly Dictionary<string, BlockNode> _nodes = new Dictionary<string, BlockNode>();
         private readonly Dictionary<string, Solution> _solved = new Dictionary<string, Solution>();
         private readonly HashSet<string> _busy = new HashSet<string>();
 
-        public FunctionTypes(BlockFunction fn, BlockLibrary lib, HashSet<string> userFunctions)
+        public FunctionTypes(BlockFunction fn, BlockLibrary lib, HashSet<string> userFunctions, Dictionary<string, PinType> variables = null)
         {
             _fn = fn;
             _lib = lib;
             _userFunctions = userFunctions;
+            _variables = variables ?? new Dictionary<string, PinType>();
             foreach (var n in fn.Nodes)
                 if (n != null && !string.IsNullOrEmpty(n.Id) && !_nodes.ContainsKey(n.Id)) _nodes[n.Id] = n;
         }
@@ -162,6 +166,7 @@ namespace CSharpPython.Blocks
                 var bindings = Match(node, pinType, solution);
                 solution.Output = Refine(node, Substitute(outputPattern, bindings));
                 solution.Named = NamedOutputs(node);
+                CheckLoopTarget(node, solution);
                 _solved[node.Id] = solution;
                 return solution;
             }
@@ -169,6 +174,17 @@ namespace CSharpPython.Blocks
             {
                 _busy.Remove(node.Id);
             }
+        }
+
+        // A loop that stores its item or count in a typed global has to give that type.
+        private void CheckLoopTarget(BlockNode node, Solution solution)
+        {
+            if (node.Block != "for_each" && node.Block != "for_range" && node.Block != "repeat") return;
+            var declared = DeclaredType(node);
+            if (declared == null) return;
+            var check = PinCompatibility.Check(solution.Output, declared);
+            if (!check.Allowed)
+                solution.Errors.Add(Error(node, null, "the loop stores its value in '" + node.Name + "', which is declared " + declared + ": " + check.Reason));
         }
 
         // ---- Pin types of a block ----
@@ -189,6 +205,21 @@ namespace CSharpPython.Blocks
             if (block == null) return;
             pinType = block.InputType;
             output = block.OutputType ?? PinType.Any;
+
+            // A global variable declared with a type: reading it gives that type, and what is stored in it must fit.
+            var declared = DeclaredType(node);
+            if (declared == null) return;
+            if (node.Block == "get") output = declared;
+            else if (node.Block == "set" || node.Block == "change") pinType = pin => pin == "value" ? declared : block.InputType(pin);
+        }
+
+        // The declared type of the global variable a block reads or assigns, or null (a parameter of the function
+        // hides a global of the same name).
+        private PinType DeclaredType(BlockNode node)
+        {
+            bool uses = node.Block == "get" || node.Block == "set" || node.Block == "change" || node.Block == "for_each" || node.Block == "for_range" || node.Block == "repeat";
+            if (!uses || string.IsNullOrEmpty(node.Name) || (_fn.Parameters ?? new List<string>()).Contains(node.Name)) return null;
+            return _variables.TryGetValue(node.Name, out var type) ? type : null;
         }
 
         private Dictionary<string, PinType> NamedOutputs(BlockNode node)
@@ -380,7 +411,7 @@ namespace CSharpPython.Blocks
         private static bool IsNumber(PinType t) => t.Equals(PinType.Int) || t.Equals(PinType.Float);
 
         // The type of a typed-in literal, or null when it is not a single literal (the compiler reports that).
-        private static PinType LiteralType(string text)
+        internal static PinType LiteralType(string text)
         {
             var tokens = Lexer.TokenizeTolerant(text.Trim(), out var problems);
             if (problems.Count > 0) return null;

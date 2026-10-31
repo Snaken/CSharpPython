@@ -25,7 +25,7 @@ namespace CSharpPython.Blocks
             w.Begin('{');
             w.Name("Version"); w.Raw(graph.Version.ToString(CultureInfo.InvariantCulture));
             w.Name("Variables");
-            w.Array(graph.Variables, v => { w.Begin('{'); w.Str("Name", v.Name); w.Str("Initial", v.Initial); w.End('}'); });
+            w.Array(graph.Variables, v => { w.Begin('{'); w.Str("Name", v.Name); w.Str("Type", v.Type); w.Str("Initial", v.Initial); w.End('}'); });
             w.Name("Functions");
             w.Array(graph.Functions, f =>
             {
@@ -168,7 +168,7 @@ namespace CSharpPython.Blocks
             foreach (var v in Items(obj, "Variables"))
             {
                 var o = AsObject(v, "a variable");
-                graph.Variables.Add(new BlockVariable(Text(o, "Name"), Text(o, "Initial")));
+                graph.Variables.Add(new BlockVariable(Text(o, "Name"), Text(o, "Initial"), Text(o, "Type")));
             }
             foreach (var f in Items(obj, "Functions"))
             {

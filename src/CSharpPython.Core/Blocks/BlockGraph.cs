@@ -140,12 +140,19 @@ namespace CSharpPython.Blocks
         /// <summary>The starting value, as a single Python literal.</summary>
         public string Initial;
 
+        /// <summary>
+        /// The declared type, such as <c>int</c>, <c>list[str]</c> or a host handle name. Empty means <c>any</c>. A
+        /// number, bool or string variable with no <see cref="Initial"/> starts as 0, 0.0, False or "".
+        /// </summary>
+        public string Type;
+
         public BlockVariable() { }
 
-        public BlockVariable(string name, string initial)
+        public BlockVariable(string name, string initial, string type = null)
         {
             Name = name;
             Initial = initial;
+            Type = type;
         }
     }
 
@@ -160,9 +167,9 @@ namespace CSharpPython.Blocks
         public List<BlockVariable> Variables = new List<BlockVariable>();
         public List<BlockFunction> Functions = new List<BlockFunction>();
 
-        public BlockGraph AddVariable(string name, string initial)
+        public BlockGraph AddVariable(string name, string initial, string type = null)
         {
-            Variables.Add(new BlockVariable(name, initial));
+            Variables.Add(new BlockVariable(name, initial, type));
             return this;
         }
 

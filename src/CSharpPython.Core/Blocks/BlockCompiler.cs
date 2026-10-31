@@ -228,6 +228,7 @@ namespace CSharpPython.Blocks
         private Frame _frame;
         // The loop being written (0 outside any), and how many have been started, to tell loops apart.
         private int _loopId, _loopSerial, _joinCount;
+        private Dictionary<string, PinType> _varTypes;
         // The loops whose body is being written: their variable may be used.
         private readonly HashSet<string> _activeLoops = new HashSet<string>();
 
@@ -248,6 +249,7 @@ namespace CSharpPython.Blocks
         public BlockCompileResult Run()
         {
             var header = new List<Line>();
+            _varTypes = BlockVariableTypes.Table(_graph);
             CheckGlobals(header);
             CheckFunctionNames();
             IndexNodes();
@@ -259,7 +261,7 @@ namespace CSharpPython.Blocks
                 _fn = fn;
                 _out = new List<Line>();
                 GenerateFunction();
-                _diags.AddRange(new FunctionTypes(fn, _lib, new HashSet<string>(_functions.Keys)).Diagnostics());
+                _diags.AddRange(new FunctionTypes(fn, _lib, new HashSet<string>(_functions.Keys), _varTypes).Diagnostics());
                 chunks.Add(_out);
             }
             _fn = null;
@@ -337,14 +339,38 @@ namespace CSharpPython.Blocks
                     continue;
                 }
                 _globals[v.Name] = v;
-                string literal = string.IsNullOrWhiteSpace(v.Initial) ? BlockLiterals.None : CheckLiteral(v.Initial);
-                if (literal == null)
-                {
-                    Error("the starting value of '" + v.Name + "' must be a single number, string, True, False or None");
-                    literal = BlockLiterals.None;
-                }
-                header.Add(new Line(v.Name + " = " + literal, null));
+                header.Add(new Line(v.Name + " = " + StartingValue(v), null));
             }
+        }
+
+        // The literal a global starts with, after checking it against the declared type.
+        private string StartingValue(BlockVariable v)
+        {
+            var type = BlockVariableTypes.Declared(v, out string problem);
+            if (type == null)
+            {
+                Error("the type of '" + v.Name + "' is not valid: " + problem);
+                type = PinType.Any;
+            }
+            bool blank = string.IsNullOrWhiteSpace(v.Initial);
+            if (blank) return BlockVariableTypes.IsScalar(type) ? BlockVariableTypes.DefaultLiteral(type) : BlockLiterals.None;
+
+            string literal = CheckLiteral(v.Initial);
+            if (literal == null)
+            {
+                Error("the starting value of '" + v.Name + "' must be a single number, string, True, False or None");
+                return BlockLiterals.None;
+            }
+            var actual = FunctionTypes.LiteralType(literal);
+            if (literal == BlockLiterals.None && BlockVariableTypes.IsScalar(type))
+                Error("the variable '" + v.Name + "' is declared " + type + ", so it cannot start as None");
+            else if (literal != BlockLiterals.None && actual != null)
+            {
+                if (!PinCompatibility.Check(actual, type).Allowed)
+                    Error("the starting value of '" + v.Name + "' is " + actual + ", but the variable is declared " + type);
+                else if (type.Equals(PinType.Float) && actual.Equals(PinType.Int)) literal += ".0";
+            }
+            return literal;
         }
 
         private void CheckFunctionNames()
