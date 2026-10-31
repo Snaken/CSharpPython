@@ -1,6 +1,6 @@
 # Node view: design notes
 
-Status: design agreed. Step 1 is built: typed `Describe` strings (`HostSignature`, `PinType`), the `latent` flag, and types for the built-in functions, `math` and `random` (methods of built-in types are not typed yet). Step 2 is built for functions: `PinCompatibility` decides whether a wire is allowed, and `PinTypeIndex` searches functions by pin type. Step 3 has started: built-in blocks have pin types and wildcard pins, and the compiler refuses wires that do not fit (`BlockTypeChecker`). Several outputs per node are built (`BlockInput.FromPin`). Shared pure nodes are built (decision 11). Not built yet: the block types in the search index, flow joins, branch-scoped values, typed variables and the editor section.
+Status: design agreed. Step 1 is built: typed `Describe` strings (`HostSignature`, `PinType`), the `latent` flag, and types for the built-in functions, `math` and `random` (methods of built-in types are not typed yet). Step 2 is built for functions: `PinCompatibility` decides whether a wire is allowed, and `PinTypeIndex` searches functions by pin type. Step 3 has started: built-in blocks have pin types and wildcard pins, and the compiler refuses wires that do not fit (`BlockTypeChecker`). Several outputs per node are built (`BlockInput.FromPin`). Shared pure nodes are built (decision 11), and so are flow joins (decision 13). Not built yet: the block types in the search index, branch-scoped values, typed variables and the editor section.
 
 The node view is a Blueprint-style editor: a script is a graph of nodes on a free canvas, joined by wires. The player picks a script's kind once. A script made as a node graph stays a node graph; changing the kind discards the graph.
 
@@ -26,7 +26,7 @@ The node view is a Blueprint-style editor: a script is a graph of nodes on a fre
 
 11. **A pure node with several consumers runs once, and the result is shared, per flow step.** The value is computed the first time a consumer needs it during the nearest enclosing flow step and reused after that. Inside a loop body that means once per iteration. A variable changed between two uses does not change the shared value. A node that must give a new value on each request (a random number) will be a separate kind later, as will one that computes on first use and then keeps its value. As built: a flow step ends at a latent call and at each loop pass; variable reads and literals are not shared; a value is never worked out early where it only sometimes runs (the right side of `and`/`or`, the branches of `choose`, a `while` condition).
 12. **A value that only exists inside a branch cannot be wired outside it.** A `for each` node's element output is valid only inside its loop body. Wiring it elsewhere is a compile-time error and the editor refuses the wire.
-13. **Flow joins are allowed.** Two execution wires may enter one node. The code after the join is emitted once as a local function and called from each path that reaches it, because Python has no goto.
+13. **Flow joins are allowed.** Two execution wires may enter one node. The code after the join is emitted once as a local function and called from each path that reaches it, because Python has no goto. As built: the function sits at the top of the function that holds the join; a `return` in it answers with a one-item tuple that its callers pass on; names it assigns are `nonlocal` (or `global`), and a name it first sets that is also used outside it is an error. Not allowed: `break` or `continue` in a join inside a loop, a join entered from inside and outside a loop or from different parts of the flow, and a stored call result that did not run on every path into the join.
 14. **Latent nodes are marked by the host.** A host function that can wait carries a `latent` flag in its description. The editor draws a clock mark on it, and the compiler knows the flow can pause there (this matters for decision 11).
 15. **The running node can be highlighted.** This needs the "current line" on `PyTask` from the roadmap, plus the map from generated lines back to nodes.
 
@@ -51,7 +51,7 @@ So the question is less "a second system" than "which parts of this model does a
 | --- | --- |
 | Typed pins | None. Host functions describe parameters as a name string (`Describe("spawn", "kind, count=1")`), with no types and no result type. |
 | Several outputs from one node | Built: an input names the output it reads (`BlockInput.FromPin`). |
-| Two flows joining into one node | Reported as an error ("flow cannot loop back or join up again"). Blueprint allows several execution wires into one pin. |
+| Two flows joining into one node | Built: the flow from a joined block on is a local function that each path calls. A loop back is still an error. |
 | A value used by several nodes | Built: a pure node several inputs read is worked out once per flow step (a loop pass or a latent call starts a new step). Variable reads and literals are not shared. |
 | Waiting inside a loop condition | A `while` condition cannot use a stored call result. |
 | Variadic calls | Not supported. |
@@ -65,7 +65,6 @@ These are details, not open design questions:
 - Whether the type check sits in the compiler, in a separate class the editor calls, or both (the editor needs it per wire, the compiler needs it for the whole graph).
 - The exact rules for `int`, `float`, `bool` and `any` when a wire is drawn, and which conversions show a conversion node.
 - How an entry node's typed parameters and an exit node's results appear for callable functions, and how recursion is limited.
-- How the shared tail function of a flow join handles variables the tail assigns (`nonlocal`) and `return` inside it.
 - Which limits the load validation uses by default.
 
 ## Suggested order

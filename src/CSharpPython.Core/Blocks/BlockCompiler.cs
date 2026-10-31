@@ -131,6 +131,63 @@ namespace CSharpPython.Blocks
             }
         }
 
+        // The code of a function being written: the function itself, or the shared tail of a flow join, which is a
+        // local function. Names a tail assigns need `nonlocal` or `global`, and that is only known when the whole
+        // function has been written, so the tails are put into their place at the end (see Assemble).
+        private sealed class Frame
+        {
+            public readonly Frame Parent;
+            public readonly bool IsTail;
+            // True when the tail was started inside a loop: a break or continue cannot reach that loop from the tail.
+            public readonly bool InLoop;
+            // The indent of the statements of this frame.
+            public readonly int Depth;
+            public readonly List<Line> Lines;
+            public readonly List<Frame> Children = new List<Frame>();
+            // Where the local functions of the children go: after the declarations at the top of the frame.
+            public int InsertAt;
+            public readonly List<string> Binds = new List<string>();
+            public readonly Dictionary<string, BlockNode> BindNode = new Dictionary<string, BlockNode>();
+            public readonly HashSet<string> Reads = new HashSet<string>();
+            // The blocks written in this frame, and the results of blocks outside it that it reads.
+            public readonly HashSet<string> Emitted = new HashSet<string>();
+            public readonly HashSet<string> Used = new HashSet<string>();
+            public bool HasReturn;
+
+            public Frame(Frame parent, bool isTail, bool inLoop, int depth, List<Line> lines)
+            {
+                Parent = parent;
+                IsTail = isTail;
+                InLoop = inLoop;
+                Depth = depth;
+                Lines = lines;
+            }
+
+            public void Bind(string name, BlockNode node)
+            {
+                if (BindNode.ContainsKey(name)) return;
+                Binds.Add(name);
+                BindNode[name] = node;
+            }
+
+            public bool Within(Frame outer)
+            {
+                for (var f = this; f != null; f = f.Parent)
+                    if (f == outer) return true;
+                return false;
+            }
+        }
+
+        // A block that two or more execution wires enter. Its flow is written once, as a local function.
+        private sealed class Join
+        {
+            public string Name;
+            public Frame Owner;
+            public Frame Tail;
+            public int Loop;
+            public bool InProgress = true;
+        }
+
         private enum Callee { Unknown, User, Pure, Impure }
 
         private static readonly Dictionary<string, string> BinaryOps = new Dictionary<string, string>
@@ -164,6 +221,13 @@ namespace CSharpPython.Blocks
         private int _depth;
         // Above zero while an operand that only sometimes runs is read (the right side of and/or, the branches of choose).
         private int _lazy;
+        // Flow joins: how many execution wires enter each block, the joins found, the frame being written and all frames.
+        private Dictionary<string, int> _flowIn;
+        private Dictionary<string, Join> _joins;
+        private List<Frame> _frames;
+        private Frame _frame;
+        // The loop being written (0 outside any), and how many have been started, to tell loops apart.
+        private int _loopId, _loopSerial, _joinCount;
 
         public Generator(BlockGraph graph, BlockLibrary lib)
         {
@@ -236,6 +300,8 @@ namespace CSharpPython.Blocks
             if (!clean || tokens.Count != 1 || tokens[0].Kind != TokenKind.Name || tokens[0].Text != name) return false;
             // _b1, _b2, ... are the names the generator gives to intermediate results.
             if (name.Length > 2 && name.StartsWith("_b", StringComparison.Ordinal) && name.Skip(2).All(c => c >= '0' && c <= '9')) return false;
+            // _join1, _join2, ... are the names of the shared tails of flow joins.
+            if (name.Length > 5 && name.StartsWith("_join", StringComparison.Ordinal) && name.Skip(5).All(c => c >= '0' && c <= '9')) return false;
             return true;
         }
 
@@ -331,7 +397,16 @@ namespace CSharpPython.Blocks
             _lazy = 0;
             _tempCount = 0;
             _loopDepth = 0;
+            _loopId = 0;
+            _loopSerial = 0;
+            _joinCount = 0;
             _scope = new Scope(null);
+            _flowIn = new Dictionary<string, int>();
+            _joins = new Dictionary<string, Join>();
+            _frames = new List<Frame>();
+            _frame = new Frame(null, false, false, 1, _out);
+            _frames.Add(_frame);
+            CountFlowWires();
 
             var parameters = new List<string>();
             foreach (var p in _fn.Parameters)
@@ -353,8 +428,7 @@ namespace CSharpPython.Blocks
                     _readers[input.From] = _readers.TryGetValue(input.From, out int count) ? count + 1 : 1;
                 }
 
-                bool assigns = n.Block == "set" || n.Block == "change" || n.Block == "for_each" || n.Block == "for_range" || (n.Block == "repeat" && !string.IsNullOrEmpty(n.Name));
-                if (!assigns || !IsIdentifier(n.Name) || paramSet.Contains(n.Name)) continue;
+                if (!Assigns(n) || !IsIdentifier(n.Name) || paramSet.Contains(n.Name)) continue;
                 if (_globals.ContainsKey(n.Name))
                 {
                     if (!globalsAssigned.Contains(n.Name)) globalsAssigned.Add(n.Name);
@@ -369,13 +443,26 @@ namespace CSharpPython.Blocks
             _out.Add(new Line("def " + _fn.Name + "(" + string.Join(", ", parameters) + "):", null));
             int bodyStart = _out.Count;
             if (globalsAssigned.Count > 0) _out.Add(new Line(Indent(1) + "global " + string.Join(", ", globalsAssigned), null));
+            _frame.InsertAt = _out.Count;
+            foreach (var p in parameters) _frame.Bind(p, null);
             EmitBody(_fn.Start, 1);
             if (!HasStatement(bodyStart)) _out.Add(new Line(Indent(1) + "pass", null));
+            if (_frame.Children.Count > 0)
+            {
+                CheckTailNames();
+                var whole = Assemble(_frame);
+                _out.Clear();
+                _out.AddRange(whole);
+            }
 
             foreach (var n in _nodes.Values)
                 if (!_flowSeen.Contains(n.Id) && !_valueUsed.Contains(n.Id))
                     Warn("this block is not connected to anything, so it never runs", n);
         }
+
+        // Blocks that assign a variable.
+        private static bool Assigns(BlockNode n) =>
+            n.Block == "set" || n.Block == "change" || n.Block == "for_each" || n.Block == "for_range" || (n.Block == "repeat" && !string.IsNullOrEmpty(n.Name));
 
         private static string Indent(int depth) => new string(' ', depth * 4);
 
@@ -417,7 +504,9 @@ namespace CSharpPython.Blocks
             return null;
         }
 
-        private void EmitChain(string id, int depth)
+        // Writes the blocks from 'id' on. A block that several execution wires enter is written once, as a local
+        // function (see StartJoin), and every path into it calls that function; `ownsJoin` is set while writing it.
+        private void EmitChain(string id, int depth, bool ownsJoin = false)
         {
             while (!string.IsNullOrEmpty(id))
             {
@@ -426,6 +515,12 @@ namespace CSharpPython.Blocks
                     Error("the flow leads to the block '" + id + "', which is not in this function");
                     return;
                 }
+                if (!ownsJoin && _flowIn.TryGetValue(id, out int wires) && wires > 1)
+                {
+                    EmitJoinCall(node, depth);
+                    return;
+                }
+                ownsJoin = false;
                 if (!_flowSeen.Add(id))
                 {
                     Error("this block is reached more than once; flow cannot loop back or join up again (use a loop block)", node);
@@ -447,6 +542,8 @@ namespace CSharpPython.Blocks
                 }
                 if (!CheckPins(node)) return;
 
+                _frame.Emitted.Add(id);
+                if (Assigns(node) && IsIdentifier(node.Name)) _frame.Bind(node.Name, node);
                 string next = FlowTarget(node, "next");
                 switch (node.Block)
                 {
@@ -513,12 +610,21 @@ namespace CSharpPython.Blocks
                         break;
                     case "break":
                     case "continue":
-                        if (_loopDepth == 0) Error("'" + node.Block + "' only works inside a loop", node);
+                        if (_loopDepth == 0)
+                            Error(_frame.InLoop
+                                ? "'" + node.Block + "' cannot come after a join: the blocks after a join are a function of their own, so they cannot reach the loop"
+                                : "'" + node.Block + "' only works inside a loop", node);
                         Emit(depth, node.Block, node);
                         break;
                     case "return":
                         var value = Input(node, "value", optional: true);
-                        Emit(depth, value.Text == null ? "return" : "return " + value.Text, node);
+                        if (_frame.IsTail)
+                        {
+                            // The tail answers with a one-item tuple, so that its callers can tell a return from running to the end.
+                            _frame.HasReturn = true;
+                            Emit(depth, "return (" + (value.Text ?? "None") + ",)", node);
+                        }
+                        else Emit(depth, value.Text == null ? "return" : "return " + value.Text, node);
                         break;
                 }
                 _scope.Done.Add(id);
@@ -528,9 +634,155 @@ namespace CSharpPython.Blocks
 
         private void EmitLoopBody(BlockNode node, int depth)
         {
+            int outer = _loopId;
+            _loopId = ++_loopSerial;
             _loopDepth++;
             EmitBody(FlowTarget(node, "body"), depth + 1, loopBody: true);
             _loopDepth--;
+            _loopId = outer;
+        }
+
+        // ---- Flow joins ----
+
+        private void CountFlowWires()
+        {
+            if (!string.IsNullOrEmpty(_fn.Start)) _flowIn[_fn.Start] = 1;
+            foreach (var n in _nodes.Values)
+                foreach (var link in n.Flow ?? new List<BlockLink>())
+                    if (link != null && !string.IsNullOrEmpty(link.To))
+                        _flowIn[link.To] = _flowIn.TryGetValue(link.To, out int count) ? count + 1 : 1;
+        }
+
+        // The path ends here with a call of the shared tail. The first path to arrive writes the tail.
+        private void EmitJoinCall(BlockNode node, int depth)
+        {
+            if (!_joins.TryGetValue(node.Id, out var join))
+            {
+                StartJoin(node);
+                join = _joins[node.Id];
+            }
+            else if (join.InProgress)
+            {
+                Error("this block is reached again from its own flow; flow cannot loop back (use a loop block)", node);
+                return;
+            }
+            else if (join.Owner != _frame)
+            {
+                Error("the paths that join at this block do not start in the same place; join them inside the same part of the flow", node);
+                return;
+            }
+            else if (join.Loop != _loopId)
+            {
+                Error("a join cannot be entered from inside a loop and from outside it, or from two different loops", node);
+                return;
+            }
+            else
+            {
+                foreach (var used in join.Tail.Used)
+                {
+                    if (_scope.Has(used)) continue;
+                    Error("the blocks after this join use the result of the block '" + used + "', which has not run on every path into it", node);
+                    return;
+                }
+            }
+
+            _scope.ForgetShared();
+            if (!join.Tail.HasReturn)
+            {
+                Emit(depth, join.Name + "()", node);
+                return;
+            }
+            string answer = NewTemp();
+            Emit(depth, answer + " = " + join.Name + "()", node);
+            Emit(depth, "if " + answer + " is not None:", node);
+            Emit(depth + 1, _frame.IsTail ? "return " + answer : "return " + answer + "[0]", node);
+            if (_frame.IsTail) _frame.HasReturn = true;
+        }
+
+        // Writes the flow from a join into a local function of its own, in a frame of its own. Values worked out so far
+        // are not reused in it (it is called from several places), and a break or continue cannot cross into it.
+        private void StartJoin(BlockNode node)
+        {
+            var join = new Join { Name = "_join" + (++_joinCount).ToString(CultureInfo.InvariantCulture), Owner = _frame, Loop = _loopId };
+            _joins[node.Id] = join;
+
+            var parent = _frame;
+            var tail = new Frame(parent, true, _loopDepth > 0 || parent.InLoop, parent.Depth + 1, new List<Line>());
+            tail.Lines.Add(new Line(Indent(parent.Depth) + "def " + join.Name + "():", null));
+            tail.InsertAt = 1;
+            join.Tail = tail;
+            parent.Children.Add(tail);
+            _frames.Add(tail);
+
+            var savedOut = _out;
+            var savedScope = _scope;
+            int savedLoopDepth = _loopDepth, savedLoopId = _loopId, savedDepth = _depth;
+            _out = tail.Lines;
+            _frame = tail;
+            _scope = new Scope(savedScope, loopBody: true);
+            _loopDepth = 0;
+            _loopId = 0;
+
+            EmitChain(node.Id, tail.Depth, ownsJoin: true);
+            if (!HasStatement(1)) _out.Add(new Line(Indent(tail.Depth) + "pass", null));
+
+            _out = savedOut;
+            _frame = parent;
+            _scope = savedScope;
+            _loopDepth = savedLoopDepth;
+            _loopId = savedLoopId;
+            _depth = savedDepth;
+            join.InProgress = false;
+
+            // What the tail reads from outside it, its caller reads too.
+            foreach (var used in tail.Used)
+                if (!parent.Emitted.Contains(used) && parent.IsTail) parent.Used.Add(used);
+            if (tail.HasReturn && parent.IsTail) parent.HasReturn = true;
+        }
+
+        // A name a tail assigns that is also used elsewhere has to be declared `nonlocal` in the tail, and that needs
+        // an assignment to it in a function around the tail. A name only the tail uses is local to it.
+        private IEnumerable<string> OuterNames(Frame tail)
+        {
+            foreach (var name in tail.Binds)
+            {
+                if (_globals.ContainsKey(name)) continue;
+                bool usedOutside = _frames.Any(f => !f.Within(tail) && (f.Binds.Contains(name) || f.Reads.Contains(name)));
+                if (usedOutside) yield return name;
+            }
+        }
+
+        private void CheckTailNames()
+        {
+            foreach (var tail in _frames.Where(f => f.IsTail))
+            {
+                foreach (var name in OuterNames(tail))
+                {
+                    bool bound = false;
+                    for (var f = tail.Parent; f != null && !bound; f = f.Parent) bound = f.Binds.Contains(name);
+                    if (!bound)
+                        Error("the variable '" + name + "' is first set after a join but also used outside it; set it before the flow splits", tail.BindNode[name]);
+                }
+            }
+        }
+
+        // The lines of a frame with the local functions of its tails written at the top.
+        private List<Line> Assemble(Frame frame)
+        {
+            var lines = new List<Line>(frame.Lines);
+            int at = frame.InsertAt;
+            if (frame.IsTail)
+            {
+                string indent = Indent(frame.Depth);
+                var globals = frame.Binds.Where(_globals.ContainsKey).ToList();
+                if (globals.Count > 0) lines.Insert(at++, new Line(indent + "global " + string.Join(", ", globals), null));
+                var outer = OuterNames(frame).ToList();
+                if (outer.Count > 0) lines.Insert(at++, new Line(indent + "nonlocal " + string.Join(", ", outer), null));
+            }
+            foreach (var child in frame.Children)
+                foreach (var line in Assemble(child))
+                    lines.Insert(at++, line);
+            return lines;
         }
 
         private string NewTemp() => "_b" + (++_tempCount).ToString(CultureInfo.InvariantCulture);
@@ -756,6 +1008,7 @@ namespace CSharpPython.Blocks
                     return new Ex("None", false);
                 }
                 _valueUsed.Add(fromId);
+                if (_frame.IsTail && !_frame.Emitted.Contains(fromId)) _frame.Used.Add(fromId);
                 return new Ex(temp, false);
             }
 
@@ -801,6 +1054,7 @@ namespace CSharpPython.Blocks
                     case "literal":
                         return Input(node, "value");
                     case "get":
+                        _frame.Reads.Add(node.Name ?? "");
                         return new Ex(RequireVariable(node, true), false);
                     case "neg":
                         return new Ex("-" + Input(node, "a").Atom, true);

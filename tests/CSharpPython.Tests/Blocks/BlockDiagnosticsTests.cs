@@ -124,13 +124,9 @@ namespace CSharpPython.Tests.Blocks
         }
 
         [Test]
-        public void FlowCannotLoopOrJoin()
+        public void FlowCannotLoopBack()
         {
-            ExpectError(G(F("f", "a", Print("a", "1").Then("b"), Print("b", "2").Then("a"))), "reached more than once", "a");
-            var join = F("f", "i",
-                N("i", "if").Literal("cond", "True").Then("then", "x").Then("else", "y"),
-                Print("x", "1").Then("z"), Print("y", "2").Then("z"), Print("z", "3"));
-            ExpectError(G(join), "reached more than once", "z");
+            ExpectError(G(F("f", "a", Print("a", "1").Then("b"), Print("b", "2").Then("a"))), "cannot loop back", "a");
         }
 
         [Test]
