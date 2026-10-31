@@ -79,7 +79,7 @@ namespace CSharpPython.Blocks
         // The numbered inputs of a list block: those in use, then the next one.
         private static IEnumerable<string> ItemPinsOf(BlockNode node)
         {
-            if (node.Block != "list") return new string[0];
+            if (node.Block != "list") return Array.Empty<string>();
             int count = 0;
             foreach (var input in node.Inputs ?? new List<BlockInput>())
                 if (input?.Pin != null && input.Pin.StartsWith("item", StringComparison.Ordinal)
@@ -92,7 +92,7 @@ namespace CSharpPython.Blocks
         private IEnumerable<string> OutputNamesOf(BlockNode node)
         {
             if (node.Block != "call") return new string[] { null };
-            if (Library.FindFunction(node.Name) == null && Graph.Functions.All(f => f == null || f.Name != node.Name)) return new string[0];
+            if (Library.FindFunction(node.Name) == null && Graph.Functions.All(f => f == null || f.Name != node.Name)) return Array.Empty<string>();
             var spec = Graph.Functions.Any(f => f != null && f.Name == node.Name) ? null : Library.FindFunction(node.Name);
             if (spec != null && spec.Outputs.Count > 1) return spec.Outputs.Select(o => o.Name);
             return new string[] { null };

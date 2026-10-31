@@ -96,7 +96,7 @@ namespace CSharpPython.Tests.Vm
         {
             var vm = Vm(KeyA);
             var script = vm.Compile(Source);
-            Assert.Throws<SnapshotException>(() => vm.Restore(script, new byte[0]));
+            Assert.Throws<SnapshotException>(() => vm.Restore(script, Array.Empty<byte>()));
             Assert.Throws<SnapshotException>(() => vm.Restore(script, new byte[31]));
             Assert.Throws<SnapshotException>(() => vm.Restore(script, new byte[32]));
         }
