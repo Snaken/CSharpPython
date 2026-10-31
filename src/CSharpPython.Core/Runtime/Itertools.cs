@@ -96,6 +96,7 @@ namespace CSharpPython
 
         public override bool Next(out Value value)
         {
+            Ops.CheckStack();
             switch (Kind)
             {
                 case ItertoolsKind.Count: return NextCount(out value);

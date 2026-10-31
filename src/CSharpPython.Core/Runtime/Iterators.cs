@@ -188,6 +188,7 @@ namespace CSharpPython
 
         public override bool Next(out Value value)
         {
+            Ops.CheckStack();
             var task = PyTask.Current;
             if (task == null) throw new PyError("RuntimeError", "a script object can only be iterated while its script is running");
             return task.CallNext(_target, out value);
@@ -211,6 +212,7 @@ namespace CSharpPython
 
         public override bool Next(out Value value)
         {
+            Ops.CheckStack();
             if (!_source.Next(out Value item)) { value = default; return false; }
             value = Value.Tuple(Value.FromInt(_index++), item);
             return true;
@@ -227,6 +229,7 @@ namespace CSharpPython
 
         public override bool Next(out Value value)
         {
+            Ops.CheckStack();
             if (_sources.Length == 0) { value = default; return false; }
             var items = new Value[_sources.Length];
             for (int i = 0; i < _sources.Length; i++)
@@ -254,6 +257,7 @@ namespace CSharpPython
 
         public override bool Next(out Value value)
         {
+            Ops.CheckStack();
             var task = PyTask.Current;
             if (_sources.Length == 1)
             {
@@ -290,6 +294,7 @@ namespace CSharpPython
 
         public override bool Next(out Value value)
         {
+            Ops.CheckStack();
             while (_source.Next(out value))
             {
                 if (_function.IsNone)

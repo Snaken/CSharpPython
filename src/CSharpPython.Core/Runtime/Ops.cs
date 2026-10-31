@@ -160,6 +160,17 @@ namespace CSharpPython
             return true;
         }
 
+        /// <summary>
+        /// Raises <c>RecursionError</c> when the thread is close to running out of stack. A stack overflow cannot be
+        /// caught and ends the whole process, so every path that can nest without limit (hashing nested tuples,
+        /// iterators and functools objects built on one another) calls this.
+        /// </summary>
+        internal static void CheckStack()
+        {
+            if (!System.Runtime.CompilerServices.RuntimeHelpers.TryEnsureSufficientExecutionStack())
+                throw new PyError("RecursionError", "maximum recursion depth exceeded");
+        }
+
         public static int Hash(Value v)
         {
             switch (v.Kind)
@@ -182,6 +193,7 @@ namespace CSharpPython
                 case ValueKind.Str: return ((string)v.RawObject).GetHashCode();
                 case ValueKind.Tuple:
                 {
+                    CheckStack();
                     int h = 17;
                     foreach (var item in ((PyTuple)v.RawObject).Items) h = unchecked(h * 31 + Hash(item));
                     return h;
@@ -192,6 +204,7 @@ namespace CSharpPython
                 {
                     var set = (PySet)v.RawObject;
                     if (!set.Frozen) throw TypeError("unhashable type: 'set'");
+                    CheckStack();
                     int h = 0x5bd1e995;
                     foreach (var item in set.Members()) h = unchecked(h + Hash(item) * 0x2545F491);
                     return h;
@@ -199,6 +212,7 @@ namespace CSharpPython
                 case ValueKind.Slice:
                 {
                     var slice = (PySlice)v.RawObject;
+                    CheckStack();
                     return unchecked((Hash(slice.Start) * 31 + Hash(slice.Stop)) * 31 + Hash(slice.Step));
                 }
                 case ValueKind.List:

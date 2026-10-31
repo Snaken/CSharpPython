@@ -28,6 +28,14 @@ namespace CSharpPython
 
     internal static class SnapshotIo
     {
+        // Values nest without limit (a list in a list in a list), and a stack overflow ends the whole process, so the
+        // reader and writer stop with a SnapshotException when the thread is close to running out of stack.
+        internal static void CheckStack(bool reading)
+        {
+            if (System.Runtime.CompilerServices.RuntimeHelpers.TryEnsureSufficientExecutionStack()) return;
+            throw new SnapshotException(reading ? "the snapshot is damaged" : "cannot save a value nested this deeply");
+        }
+
         public static void WriteString(BinaryWriter w, string s)
         {
             s = s ?? "";
@@ -87,6 +95,7 @@ namespace CSharpPython
 
         public void Collect(Value v)
         {
+            SnapshotIo.CheckStack(false);
             switch (v.Kind)
             {
                 case ValueKind.List:
@@ -231,6 +240,7 @@ namespace CSharpPython
 
         private void CollectIterator(PyIterator it)
         {
+            SnapshotIo.CheckStack(false);
             switch (it)
             {
                 case ListIterator l: Collect(Value.FromList(l.List)); break;
@@ -496,6 +506,7 @@ namespace CSharpPython
 
         private void WriteIterator(BinaryWriter w, PyIterator it)
         {
+            SnapshotIo.CheckStack(false);
             switch (it)
             {
                 case RangeIterator r:
@@ -605,6 +616,7 @@ namespace CSharpPython
 
         public void WriteValue(BinaryWriter w, Value v)
         {
+            SnapshotIo.CheckStack(false);
             w.Write((byte)v.Kind);
             switch (v.Kind)
             {
@@ -1058,6 +1070,7 @@ namespace CSharpPython
 
         private PyIterator ReadIterator(BinaryReader r)
         {
+            SnapshotIo.CheckStack(true);
             switch (r.ReadByte())
             {
                 case 0:
@@ -1209,6 +1222,7 @@ namespace CSharpPython
 
         public Value ReadValue(BinaryReader r)
         {
+            SnapshotIo.CheckStack(true);
             var kind = (ValueKind)r.ReadByte();
             switch (kind)
             {

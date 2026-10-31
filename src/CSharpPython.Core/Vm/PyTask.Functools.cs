@@ -9,6 +9,7 @@ namespace CSharpPython
         // Calls a callable made by functools or operator (see PyFunctool).
         private int CallFunctool(Value callee, int calleeIndex, int argStart, int argc, int positional, string[] kwNames)
         {
+            Ops.CheckStack();
             var f = (PyFunctool)callee.RawObject;
             switch (f.Mode)
             {

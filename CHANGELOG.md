@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Security: a script can no longer crash the host with deep nesting.** Hashing deeply nested tuples or frozensets, and calling iterators (`map`, `zip`, `filter`, `enumerate`, `itertools`) or `functools` objects (`partial`, `lru_cache`) built on one another 100,000 deep, overflowed the stack, which ends the whole process. They now raise a `RecursionError` the script can catch. Saving a snapshot of a value nested too deeply raises `SnapshotException` instead of overflowing, and restoring was already safe.
 - `BlockEditor.SetLiteral` refuses a typed-in value whose type does not fit the pin (a number into a text pin, a text onto a list of numbers), and text that is not a single number, string, `True`, `False` or `None`, with the reason. `BlockTypeChecker.CheckLiteral` answers the same question without changing the graph.
 - The operator blocks refuse two typed inputs that Python cannot combine, such as text minus a number, a number compared with a text, or a number as the container of "is in". The compiler reports it, and `Connect` and `SetLiteral` refuse the edit with the reason. Pins of unknown type (`any`, `None`, variables, nothing wired) are never refused, and equality and logic take anything. **Block graphs that wire such a pair no longer compile.**
 - `BlockEditor.PinsOf(function, node)` lists the pins of a block for a canvas to draw (`BlockPin`: name, kind and type), so it does not have to work them out from the library itself.
