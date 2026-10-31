@@ -14,6 +14,7 @@
 - Loop blocks have an output: `for_each`, `for_range` and a named `repeat` give their item, count or pass number to an input wired to the loop block. It can only be used inside the loop's body; the compiler reports any other use, and `BlockTypeChecker.CheckWire` refuses the wire for an editor (`BlockSpec.LoopVariable` marks the blocks that have it). `BlockTypeChecker.OutputType` types it (`int`, or the element type of the list).
 - Global block variables can be declared with a type (`BlockVariable.Type`, `AddVariable(name, initial, type)`, saved as an optional `Type` in the JSON). Reading one gives its type, `set`, `change` and loops that store into it are checked against it, a number, bool or string variable starts as `0`, `0.0`, `False` or `""` when no starting value is given, and a starting value of the wrong type is an error.
 - Block graphs keep editor-only data in the same file: `BlockGraph.Editor` holds block positions, collapsed flags, comment boxes, reroute points and groups, saved as an optional `Editor` section (format version still 1). The compiler ignores it, so moving a block never changes the generated program or invalidates a saved task.
+- `BlockPlaceholders.Find(graph, library)` lists the blocks that name a function or block type the host does not have, so an editor can show them as placeholders; the graph still loads and keeps their wires, and the compile error now says the block is a placeholder.
 
 ## 0.2.2
 

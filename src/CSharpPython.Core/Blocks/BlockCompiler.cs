@@ -888,7 +888,7 @@ namespace CSharpPython.Blocks
                 var kind = ClassifyCall(node, out int arity);
                 if (kind == Callee.Unknown)
                 {
-                    Error(string.IsNullOrEmpty(node.Name) ? "a call block needs a function name" : "unknown function '" + node.Name + "'", node);
+                    Error(string.IsNullOrEmpty(node.Name) ? "a call block needs a function name" : UnknownFunction(node.Name), node);
                     return false;
                 }
                 inputs = Enumerable.Range(0, arity).Select(FunctionSpec.ArgPin).ToArray();
@@ -1041,7 +1041,7 @@ namespace CSharpPython.Blocks
             var kind = isCall ? ClassifyCall(source, out _) : Callee.Pure;
             if (kind == Callee.Unknown)
             {
-                Error(string.IsNullOrEmpty(source.Name) ? "a call block needs a function name" : "unknown function '" + source.Name + "'", source);
+                Error(string.IsNullOrEmpty(source.Name) ? "a call block needs a function name" : UnknownFunction(source.Name), source);
                 return new Ex("None", false);
             }
             if (!ChooseOutput(owner, pin, source, fromPin, out int output)) return new Ex("None", false);
@@ -1169,6 +1169,10 @@ namespace CSharpPython.Blocks
         }
 
         // ---- Calls ----
+
+        // A graph keeps a block for a function the host no longer has, as a placeholder (see BlockPlaceholders).
+        private static string UnknownFunction(string name) =>
+            "unknown function '" + name + "' (the host does not have it, so this block is a placeholder until it does)";
 
         private Callee ClassifyCall(BlockNode node, out int arity)
         {
