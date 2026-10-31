@@ -194,9 +194,19 @@ namespace CSharpPython.Blocks
 
         // ---- reading ----
 
-        public static BlockGraph Read(string json)
+        public static BlockGraph Read(string json, BlockLimits limits)
         {
             if (json == null) throw new ArgumentNullException(nameof(json));
+            if (json.Length > limits.MaxTextLength)
+                throw new BlockGraphFormatException("the document is too long (" + json.Length.ToString(CultureInfo.InvariantCulture) + " characters; the limit is " + limits.MaxTextLength.ToString(CultureInfo.InvariantCulture) + ")");
+            var graph = Build(json);
+            string problem = limits.Problem(graph);
+            if (problem != null) throw new BlockGraphFormatException(problem);
+            return graph;
+        }
+
+        private static BlockGraph Build(string json)
+        {
             var root = new Parser(json).ParseDocument();
             var obj = AsObject(root, "the document");
             var graph = new BlockGraph();

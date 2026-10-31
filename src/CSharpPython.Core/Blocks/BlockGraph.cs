@@ -186,7 +186,10 @@ namespace CSharpPython.Blocks
         /// <summary>Writes the graph as JSON. The field names match the public fields, so Unity's <c>JsonUtility</c> reads it too.</summary>
         public string ToJson(bool indent = true) => BlockJson.Write(this, indent);
 
-        /// <summary>Reads a graph written by <see cref="ToJson"/> or by <c>JsonUtility</c>. Throws <see cref="BlockGraphFormatException"/> for a bad document.</summary>
-        public static BlockGraph FromJson(string json) => BlockJson.Read(json);
+        /// <summary>
+        /// Reads a graph written by <see cref="ToJson"/> or by <c>JsonUtility</c>. Throws <see cref="BlockGraphFormatException"/>
+        /// for a bad document, or one that goes over <paramref name="limits"/> (the defaults of <see cref="BlockLimits"/> when null).
+        /// </summary>
+        public static BlockGraph FromJson(string json, BlockLimits limits = null) => BlockJson.Read(json, limits ?? new BlockLimits());
     }
 }

@@ -15,6 +15,7 @@
 - Global block variables can be declared with a type (`BlockVariable.Type`, `AddVariable(name, initial, type)`, saved as an optional `Type` in the JSON). Reading one gives its type, `set`, `change` and loops that store into it are checked against it, a number, bool or string variable starts as `0`, `0.0`, `False` or `""` when no starting value is given, and a starting value of the wrong type is an error.
 - Block graphs keep editor-only data in the same file: `BlockGraph.Editor` holds block positions, collapsed flags, comment boxes, reroute points and groups, saved as an optional `Editor` section (format version still 1). The compiler ignores it, so moving a block never changes the generated program or invalidates a saved task.
 - `BlockPlaceholders.Find(graph, library)` lists the blocks that name a function or block type the host does not have, so an editor can show them as placeholders; the graph still loads and keeps their wires, and the compile error now says the block is a placeholder.
+- `BlockGraph.FromJson(json, limits)` checks a file against `BlockLimits` (document length, counts of functions, blocks, variables and links, lengths of ids, names, values and types, and the editor section) and rejects one that goes over, saying which limit. The defaults are generous for hand-made graphs, and a host can change them. `BlockLimits.Problem(graph)` checks a graph built in code.
 
 ## 0.2.2
 
