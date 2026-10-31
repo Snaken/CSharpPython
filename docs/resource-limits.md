@@ -44,6 +44,10 @@ The limit is per object, so many objects at the limit still add up (100 lists of
 
 The limit is per task, so a game with 100 tasks can hold 100 times the limit. Size it for the number of tasks, or give each task its own `PyVm` with its own limit.
 
+## Values that share parts
+
+A value can hold the same child twice at every level (`a = (a, a)` forty times), so a few dozen objects have billions of paths. Hashing, comparing (`==`, `<`) and printing such a value counts each container it visits, as steps, and stops with a catchable `RecursionError` once one operation has visited eight times `MaxSequenceLength` containers (800,000 by default); `str` and `repr` also stop with a `MemoryError` when the text passes sixteen times `MaxSequenceLength` characters. Honest values never come near this. `str.replace` with a count is checked against `MaxSequenceLength` before it builds the result, like the other string builders.
+
 ## Keys that share a hash
 
 A dict or set whose keys all share one hash degrades to a list: every insert walks the same chain, so n inserts cost n squared. A script must not be able to cause that on purpose. Strings use the platform's randomized hash. Integers beyond 32 bits, floats with a fraction, big integers, tuples, frozensets, slices and ranges go through a mixer keyed with a seed chosen when the process starts, so a script cannot work out which keys collide. Integers that fit in 32 bits are their own hash (no two collide, and `hash(5)` is `5`). Equal values always hash alike, so `d[1.0]` finds `d[1]` and a float finds the big integer of the same value. Because of the seed, `hash()` of anything but a small integer or a bool differs from run to run, as it does for strings; do not save it.

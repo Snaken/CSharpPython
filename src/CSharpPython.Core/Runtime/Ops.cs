@@ -103,7 +103,16 @@ namespace CSharpPython
 
         private static string DictTypeName(PyDict d) => d.Flavor == DictFlavor.Counter ? "Counter" : d.Flavor == DictFlavor.Default ? "defaultdict" : "dict";
 
-        public static bool Equal(Value a, Value b) => Equal(a, b, 0);
+        public static bool Equal(Value a, Value b)
+        {
+            if (!IsNested(a)) return Equal(a, b, 0);
+            using (Work.Walk()) return Equal(a, b, 0);
+        }
+
+        // Values that can hold other values, so that a walk over them needs the visit count.
+        private static bool IsNested(Value v) =>
+            v.Kind == ValueKind.List || v.Kind == ValueKind.Tuple || v.Kind == ValueKind.Deque || v.Kind == ValueKind.Dict
+            || v.Kind == ValueKind.Set || v.Kind == ValueKind.Slice || v.Kind == ValueKind.DictView;
 
         private static bool Equal(Value a, Value b, int depth)
         {
@@ -141,6 +150,7 @@ namespace CSharpPython
                 {
                     var x = (PySlice)a.RawObject;
                     var y = (PySlice)b.RawObject;
+                    Work.Visit();
                     return Equal(x.Start, y.Start, depth + 1) && Equal(x.Stop, y.Stop, depth + 1) && Equal(x.Step, y.Step, depth + 1);
                 }
                 case ValueKind.Range:
@@ -159,6 +169,7 @@ namespace CSharpPython
         {
             Work.Items(x.Count);
             if (ReferenceEquals(x, y)) return true;
+            Work.Visit();
             if (x.Count != y.Count) return false;
             if (depth > MaxCompareDepth) throw new PyError("RecursionError", "maximum recursion depth exceeded in comparison");
             for (int i = 0; i < x.Count; i++)
@@ -170,6 +181,7 @@ namespace CSharpPython
         {
             Work.Items(x.Count);
             if (ReferenceEquals(x, y)) return true;
+            Work.Visit();
             if (x.Count != y.Count) return false;
             if (depth > MaxCompareDepth) throw new PyError("RecursionError", "maximum recursion depth exceeded in comparison");
             foreach (var kv in x.Pairs())
@@ -217,6 +229,12 @@ namespace CSharpPython
 
         public static int Hash(Value v)
         {
+            if (!IsNested(v)) return HashWalk(v);
+            using (Work.Walk()) return HashWalk(v);
+        }
+
+        private static int HashWalk(Value v)
+        {
             switch (v.Kind)
             {
                 case ValueKind.None: return 0;
@@ -238,8 +256,9 @@ namespace CSharpPython
                 case ValueKind.Tuple:
                 {
                     CheckStack();
+                    Work.Visit();
                     int h = 17;
-                    foreach (var item in ((PyTuple)v.RawObject).Items) h = Combine(h, Hash(item));
+                    foreach (var item in ((PyTuple)v.RawObject).Items) h = Combine(h, HashWalk(item));
                     return h;
                 }
                 case ValueKind.Handle: return unchecked(v.RawAux * 31 + HashInt(v.RawInt));
@@ -249,15 +268,17 @@ namespace CSharpPython
                     var set = (PySet)v.RawObject;
                     if (!set.Frozen) throw TypeError("unhashable type: 'set'");
                     CheckStack();
+                    Work.Visit();
                     int h = 0x5bd1e995;
-                    foreach (var item in set.Members()) h = unchecked(h + MixHash((uint)Hash(item)));
+                    foreach (var item in set.Members()) h = unchecked(h + MixHash((uint)HashWalk(item)));
                     return h;
                 }
                 case ValueKind.Slice:
                 {
                     var slice = (PySlice)v.RawObject;
                     CheckStack();
-                    return Combine(Combine(Hash(slice.Start), Hash(slice.Stop)), Hash(slice.Step));
+                    Work.Visit();
+                    return Combine(Combine(HashWalk(slice.Start), HashWalk(slice.Stop)), HashWalk(slice.Step));
                 }
                 case ValueKind.List:
                 case ValueKind.Deque:
@@ -618,7 +639,11 @@ namespace CSharpPython
             }
         }
 
-        public static bool Compare(Value a, Value b, Order o) => Compare(a, b, o, 0);
+        public static bool Compare(Value a, Value b, Order o)
+        {
+            if (!IsNested(a)) return Compare(a, b, o, 0);
+            using (Work.Walk()) return Compare(a, b, o, 0);
+        }
 
         private static bool Compare(Value a, Value b, Order o, int depth)
         {
@@ -653,6 +678,7 @@ namespace CSharpPython
         private static bool CompareSequences(IReadOnlyList<Value> x, IReadOnlyList<Value> y, Order o, int depth)
         {
             Work.Items(x.Count);
+            Work.Visit();
             if (depth > MaxCompareDepth) throw new PyError("RecursionError", "maximum recursion depth exceeded in comparison");
             int n = Math.Min(x.Count, y.Count);
             for (int i = 0; i < n; i++)

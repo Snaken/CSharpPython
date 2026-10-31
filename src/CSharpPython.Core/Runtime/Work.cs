@@ -27,6 +27,38 @@ namespace CSharpPython
             }
         }
 
+        [ThreadStatic] private static long _visited;
+        [ThreadStatic] private static long _visitLimit;
+        [ThreadStatic] private static int _walkDepth;
+
+        /// <summary>
+        /// Starts counting the containers one hash, comparison or repr visits (nested walks share one count). A value can
+        /// hold the same child twice at every level, so a few dozen objects have billions of paths; <see cref="Visit"/>
+        /// stops the walk once the count passes eight times <see cref="VmOptions.MaxSequenceLength"/>.
+        /// </summary>
+        public static WalkScope Walk()
+        {
+            if (_walkDepth++ == 0)
+            {
+                _visited = 0;
+                _visitLimit = (long)Ops.MaxSequenceLength * 8;
+            }
+            return default;
+        }
+
+        /// <summary>Counts one container visited in the current walk: charged as steps, and a catchable error past the limit.</summary>
+        public static void Visit()
+        {
+            if (++_visited > _visitLimit)
+                throw new PyError("RecursionError", "maximum recursion depth exceeded: the value holds too many nested containers");
+            if ((_visited & (ItemsPerStep - 1)) == 0) PyTask.Current?.Charge(1);
+        }
+
+        internal struct WalkScope : IDisposable
+        {
+            public void Dispose() => _walkDepth--;
+        }
+
         /// <summary>Charges the running task for walking or copying <paramref name="items"/> items.</summary>
         public static void Items(long items)
         {

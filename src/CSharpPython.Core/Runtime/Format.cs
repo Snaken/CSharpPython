@@ -72,7 +72,7 @@ namespace CSharpPython
         public static string Repr(Value v)
         {
             var sb = new StringBuilder();
-            WriteRepr(sb, v, new List<object>());
+            using (Work.Walk()) WriteRepr(sb, v, new List<object>());
             return sb.ToString();
         }
 
@@ -95,6 +95,7 @@ namespace CSharpPython
                 {
                     var tuple = (PyTuple)v.RawObject;
                     if (seen.Contains(tuple) || seen.Count >= MaxReprDepth) { sb.Append(tuple.Named.Name).Append("(...)"); return; }
+                    Visit(sb);
                     seen.Add(tuple);
                     sb.Append(tuple.Named.Name).Append('(');
                     for (int i = 0; i < tuple.Items.Length; i++)
@@ -219,6 +220,13 @@ namespace CSharpPython
             }
         }
 
+        // One more container in a repr: counted, and the text built so far is capped (sixteen times MaxSequenceLength).
+        private static void Visit(StringBuilder sb)
+        {
+            Work.Visit();
+            if (sb.Length > (long)Ops.MaxSequenceLength * 16) throw new PyError("MemoryError", "string too long");
+        }
+
         private static void WriteSequence(StringBuilder sb, IReadOnlyList<Value> items, object owner, string open, string close, List<object> seen)
         {
             if (seen.Contains(owner) || seen.Count >= MaxReprDepth)
@@ -226,6 +234,7 @@ namespace CSharpPython
                 sb.Append(open).Append("...").Append(close == ",)" ? ")" : close);
                 return;
             }
+            Visit(sb);
             seen.Add(owner);
             sb.Append(open);
             for (int i = 0; i < items.Count; i++)
@@ -244,6 +253,7 @@ namespace CSharpPython
                 sb.Append(dict.Flavor == DictFlavor.Counter ? "Counter(...)" : dict.Flavor == DictFlavor.Default ? "defaultdict(..., {...})" : "{...}");
                 return;
             }
+            Visit(sb);
             seen.Add(dict);
             if (dict.Flavor == DictFlavor.Counter && dict.Count == 0)
             {

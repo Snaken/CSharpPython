@@ -381,11 +381,13 @@ namespace CSharpPython
         {
             string s = S(a, 0), oldText = S(a, 1), newText = S(a, 2);
             long count = OptInt(a, 3, -1);
-            if (count < 0 && oldText.Length > 0)
+            if (oldText.Length > 0)
             {
-                long growth = (long)s.Length + (long)(newText.Length - oldText.Length) * (s.Length / oldText.Length + 1);
+                // The result is at most this long: every match that can happen (up to count) grows by the difference.
+                long matches = Math.Min(count < 0 ? long.MaxValue : count, s.Length / oldText.Length);
+                long growth = (long)s.Length + (long)(newText.Length - oldText.Length) * matches;
                 if (growth > Ops.MaxSequenceLength) throw new PyError("MemoryError", "string too long");
-                return Value.FromString(s.Replace(oldText, newText));
+                if (count < 0) return Value.FromString(s.Replace(oldText, newText));
             }
             var sb = new StringBuilder();
             int pos = 0;
