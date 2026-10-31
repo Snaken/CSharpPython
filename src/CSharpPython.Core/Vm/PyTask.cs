@@ -1505,7 +1505,15 @@ namespace CSharpPython
                 link = next;
             }
             raised.Context = current;
+
+            // A script can keep raising inside an except block, each exception remembering the one before it and the
+            // whole call stack it was raised from, without limit. Keep the nearest links and let go of the rest.
+            var last = raised;
+            for (int links = 0; last != null && links < MaxContextChain; links++) last = AsException(last.Context);
+            if (last != null) last.Context = Value.None;
         }
+
+        private const int MaxContextChain = 64;
 
         private void ColdReraise()
         {
@@ -2064,7 +2072,11 @@ namespace CSharpPython
         // left the call made by a native function and must continue through that native.
         private bool Unwind(ref PyExceptionValue exc, int floor = 0)
         {
-            if (exc.Trace.Count == 0) exc.Trace = CurrentTrace();
+            if (exc.Trace.Count == 0)
+            {
+                exc.Trace = CurrentTrace();
+                _memoryGrowth += MemorySizes.Object * 3 + MemorySizes.TraceFrame * exc.Trace.Count;
+            }
             if (exc.Instance != null) exc.Instance.Trace = exc.Trace;
             while (_frameCount > floor)
             {

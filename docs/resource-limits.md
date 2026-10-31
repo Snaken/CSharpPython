@@ -46,3 +46,7 @@ The limit is per task, so a game with 100 tasks can hold 100 times the limit. Si
 ## Keys that share a hash
 
 A dict or set whose keys all share one hash degrades to a list: every insert walks the same chain, so n inserts cost n squared. A script must not be able to cause that on purpose. Strings use the platform's randomized hash. Integers beyond 32 bits, floats with a fraction, big integers, tuples, frozensets, slices and ranges go through a mixer keyed with a seed chosen when the process starts, so a script cannot work out which keys collide. Integers that fit in 32 bits are their own hash (no two collide, and `hash(5)` is `5`). Equal values always hash alike, so `d[1.0]` finds `d[1]` and a float finds the big integer of the same value. Because of the seed, `hash()` of anything but a small integer or a bool differs from run to run, as it does for strings; do not save it.
+
+## Exception chains
+
+An exception raised inside an `except` block remembers the one being handled (`__context__`), and each exception keeps the call stack it was raised from. A script that keeps raising inside handlers could therefore keep every exception it had ever raised. The `__context__` chain is cut after 64 links, which is far more than any real script builds. The traceback of each exception (16 bytes a frame in the estimate) counts towards `MaxMemoryBytes`, so a script that keeps exceptions alive some other way, for example through `__cause__` or a list, is stopped by the memory limit.

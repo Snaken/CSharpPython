@@ -76,6 +76,7 @@ namespace CSharpPython
         public const long DictEntry = 3 * Slot; // key, value and the bookkeeping of the entry
         public const long SetEntry = 2 * Slot;
         public const long StringHead = 24;
+        public const long TraceFrame = 16;  // a function name and a line, for each frame of an exception's traceback
 
         // The most a step is assumed to allocate on average, for deciding when to measure again. Work done on a big value
         // is charged as steps, so a bulk allocation counts for more (see Work.Items).
@@ -261,7 +262,7 @@ namespace CSharpPython
                     if (First(v.RawObject))
                     {
                         var e = (PyExceptionValue)v.RawObject;
-                        _bytes += 3 * MemorySizes.Object;
+                        _bytes += 3 * MemorySizes.Object + MemorySizes.TraceFrame * (e.Trace?.Count ?? 0);
                         Visit(e.Payload);
                         Visit(e.Cause);
                         Visit(e.Context);
