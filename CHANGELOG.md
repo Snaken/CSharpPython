@@ -18,6 +18,7 @@
 - `BlockGraph.FromJson(json, limits)` checks a file against `BlockLimits` (document length, counts of functions, blocks, variables and links, lengths of ids, names, values and types, and the editor section) and rejects one that goes over, saying which limit. The defaults are generous for hand-made graphs, and a host can change them. `BlockLimits.Problem(graph)` checks a graph built in code.
 - `new PinTypeIndex(library, includeBlocks: true)` also searches the built-in blocks: a block's input pins accept an output, and its output (a loop block's variable included) is found by the type an input needs. A wildcard pin (`$T`) fits any type. `PinMatch.Block` is set for these and `PinMatch.Function` is then null. Without the flag the results are the same as before.
 - `PyTask.CurrentLine` and `PyTask.GetCallStack()` say where a task is, for an editor to highlight the running line (a waiting task is on the line of the call that waits; 0 once it has finished or failed). Reading them costs nothing while the task runs, and a restored task reports the same lines.
+- `SourceMap.Running(task)` and `SourceMap.ActiveNodes(task)` map a running task to the block it is at and the blocks that called into it.
 
 ## 0.2.2
 

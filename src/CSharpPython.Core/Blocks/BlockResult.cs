@@ -74,6 +74,33 @@ namespace CSharpPython.Blocks
         }
 
         /// <summary>
+        /// The block a running task is at, for an editor to highlight: the block behind the line of the innermost
+        /// function that has one, or null when the task is not running or is on a line no single block owns. The task
+        /// must be running the source this map was made for.
+        /// </summary>
+        public string Running(PyTask task)
+        {
+            var nodes = ActiveNodes(task);
+            return nodes.Count == 0 ? null : nodes[0];
+        }
+
+        /// <summary>
+        /// The blocks a running task is inside, innermost first: the block it is at, then the block that called the
+        /// function it is in, and so on up. A function with no block on its line adds none, and a block is listed once.
+        /// </summary>
+        public IReadOnlyList<string> ActiveNodes(PyTask task)
+        {
+            if (task == null) throw new ArgumentNullException(nameof(task));
+            var nodes = new List<string>();
+            foreach (var frame in task.GetCallStack())
+            {
+                string id = NodeAt(frame.Line);
+                if (id != null && !nodes.Contains(id)) nodes.Add(id);
+            }
+            return nodes;
+        }
+
+        /// <summary>
         /// Finds the block to blame for a runtime error: the innermost frame of the traceback that lands on a line
         /// owned by a block. Returns null if no frame does.
         /// </summary>
