@@ -250,6 +250,7 @@ namespace CSharpPython
                 return _state;
             }
             _state = result;
+            if (result != TaskState.Error && MemoryLimitExceeded(_sliceSize - Math.Max(_budget, 0) + _sliceSpent)) return _state;
             return _state;
         }
 
@@ -2295,6 +2296,7 @@ namespace CSharpPython
         internal void Charge(long steps)
         {
             if (steps <= 0) return;
+            _memoryGrowth += steps * Work.ItemsPerStep * MemorySizes.Slot; // a charged step is up to 16 items built
             long absorbed = Math.Min(steps, Math.Max(_budget, 0)); // the slice accounting already counts these
             _budget -= steps;
             _totalSteps += steps - absorbed;

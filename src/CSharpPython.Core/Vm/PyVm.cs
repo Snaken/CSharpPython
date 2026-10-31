@@ -24,6 +24,8 @@ namespace CSharpPython
             Options = options ?? new VmOptions();
             if (Options.MaxSequenceLength < 1 || Options.MaxSequenceLength > VmOptions.SequenceLengthCeiling)
                 throw new ArgumentOutOfRangeException(nameof(options), "MaxSequenceLength must be between 1 and " + VmOptions.SequenceLengthCeiling + ".");
+            if (Options.MaxMemoryBytes < 0)
+                throw new ArgumentOutOfRangeException(nameof(options), "MaxMemoryBytes cannot be negative; use 0 for no limit.");
             CSharpPython.Builtins.Install(Builtins, Modules);
         }
 

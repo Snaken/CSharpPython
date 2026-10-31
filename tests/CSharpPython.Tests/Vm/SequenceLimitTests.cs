@@ -27,7 +27,7 @@ namespace CSharpPython.Tests.Vm
         [TestCase("l = [i for i in range(200000)]")]
         [TestCase("l = [0]\nfor i in range(20):\n    l = l + l")]
         [TestCase("l = []\nfor i in range(200):\n    l.extend([0] * 1000)")]
-        [TestCase("l = []\nfor i in range(200000):\n    l.insert(0, i)")]
+        [TestCase("l = [0] * 99999\nl.insert(0, 1)\nl.insert(0, 2)")]
         [TestCase("l = [0] * 100000\nl[0:0] = [1, 2]")]
         [TestCase("d = {}\nfor i in range(200000):\n    d[i] = 1")]
         [TestCase("d = {i: i for i in range(200000)}")]
@@ -82,7 +82,7 @@ namespace CSharpPython.Tests.Vm
 
         [Test]
         public void TheCeilingCanBeUsed() =>
-            Assert.That(Outcome("l = [0] * 4194304", new VmOptions { MaxSequenceLength = VmOptions.SequenceLengthCeiling }), Is.EqualTo("finished"));
+            Assert.That(Outcome("l = [0] * 4194304", new VmOptions { MaxSequenceLength = VmOptions.SequenceLengthCeiling, MaxMemoryBytes = 0 }), Is.EqualTo("finished"));
 
         [TestCase(0)]
         [TestCase(-1)]

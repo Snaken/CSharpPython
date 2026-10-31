@@ -24,6 +24,18 @@ namespace CSharpPython
         /// </summary>
         public int MaxIntBits = 16384;
 
+        /// <summary>The default of <see cref="MaxMemoryBytes"/>: 64 MB.</summary>
+        public const long DefaultMaxMemoryBytes = 64L * 1024 * 1024;
+
+        /// <summary>
+        /// The most memory one task may hold, in bytes, or 0 for no limit. It is an estimate of what the script can reach
+        /// (see <see cref="PyTask.EstimatedMemoryBytes"/>), not of what the process uses, and it is checked as the task runs,
+        /// so a script can pass it by a little before it is stopped. Going over ends the task with an uncatchable
+        /// <c>MemoryLimitExceeded</c> error, as <see cref="MaxSteps"/> does. The default is 64 MB; any positive size may be set.
+        /// A negative value is refused when the <see cref="PyVm"/> is made. See docs/resource-limits.md.
+        /// </summary>
+        public long MaxMemoryBytes = DefaultMaxMemoryBytes;
+
         /// <summary>The default of <see cref="MaxSequenceLength"/>.</summary>
         public const int DefaultMaxSequenceLength = 100000;
 

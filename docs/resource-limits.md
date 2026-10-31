@@ -9,7 +9,7 @@ How a host keeps a player's script from using too much time or memory. Written f
 | Size of one integer | `MaxIntBits` | 16,384 | any |
 | Call depth | `MaxCallDepth` | 200 | any |
 | Items in one string, list, tuple, dict, set or deque | `MaxSequenceLength` | 100,000 | 1 to 4,194,304 |
-| Memory one task can reach | `MaxMemoryBytes` | 64 MB (planned) | 0 for no limit, or any size (planned) |
+| Memory one task can reach (an estimate) | `MaxMemoryBytes` | 64 MB | 0 for no limit, or any size |
 
 ## Native work costs steps
 
@@ -31,6 +31,14 @@ Every way a container grows is checked: `append`, `extend`, `insert`, slice assi
 
 The limit is per object, so many objects at the limit still add up (100 lists of 100,000 items is 10 million items). That is what `MaxMemoryBytes` is for.
 
-## Planned: memory limit
+## Memory a task holds
 
-- `MaxMemoryBytes` limits what one task can reach. It is an estimate of live size (it adds up approximate sizes of the globals, stack and frames of the task and everything they hold), not an allocation counter, so a script that runs for hours and builds a new string every frame is fine. The estimate is refreshed on a schedule that grows with the size of the heap, and straight after a single large allocation. Going over raises an uncatchable `MemoryError`, as `MaxSteps` raises `StepLimitExceeded`. The default is 64 MB; 0 turns the limit off; a host may set any size.
+`MaxMemoryBytes` limits what one task can reach. The default is 64 MB; 0 turns the limit off; any positive size may be set (a negative one throws `ArgumentOutOfRangeException` from the `PyVm` constructor). Going over ends the task with an uncatchable `MemoryLimitExceeded` error, as `MaxSteps` ends it with `StepLimitExceeded`: a script cannot catch it with `try` or `finally`, and the host sees `TaskState.Error`.
+
+**It is an estimate of live size, not an allocation counter.** The VM walks everything the task can reach (globals, stack, call frames, queued events, and everything they hold, each object once) and adds up approximate sizes: 24 bytes for a slot that holds a value, 24 + 2 bytes a character for a string, 32 + 24 bytes an item for a list or tuple, 72 bytes an entry for a dict and 48 for a set, and small fixed sizes for instances, functions and the like. A script that runs for hours and builds and drops a string every frame is fine, because what it dropped is no longer reachable. Objects shared with other tasks are counted in each. It ignores what the host holds and the memory manager's overhead, so it is not what the process uses. `PyTask.EstimatedMemoryBytes` gives the same number for a debug display (it walks the heap, so do not call it every frame).
+
+**When it is checked.** At the end of each slice, but a walk costs about a step for every object, so the task does not walk every time. It keeps an upper bound on how much it can have grown since the last walk (32 bytes for each step, and more for work charged on big values, see above) and walks again only when the last measurement plus that bound could reach the limit. A script far below the limit is almost never walked; one near it is walked often enough not to go far past it. This makes the limit **soft**: a script can pass it by a little before it is stopped, and one that allocates much more than 32 bytes a step in a sustained way can pass it by more. Treat it as a guard against runaway scripts, not as an exact budget.
+
+**What it costs.** Nothing measurable for scripts that keep little (the usual case for game scripts). A task that holds most of its limit pays for the walks: in a measurement of a hot loop running with 25 to 40 MB of the 64 MB limit held, it ran 65 to 80% slower than with the limit off. A host that cannot afford that sets a higher limit (the cost falls as the headroom grows) or 0.
+
+The limit is per task, so a game with 100 tasks can hold 100 times the limit. Size it for the number of tasks, or give each task its own `PyVm` with its own limit.

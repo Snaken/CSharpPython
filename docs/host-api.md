@@ -81,7 +81,7 @@ Register custom exception types with `vm.RegisterExceptionType("GameError")` so 
 
 ## Limits
 
-Scripts can be untrusted. `vm.Options` has `StepsPerSlice`, `MaxSteps` (a hard cap that ends the task with an uncatchable `StepLimitExceeded`), `MaxCallDepth` (a catchable `RecursionError`), `MaxQueuedEvents` `MaxIntBits` (the largest integer result, in bits; bigger raises a catchable `OverflowError`) and `MaxSequenceLength` (the most items in one string, list, tuple, dict, set or deque, 100,000 by default and at most 4,194,304; more raises a catchable `MemoryError`). Operations on large values also cost steps, so `MaxSteps` bounds running time. See [resource limits](resource-limits.md).
+Scripts can be untrusted. `vm.Options` has `StepsPerSlice`, `MaxSteps` (a hard cap that ends the task with an uncatchable `StepLimitExceeded`), `MaxCallDepth` (a catchable `RecursionError`), `MaxQueuedEvents` `MaxIntBits` (the largest integer result, in bits; bigger raises a catchable `OverflowError`) and `MaxSequenceLength` (the most items in one string, list, tuple, dict, set or deque, 100,000 by default and at most 4,194,304; more raises a catchable `MemoryError`). `MaxMemoryBytes` (an estimate of the memory one task can reach, 64 MB by default and 0 for no limit; going over ends the task with an uncatchable `MemoryLimitExceeded`, and `task.EstimatedMemoryBytes` shows the number). Operations on large values also cost steps, so `MaxSteps` bounds running time. See [resource limits](resource-limits.md).
 
 ## Big integers
 
