@@ -37,7 +37,7 @@ namespace CSharpPython.Blocks
     /// <see cref="EditResult"/>; a refused edit changes nothing and raises nothing. <see cref="Changed"/> is raised
     /// once after each edit that was made.
     /// </summary>
-    public sealed class BlockEditor
+    public sealed partial class BlockEditor
     {
         public BlockGraph Graph { get; }
         public BlockLibrary Library { get; }
