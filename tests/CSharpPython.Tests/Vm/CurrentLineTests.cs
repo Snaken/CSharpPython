@@ -75,7 +75,7 @@ namespace CSharpPython.Tests.Vm
             Assert.That(task.RunUntilDone(), Is.EqualTo(TaskState.Error));
             Assert.That(task.CurrentLine, Is.EqualTo(0));
             Assert.That(task.GetCallStack(), Is.Empty);
-            Assert.That(task.Error.Trace.First().Line, Is.EqualTo(2));
+            Assert.That(task.Error.Trace[0].Line, Is.EqualTo(2));
         }
 
         [Test]
