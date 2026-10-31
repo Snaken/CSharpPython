@@ -68,6 +68,8 @@ namespace CSharpPython.Blocks
             var fn = FindFunction(function);
             if (fn == null) return EditResult.Refused(NoFunction(function));
             if (string.IsNullOrEmpty(block)) return EditResult.Refused("A block needs a type.");
+            string place = CheckFinite(x, y);
+            if (place != null) return EditResult.Refused(place);
             if (block == "call")
             {
                 string problem = CheckCallName(name);
@@ -144,6 +146,8 @@ namespace CSharpPython.Blocks
             var fn = FindFunction(function);
             if (fn == null) return EditResult.Refused(NoFunction(function));
             if (FindNode(fn, nodeId) == null) return EditResult.Refused(NoNode(function, nodeId));
+            string place = CheckFinite(x, y);
+            if (place != null) return EditResult.Refused(place);
             Graph.Editor.Place(nodeId, x, y);
             return Made(EditResult.Done());
         }
