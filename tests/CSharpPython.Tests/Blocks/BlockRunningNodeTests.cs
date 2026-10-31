@@ -114,6 +114,25 @@ namespace CSharpPython.Tests.Blocks
         }
 
         [Test]
+        public void ABlockInAnEventHandlerIsFoundWhileTheHandlerWaits()
+        {
+            var main = new BlockFunction("main") { Start = "mw" };
+            main.Add(N("mw", "call", "game.wait").Literal("arg0", "20"));
+            var hit = new BlockFunction("on_hit", "damage") { Start = "hw" };
+            hit.Add(N("hw", "call", "game.wait").Literal("arg0", "2").Then("hp"));
+            hit.Add(N("hp", "call", "print").Literal("arg0", "1"));
+            var (r, task) = Start(new BlockGraph().AddFunction(main).AddFunction(hit));
+            Assert.That(task.Update(), Is.EqualTo(TaskState.Waiting));
+            Assert.That(r.Map.Running(task), Is.EqualTo("mw"));
+
+            task.QueueEvent("on_hit", 5);
+            task.Tick();
+            task.Update();
+            var active = r.Map.ActiveNodes(task);
+            Assert.That(active[0], Is.EqualTo("hw"), "the handler's own wait is the innermost block");
+        }
+
+        [Test]
         public void ANullTaskIsRejected()
         {
             var (r, _) = Start(Graph());
