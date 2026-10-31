@@ -39,7 +39,7 @@ The node view is a Blueprint-style editor: a script is a graph of nodes on a fre
 
 **Where it lives**
 
-20. **The core owns the model, not the canvas.** The graph model, type checking, compiler and search index stay free of Unity code. The node canvas ships as a sample inside the package first and moves to its own package once it settles.
+20. **The core owns the model, not the canvas.** The graph model, type checking, compiler, search index and the host-independent editing rules (see Step 5) stay free of any host's code, because the library may serve hosts other than Unity. The canvas and the view samples live in a separate public repository, `CSharpPythonExamples`, never in this one.
 
 ## What already exists
 
@@ -58,6 +58,24 @@ So the question is less "a second system" than "which parts of this model does a
 
 Everything else a node view needs (events, user-made functions, globals, JSON, diagnostics, the source map) is there. **Decided:** build the node view on this model, with these gaps closed, and treat the block view as a second editor over the same data. If a stacked block view needs its own limits (for instance, no joins), it can enforce them in its editor.
 
+## Step 5 plan
+
+**Where things go.** This repository has no Unity code. The canvas, the samples and any scene or prefab live in a public repository called `CSharpPythonExamples`, next to this one. It can hold examples for other hosts later, so it is laid out by host and then by example (`unity/<example>/`). Its root `README.md` lists every example with a short summary of what it covers and which package version it needs; each example has a `README.md` of its own with the details (what it shows, how to run it, which parts of the library it uses). Each Unity example is a full Unity project that adds this package by Git URL, so it can be opened and run directly.
+
+**5a. Editing rules in this repository.** An editor on any host needs the same things, and they are easy to get wrong in a canvas, so they are a tested class in the core (`BlockEditor`, working on a `BlockGraph` and a `BlockLibrary`, with no drawing):
+
+- Add a block of a type, or a call to a function, with a new unique id and a place on the canvas; remove a block and everything that pointed at it (input wires, execution links, its editor entries).
+- Draw and remove wires: `Connect` runs `BlockTypeChecker.CheckWire` (types, loop scope) and replaces the wire already on the pin; `Link` and `Unlink` do the same for execution wires, refusing a pin the block does not have and reporting a loop back. A refused edit changes nothing and returns the reason.
+- Search: nodes that fit a pin by type (`PinTypeIndex` with blocks), and by text.
+- Functions and variables: add, rename (updating every call and read), remove, set parameters and types; an event handler is a function with the event's name.
+- Undo and redo. Each edit is one step, and a drag of a block into place is one step, not one per frame. The first version takes a snapshot of the graph before each edit (it is simple and cannot get out of step); a log of changes can replace it if graphs get large enough for that to matter.
+- A `Changed` event, and the current diagnostics (compile errors, type errors, placeholders) so the canvas can mark blocks.
+- Compile on request, and the current block while a task runs (`SourceMap.Running`).
+
+**5b. The examples repository.** First a Unity node editor using UI Toolkit at runtime (the editor-only `GraphView` cannot run in a game): a pan and zoom canvas, a node element with pins, a wire layer drawn with `Painter2D`, a search box fed by the type index, a variables panel, and a diagnostics badge per node. It only calls `BlockEditor`. Then one example per view, each running the same small game script on a `GameObject`: Python view (the text editor with the editor tooling), Block view (a stacked editor over the same graph; it may refuse what a stack cannot show, such as joins), and Node view. More examples can be added later (an in-game console, saving and restoring a task, host functions and handles) without changing the layout.
+
+**Order.** 5a in small sections (add and remove, wires, search, functions and variables, undo, diagnostics), each with tests and its own commit message as before. 5b starts when 5a is done, and I cannot build or run Unity here, so each piece of it is written to be tried by you in Unity, with the results sent back.
+
 ## To work out while building
 
 These are details, not open design questions:
@@ -73,4 +91,4 @@ These are details, not open design questions:
 2. Add the type-compatibility check and the search-by-type index, with tests, before any editor exists.
 3. Close the compiler gaps: shared pure nodes, flow joins, several outputs, branch-scoped values, typed variables and the editor section in the saved file, with load validation.
 4. Add the "current line" to `PyTask` and map it to nodes.
-5. Build a sample node editor, then the samples for the three views.
+5. Add the editing rules that do not depend on a host (5a, in this repository), then build the node editor canvas and the samples for the three views in the examples repository (5b).

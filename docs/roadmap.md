@@ -6,7 +6,7 @@ Everything known to be missing, grouped by area. The order inside a group is rou
 
 - A WebGL build and a check inside the Editor and on a `GameObject`. A standalone Mono and IL2CPP player passes its checks.
 - Publish to NuGet and OpenUPM.
-- Samples (a script running on a `GameObject`, an in-game editor using the editor tooling) and an API reference. The samples should include one for each view: Python, Block and Node (see Editor tooling and Blocks).
+- Samples (a script running on a `GameObject`, an in-game editor using the editor tooling) and an API reference. The samples live in a separate public repository, `CSharpPythonExamples`, and should include one for each view: Python, Block and Node (see Editor tooling and Blocks).
 
 ## Language
 
