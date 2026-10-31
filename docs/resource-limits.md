@@ -42,3 +42,7 @@ The limit is per object, so many objects at the limit still add up (100 lists of
 **What it costs.** Nothing measurable for scripts that keep little (the usual case for game scripts). A task that holds most of its limit pays for the walks: in a measurement of a hot loop running with 25 to 40 MB of the 64 MB limit held, it ran 65 to 80% slower than with the limit off. A host that cannot afford that sets a higher limit (the cost falls as the headroom grows) or 0.
 
 The limit is per task, so a game with 100 tasks can hold 100 times the limit. Size it for the number of tasks, or give each task its own `PyVm` with its own limit.
+
+## Keys that share a hash
+
+A dict or set whose keys all share one hash degrades to a list: every insert walks the same chain, so n inserts cost n squared. A script must not be able to cause that on purpose. Strings use the platform's randomized hash. Integers beyond 32 bits, floats with a fraction, big integers, tuples, frozensets, slices and ranges go through a mixer keyed with a seed chosen when the process starts, so a script cannot work out which keys collide. Integers that fit in 32 bits are their own hash (no two collide, and `hash(5)` is `5`). Equal values always hash alike, so `d[1.0]` finds `d[1]` and a float finds the big integer of the same value. Because of the seed, `hash()` of anything but a small integer or a bool differs from run to run, as it does for strings; do not save it.

@@ -197,7 +197,7 @@ namespace CSharpPython
                 case ValueKind.None: return 0;
                 case ValueKind.Bool:
                 case ValueKind.Int: return HashInt(v.RawInt);
-                case ValueKind.BigInt: return ((System.Numerics.BigInteger)v.RawObject).GetHashCode();
+                case ValueKind.BigInt: return HashBig((System.Numerics.BigInteger)v.RawObject);
                 case ValueKind.Float:
                 {
                     double d = v.RawFloat;
@@ -205,16 +205,16 @@ namespace CSharpPython
                     {
                         // An integral float hashes like the integer of the same value, whatever its size.
                         if (d >= -9.2233720368547758e18 && d < 9.2233720368547758e18) return HashInt((long)d);
-                        return new System.Numerics.BigInteger(d).GetHashCode();
+                        return HashBig(new System.Numerics.BigInteger(d));
                     }
-                    return d.GetHashCode();
+                    return MixHash(unchecked((ulong)BitConverter.DoubleToInt64Bits(d)));
                 }
                 case ValueKind.Str: return ((string)v.RawObject).GetHashCode();
                 case ValueKind.Tuple:
                 {
                     CheckStack();
                     int h = 17;
-                    foreach (var item in ((PyTuple)v.RawObject).Items) h = unchecked(h * 31 + Hash(item));
+                    foreach (var item in ((PyTuple)v.RawObject).Items) h = Combine(h, Hash(item));
                     return h;
                 }
                 case ValueKind.Handle: return unchecked(v.RawAux * 31 + HashInt(v.RawInt));
@@ -225,14 +225,14 @@ namespace CSharpPython
                     if (!set.Frozen) throw TypeError("unhashable type: 'set'");
                     CheckStack();
                     int h = 0x5bd1e995;
-                    foreach (var item in set.Members()) h = unchecked(h + Hash(item) * 0x2545F491);
+                    foreach (var item in set.Members()) h = unchecked(h + MixHash((uint)Hash(item)));
                     return h;
                 }
                 case ValueKind.Slice:
                 {
                     var slice = (PySlice)v.RawObject;
                     CheckStack();
-                    return unchecked((Hash(slice.Start) * 31 + Hash(slice.Stop)) * 31 + Hash(slice.Step));
+                    return Combine(Combine(Hash(slice.Start), Hash(slice.Stop)), Hash(slice.Step));
                 }
                 case ValueKind.List:
                 case ValueKind.Deque:
@@ -242,7 +242,7 @@ namespace CSharpPython
                 case ValueKind.Range:
                 {
                     var r = (PyRange)v.RawObject;
-                    return unchecked((int)(r.Length * 31 + r.Start * 17 + r.Step));
+                    return Combine(Combine(HashInt(r.Length), HashInt(r.Start)), HashInt(r.Step));
                 }
                 default: return System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(v.RawObject);
             }
@@ -251,7 +251,48 @@ namespace CSharpPython
         // True for a finite float with no fractional part (the difference is exactly 0, or at least double.Epsilon).
         internal static bool IsIntegral(double d) => Math.Abs(d - Math.Floor(d)) < double.Epsilon;
 
-        private static int HashInt(long i) => unchecked((int)(i ^ (i >> 32)));
+        // Integers that fit in 32 bits are their own hash (so there are no collisions among them, and hash(5) is 5 as in
+        // Python). Bigger ones, floats with a fraction and very large integers go through a mixer with a seed chosen when
+        // the process starts, so a script cannot pick keys that all share a hash and make every dict or set insert walk
+        // the same chain (keys like (a << 32) | a collided under a plain fold of the high bits onto the low ones).
+        private static int HashInt(long i) =>
+            i >= int.MinValue && i <= int.MaxValue ? (int)i : MixHash(unchecked((ulong)i));
+
+        private static readonly ulong HashSeed = MakeHashSeed();
+
+        private static ulong MakeHashSeed()
+        {
+            byte[] bytes = Guid.NewGuid().ToByteArray();
+            ulong seed = BitConverter.ToUInt64(bytes, 0) ^ BitConverter.ToUInt64(bytes, 8);
+            return seed | 1;
+        }
+
+        // The 64-bit finalizer of MurmurHash3, applied to the value xor the process seed, folded to 32 bits.
+        private static int MixHash(ulong x)
+        {
+            unchecked
+            {
+                x ^= HashSeed;
+                x ^= x >> 33;
+                x *= 0xff51afd7ed558ccdUL;
+                x ^= x >> 33;
+                x *= 0xc4ceb9fe1a85ec53UL;
+                x ^= x >> 33;
+                return (int)x ^ (int)(x >> 32);
+            }
+        }
+
+        // Joins two hashes, in order, so that a tuple's hash depends on its items in a way a script cannot predict:
+        // with a plain h * 31 + item, the tuples (k, C - 31 * k) all share one hash.
+        private static int Combine(int h, int x) => MixHash(((ulong)(uint)h << 32) | (uint)x);
+
+        // Equal integers must hash alike whether they are held as a BigInteger or reached from a float, so both use this.
+        private static int HashBig(System.Numerics.BigInteger b)
+        {
+            ulong h = 14695981039346656037UL;
+            foreach (byte x in b.ToByteArray()) h = unchecked((h ^ x) * 1099511628211UL);
+            return MixHash(h);
+        }
 
         // ---- Arithmetic -----------------------------------------------------------------------------------------
 
