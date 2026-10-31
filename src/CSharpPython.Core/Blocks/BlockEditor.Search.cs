@@ -64,25 +64,36 @@ namespace CSharpPython.Blocks
 
         /// <summary>
         /// The blocks that could take the value of an output, for dragging a wire from it and dropping on empty
-        /// canvas. Each has the input <see cref="BlockChoice.Pin"/> to wire to. Empty for a block with no value.
+        /// canvas. Each has the input <see cref="BlockChoice.Pin"/> to wire to. Empty for a block with no value. Functions
+        /// of the graph are offered for each of their parameters, since a parameter takes any value.
         /// </summary>
         public IReadOnlyList<BlockChoice> SuggestForOutput(string function, string nodeId, string outputPin = null)
         {
             var type = BlockTypeChecker.OutputType(Graph, function, nodeId, Library, outputPin);
             if (type == null) return new BlockChoice[0];
-            return Choices(Index().Accepting(type));
+            var choices = Choices(Index().Accepting(type)).ToList();
+            // Parameters of the graph's own functions have no declared type, so they take any value.
+            foreach (var f in Graph.Functions.Where(f => f != null && !string.IsNullOrEmpty(f.Name)))
+                for (int i = 0; i < f.Parameters.Count; i++)
+                    choices.Add(new BlockChoice("call", f.Name, f.Name, "Graph", FunctionSpec.ArgPin(i)));
+            return choices;
         }
 
         /// <summary>
         /// The blocks that could give a value to an input pin, for dragging a wire from the pin and dropping on empty
         /// canvas. Each has the output <see cref="BlockChoice.Pin"/> to wire from. Empty when the block has no such pin.
+        /// Functions of the graph are offered, since one may return a value of any type.
         /// </summary>
         public IReadOnlyList<BlockChoice> SuggestForInput(string function, string nodeId, string pin)
         {
             var fn = FindFunction(function);
             var node = fn == null ? null : FindNode(fn, nodeId);
             if (node == null || CheckInputPin(node, pin) != null) return new BlockChoice[0];
-            return Choices(Index().Producing(InputTypeOf(node, pin)));
+            var choices = Choices(Index().Producing(InputTypeOf(node, pin))).ToList();
+            // The graph's own functions may return a value of any type.
+            foreach (var f in Graph.Functions.Where(f => f != null && !string.IsNullOrEmpty(f.Name)))
+                choices.Add(new BlockChoice("call", f.Name, f.Name, "Graph"));
+            return choices;
         }
 
         // ---- Search helpers ----

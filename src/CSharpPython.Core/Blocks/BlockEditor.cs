@@ -180,7 +180,11 @@ namespace CSharpPython.Blocks
             return Made(EditResult.Done());
         }
 
-        /// <summary>Types a literal into an input pin, replacing what the pin had. Whether the literal fits the pin is reported by compiling.</summary>
+        /// <summary>
+        /// Types a literal into an input pin, replacing what the pin had. Refused when the text is not a single number,
+        /// string, <c>True</c>, <c>False</c> or <c>None</c>, or when its type does not fit the pin
+        /// (<see cref="BlockTypeChecker.CheckLiteral"/>), with the reason.
+        /// </summary>
         public EditResult SetLiteral(string function, string nodeId, string pin, string literal)
         {
             var fn = FindFunction(function);
@@ -192,6 +196,9 @@ namespace CSharpPython.Blocks
             if (literal == null) return EditResult.Refused("A literal needs text; use Disconnect to empty the pin.");
             if (literal.Length > Limits.MaxLiteralLength)
                 return EditResult.Refused("A literal may be at most " + Limits.MaxLiteralLength + " characters.");
+
+            var check = BlockTypeChecker.CheckLiteral(Graph, function, nodeId, pin, literal, Library);
+            if (!check.Allowed) return EditResult.Refused(check.Reason);
 
             ClearInput(node, pin);
             node.Literal(pin, literal);

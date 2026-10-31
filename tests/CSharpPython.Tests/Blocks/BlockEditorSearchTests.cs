@@ -141,6 +141,31 @@ namespace CSharpPython.Tests.Blocks
         }
 
         [Test]
+        public void FunctionsOfTheGraphAreOfferedByPinType()
+        {
+            var editor = Editor();
+            editor.AddParameter("patrol", "again");
+            var fromOutput = editor.SuggestForOutput("main", "v").Where(c => c.Name == "patrol").ToList();
+            Assert.That(fromOutput.Select(c => c.Pin), Is.EqualTo(new[] { "arg0", "arg1" }), "one choice for each parameter");
+            Assert.That(fromOutput.All(c => c.Block == "call" && c.Category == "Graph"), Is.True);
+            Assert.That(editor.SuggestForOutput("main", "v").Any(c => c.Name == "main"), Is.False, "main has no parameters");
+
+            var fromInput = editor.SuggestForInput("main", "s", "arg0").Where(c => c.Name == "patrol").ToList();
+            Assert.That(fromInput.Count, Is.EqualTo(1), "a function may return anything");
+            Assert.That(fromInput[0].Pin, Is.Null);
+        }
+
+        [Test]
+        public void AChoiceOfAGraphFunctionCanBeAddedAndWired()
+        {
+            var editor = Editor();
+            var choice = editor.SuggestForOutput("main", "v").First(c => c.Name == "patrol");
+            var added = editor.AddNode("main", choice.Block, choice.Name);
+            Assert.That(added.Succeeded, Is.True);
+            Assert.That(editor.Connect("main", added.Node.Id, choice.Pin, "v").Succeeded, Is.True);
+        }
+
+        [Test]
         public void TheIndexIsRebuiltWhenTheLibraryGrows()
         {
             var editor = Editor();

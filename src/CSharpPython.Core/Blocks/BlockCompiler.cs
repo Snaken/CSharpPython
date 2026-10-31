@@ -309,7 +309,7 @@ namespace CSharpPython.Blocks
             return true;
         }
 
-        private static string CheckLiteral(string literal)
+        internal static string CheckLiteral(string literal)
         {
             string text = literal.Trim();
             if (text.IndexOf('\n') >= 0 || text.IndexOf('\r') >= 0) return null;

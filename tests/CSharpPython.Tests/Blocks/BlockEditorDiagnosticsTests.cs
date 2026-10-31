@@ -79,10 +79,11 @@ namespace CSharpPython.Tests.Blocks
         }
 
         [Test]
-        public void AWrongTypeTypedIntoAPinIsReported()
+        public void AWrongTypeThatGotIntoTheGraphIsReported()
         {
             var editor = Editor(Vm());
-            editor.SetLiteral("main", "w", "arg0", "\"two\"");
+            // The editor refuses this literal, so put it into the graph the way a loaded file could.
+            editor.Graph.Functions[0].Nodes.First(n => n.Id == "w").Inputs.First(i => i.Pin == "arg0").Literal = "\"two\"";
             var result = editor.Compile();
             Assert.That(result.Succeeded, Is.False, "a string typed into an int pin");
             Assert.That(result.DiagnosticsOf("w"), Is.Not.Empty);

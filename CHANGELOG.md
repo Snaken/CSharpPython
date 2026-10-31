@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- `BlockEditor.SetLiteral` refuses a typed-in value whose type does not fit the pin (a number into a text pin, a text onto a list of numbers), and text that is not a single number, string, `True`, `False` or `None`, with the reason. `BlockTypeChecker.CheckLiteral` answers the same question without changing the graph.
+- `BlockEditor.SuggestForOutput` and `SuggestForInput` also offer the functions of the graph.
+
 ## 0.2.3
 
 The node view groundwork: typed pins, a type-checked and more capable Blocks compiler, the editing rules an editor needs (`BlockEditor`), and the current line of a running task. The language and the VM are unchanged, and the snapshot format is still version 16. **A saved task of a block script in which one value block feeds several inputs cannot be restored**, because the generated script is different (see the shared value entry), and **block graphs that wire a value of the wrong type no longer compile**.

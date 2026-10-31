@@ -174,6 +174,63 @@ namespace CSharpPython.Tests.Blocks
         }
 
         [Test]
+        public void SetLiteralRefusesATypeThatDoesNotFitThePin()
+        {
+            var (editor, changes) = Editor();
+            string before = Json(editor);
+            var result = editor.SetLiteral("main", "s", "arg0", "5");
+            Assert.That(result.Succeeded, Is.False, "an int into game.say(text: str)");
+            Assert.That(result.Reason, Is.Not.Empty);
+            Assert.That(editor.SetLiteral("main", "s", "arg0", "True").Succeeded, Is.False);
+            Assert.That(editor.SetLiteral("main", "s", "arg0", "\"hello\"").Succeeded, Is.True);
+            Assert.That(editor.SetLiteral("main", "s", "arg0", "None").Succeeded, Is.True, "None fits anywhere");
+            Assert.That(editor.SetLiteral("main", "a", "arg0", "5").Succeeded, Is.True, "print takes anything");
+            Assert.That(editor.SetLiteral("main", "v", "a", "-3").Succeeded, Is.True);
+            Assert.That(editor.SetLiteral("main", "v", "a", "2.5").Succeeded, Is.True);
+            Assert.That(changes[0], Is.EqualTo(5));
+            Assert.That(before, Is.Not.EqualTo(Json(editor)));
+        }
+
+        [Test]
+        public void SetLiteralRefusesTextThatIsNotASingleLiteral()
+        {
+            var (editor, changes) = Editor();
+            string before = Json(editor);
+            foreach (string bad in new[] { "", "  ", "1 + 2", "abs(-1)", "x", "\"unfinished", "[1, 2]", "1\n2", "print" })
+                Assert.That(editor.SetLiteral("main", "a", "arg0", bad).Succeeded, Is.False, "'" + bad + "'");
+            Assert.That(Json(editor), Is.EqualTo(before));
+            Assert.That(changes[0], Is.EqualTo(0));
+        }
+
+        [Test]
+        public void SetLiteralCannotBreakAWireFurtherAlong()
+        {
+            var (editor, _) = Editor();
+            editor.AddNode("main", "list");
+            string list = editor.Graph.Functions[0].Nodes.Last().Id;
+            editor.AddNode("main", "append");
+            string append = editor.Graph.Functions[0].Nodes.Last().Id;
+            editor.Connect("main", list, "item0", "v");
+            editor.Connect("main", append, "list", list);
+            Assert.That(editor.SetLiteral("main", append, "value", "5").Succeeded, Is.True);
+            Assert.That(editor.SetLiteral("main", append, "value", "\"text\"").Succeeded, Is.False, "a str onto a list of int");
+        }
+
+        [Test]
+        public void TheCheckerAnswersWithoutChangingTheGraph()
+        {
+            var (editor, _) = Editor();
+            string before = Json(editor);
+            Assert.That(BlockTypeChecker.CheckLiteral(editor.Graph, "main", "s", "arg0", "5", editor.Library).Allowed, Is.False);
+            Assert.That(BlockTypeChecker.CheckLiteral(editor.Graph, "main", "s", "arg0", "\"ok\"", editor.Library).Allowed, Is.True);
+            Assert.That(BlockTypeChecker.CheckLiteral(editor.Graph, "main", "s", "arg0", null, editor.Library).Allowed, Is.False);
+            Assert.Throws<System.ArgumentException>(() => BlockTypeChecker.CheckLiteral(editor.Graph, "nope", "s", "arg0", "1"));
+            Assert.Throws<System.ArgumentException>(() => BlockTypeChecker.CheckLiteral(editor.Graph, "main", "x", "arg0", "1"));
+            Assert.Throws<System.ArgumentNullException>(() => BlockTypeChecker.CheckLiteral(null, "main", "s", "arg0", "1"));
+            Assert.That(Json(editor), Is.EqualTo(before));
+        }
+
+        [Test]
         public void SetLiteralRefusesBadRequestsAndChangesNothing()
         {
             var (editor, changes) = Editor();

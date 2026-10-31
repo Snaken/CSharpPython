@@ -77,8 +77,34 @@ namespace CSharpPython.Blocks
             var scope = new LoopScopes(fn, lib, userFunctions).Problem(source, target);
             if (scope != null) return PinCheck.No(scope);
 
+            return Added(fn, WithWire(fn, target, pin, fromNode, fromPin), lib, userFunctions, variables);
+        }
+
+        /// <summary>
+        /// Whether the text <paramref name="literal"/> may be typed into the input <paramref name="pin"/> of
+        /// <paramref name="toNode"/>, replacing what the pin has. It is refused when it is not a single number,
+        /// string, <c>True</c>, <c>False</c> or <c>None</c>, and when its type does not fit the pin or would break
+        /// the wires of blocks further along. The graph is not changed.
+        /// </summary>
+        public static PinCheck CheckLiteral(BlockGraph graph, string function, string toNode, string pin, string literal, BlockLibrary library = null)
+        {
+            if (graph == null) throw new ArgumentNullException(nameof(graph));
+            var fn = graph.Functions.FirstOrDefault(f => f != null && f.Name == function);
+            if (fn == null) throw new ArgumentException("There is no function '" + function + "'.", nameof(function));
+            var target = fn.Nodes.FirstOrDefault(n => n != null && n.Id == toNode);
+            if (target == null) throw new ArgumentException("There is no block '" + toNode + "' in '" + function + "'.", nameof(toNode));
+            if (literal == null || Generator.CheckLiteral(literal) == null)
+                return PinCheck.No("A typed-in value must be a single number, string, True, False or None.");
+
+            var lib = library ?? new BlockLibrary();
+            return Added(fn, WithInput(fn, target, pin, new BlockInput(pin, null, literal)), lib, UserFunctions(graph), BlockVariableTypes.Table(graph));
+        }
+
+        // Yes unless the changed function has a diagnostic that the function did not have before.
+        private static PinCheck Added(BlockFunction fn, BlockFunction changed, BlockLibrary lib, HashSet<string> userFunctions, Dictionary<string, PinType> variables)
+        {
             var before = new HashSet<string>(new FunctionTypes(fn, lib, userFunctions, variables).Diagnostics().Select(Key));
-            var after = new FunctionTypes(WithWire(fn, target, pin, fromNode, fromPin), lib, userFunctions, variables).Diagnostics();
+            var after = new FunctionTypes(changed, lib, userFunctions, variables).Diagnostics();
             var added = after.FirstOrDefault(d => !before.Contains(Key(d)));
             return added == null ? PinCheck.Yes : PinCheck.No(added.Message);
         }
@@ -88,13 +114,16 @@ namespace CSharpPython.Blocks
         private static HashSet<string> UserFunctions(BlockGraph graph) =>
             new HashSet<string>(graph.Functions.Where(f => f != null && !string.IsNullOrEmpty(f.Name)).Select(f => f.Name));
 
-        // A copy of the function in which one input pin is wired to another block.
-        private static BlockFunction WithWire(BlockFunction fn, BlockNode target, string pin, string fromNode, string fromPin)
+        private static BlockFunction WithWire(BlockFunction fn, BlockNode target, string pin, string fromNode, string fromPin) =>
+            WithInput(fn, target, pin, new BlockInput(pin, fromNode, null, fromPin));
+
+        // A copy of the function in which one input pin has the given wire or literal.
+        private static BlockFunction WithInput(BlockFunction fn, BlockNode target, string pin, BlockInput replacement)
         {
             var changed = new BlockNode(target.Id, target.Block, target.Name) { Flow = target.Flow };
             foreach (var input in target.Inputs ?? new List<BlockInput>())
                 if (input != null && input.Pin != pin) changed.Inputs.Add(input);
-            changed.Connect(pin, fromNode, fromPin);
+            changed.Inputs.Add(replacement);
 
             var copy = new BlockFunction { Name = fn.Name, Start = fn.Start, Parameters = fn.Parameters };
             foreach (var n in fn.Nodes) copy.Nodes.Add(n == target ? changed : n);
