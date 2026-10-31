@@ -252,7 +252,7 @@ namespace CSharpPython
                     }
                     return MixHash(unchecked((ulong)BitConverter.DoubleToInt64Bits(d)));
                 }
-                case ValueKind.Str: return ((string)v.RawObject).GetHashCode();
+                case ValueKind.Str: return HashString((string)v.RawObject);
                 case ValueKind.Tuple:
                 {
                     CheckStack();
@@ -331,6 +331,19 @@ namespace CSharpPython
         // Joins two hashes, in order, so that a tuple's hash depends on its items in a way a script cannot predict:
         // with a plain h * 31 + item, the tuples (k, C - 31 * k) all share one hash.
         private static int Combine(int h, int x) => MixHash(((ulong)(uint)h << 32) | (uint)x);
+
+        // Strings are hashed here, not with string.GetHashCode(): that is randomized per process on .NET Core but not on
+        // every runtime a game may use (Unity's Mono and IL2CPP), where a script could find colliding strings offline.
+        // The accumulator starts from the process seed, so a collision of the accumulator is not the same for every run.
+        private static int HashString(string s)
+        {
+            ulong h = 14695981039346656037UL ^ HashSeed;
+            unchecked
+            {
+                for (int i = 0; i < s.Length; i++) h = (h ^ s[i]) * 1099511628211UL;
+            }
+            return MixHash(h);
+        }
 
         // Equal integers must hash alike whether they are held as a BigInteger or reached from a float, so both use this.
         private static int HashBig(System.Numerics.BigInteger b)

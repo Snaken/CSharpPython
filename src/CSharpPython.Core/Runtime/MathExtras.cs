@@ -216,8 +216,9 @@ namespace CSharpPython
         private static BigInteger ISqrt(BigInteger n)
         {
             if (n < 2) return n;
-            var x = (BigInteger)Math.Sqrt((double)n);
-            if (x.IsZero) x = BigInteger.One;
+            // Start above the root (a power of two with half the bits), so Newton's steps only go down. A double estimate
+            // would overflow for an integer over about 1000 digits.
+            var x = BigInteger.One << (n.ToByteArray().Length * 8 + 1) / 2;
             while (true)
             {
                 var y = (x + n / x) >> 1;

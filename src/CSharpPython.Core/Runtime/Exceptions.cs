@@ -28,6 +28,8 @@ namespace CSharpPython
     /// <summary>The built-in exception types.</summary>
     public static class ExceptionTypes
     {
+        internal const int MaxTypes = 4096;
+
         private static readonly Dictionary<string, PyExceptionType> ByName = new Dictionary<string, PyExceptionType>();
 
         public static readonly PyExceptionType BaseException = Define("BaseException", null);
@@ -96,11 +98,16 @@ namespace CSharpPython
         /// Looks up a type by name. Unknown names are created on the fly as subclasses of <c>Exception</c>, so a
         /// host can <c>throw new PyError("GameError", ...)</c> without registering anything first.
         /// </summary>
-        public static PyExceptionType GetOrCreate(string name)
+        public static PyExceptionType GetOrCreate(string name) => GetOrCreate(name, MaxTypes);
+
+        internal static PyExceptionType GetOrCreate(string name, int maxTypes)
         {
             lock (ByName)
             {
                 if (ByName.TryGetValue(name, out var t)) return t;
+                // The registry never shrinks, and a crafted snapshot can name any number of types: past this many, an
+                // unknown name is an ordinary Exception instead of a new entry.
+                if (ByName.Count >= maxTypes) return Exception;
                 return Define(name, Exception);
             }
         }
