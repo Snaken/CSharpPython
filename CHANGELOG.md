@@ -16,6 +16,7 @@
 - Block graphs keep editor-only data in the same file: `BlockGraph.Editor` holds block positions, collapsed flags, comment boxes, reroute points and groups, saved as an optional `Editor` section (format version still 1). The compiler ignores it, so moving a block never changes the generated program or invalidates a saved task.
 - `BlockPlaceholders.Find(graph, library)` lists the blocks that name a function or block type the host does not have, so an editor can show them as placeholders; the graph still loads and keeps their wires, and the compile error now says the block is a placeholder.
 - `BlockGraph.FromJson(json, limits)` checks a file against `BlockLimits` (document length, counts of functions, blocks, variables and links, lengths of ids, names, values and types, and the editor section) and rejects one that goes over, saying which limit. The defaults are generous for hand-made graphs, and a host can change them. `BlockLimits.Problem(graph)` checks a graph built in code.
+- `new PinTypeIndex(library, includeBlocks: true)` also searches the built-in blocks: a block's input pins accept an output, and its output (a loop block's variable included) is found by the type an input needs. A wildcard pin (`$T`) fits any type. `PinMatch.Block` is set for these and `PinMatch.Function` is then null. Without the flag the results are the same as before.
 
 ## 0.2.2
 

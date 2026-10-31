@@ -177,5 +177,91 @@ namespace CSharpPython.Tests.Blocks
             Assert.Throws<System.ArgumentNullException>(() => index.Accepting(null));
             Assert.Throws<System.ArgumentNullException>(() => index.Producing(null));
         }
+
+        // ---- Built-in blocks ----
+
+        private static string[] BlockPins(System.Collections.Generic.IEnumerable<PinMatch> matches) =>
+            matches.Where(m => m.Block != null).Select(m => m.Block.Name + ":" + (m.Pin ?? "")).ToArray();
+
+        [Test]
+        public void BlocksAreLeftOutUnlessAsked()
+        {
+            var lib = Library();
+            Assert.That(new PinTypeIndex(lib).Accepting(PinType.Int).All(m => m.Function != null && m.Block == null), Is.True);
+            Assert.That(new PinTypeIndex(lib).Producing(PinType.Int).All(m => m.Function != null), Is.True);
+            var with = new PinTypeIndex(lib, includeBlocks: true);
+            Assert.That(with.Accepting(PinType.Int).Any(m => m.Block != null), Is.True);
+            Assert.That(with.Accepting(PinType.Int).Where(m => m.Function != null).Select(m => m.Function.Name),
+                Is.EqualTo(new PinTypeIndex(lib).Accepting(PinType.Int).Select(m => m.Function.Name)), "the functions come out unchanged");
+        }
+
+        [Test]
+        public void FunctionsComeBeforeBlocks()
+        {
+            var matches = new PinTypeIndex(Library(), true).Accepting(PinType.Int);
+            int firstBlock = matches.ToList().FindIndex(m => m.Block != null);
+            Assert.That(matches.Skip(firstBlock).All(m => m.Block != null), Is.True);
+        }
+
+        [Test]
+        public void AnIntCanGoToTheTypedInputsOfBlocks()
+        {
+            var pins = BlockPins(new PinTypeIndex(Library(), true).Accepting(PinType.Int));
+            Assert.That(pins, Contains.Item("index:index"));
+            Assert.That(pins, Contains.Item("repeat:count"));
+            Assert.That(pins, Contains.Item("for_range:stop"));
+            Assert.That(pins, Contains.Item("add:a"), "an untyped block input takes anything");
+            Assert.That(pins, Does.Not.Contain("index:list"), "a list pin does not take an int");
+        }
+
+        [Test]
+        public void AListGoesToTheListPinsAndWildcards()
+        {
+            var pins = BlockPins(new PinTypeIndex(Library(), true).Accepting(PinType.ListOf(PinType.Str)));
+            Assert.That(pins, Contains.Item("index:list"));
+            Assert.That(pins, Contains.Item("append:list"));
+            Assert.That(pins, Contains.Item("choose:a"), "a wildcard pin takes any type");
+            Assert.That(pins, Does.Not.Contain("repeat:count"));
+        }
+
+        [Test]
+        public void BlocksThatProduceAValueAreFoundByType()
+        {
+            var index = new PinTypeIndex(Library(), true);
+            var forBool = BlockPins(index.Producing(PinType.Bool));
+            Assert.That(forBool, Contains.Item("eq:"));
+            Assert.That(forBool, Contains.Item("not:"));
+            Assert.That(forBool, Contains.Item("choose:"), "a wildcard output may be a bool");
+            Assert.That(forBool, Does.Not.Contain("repeat:"));
+            var forInt = BlockPins(index.Producing(PinType.Int));
+            Assert.That(forInt, Contains.Item("for_range:"), "a loop's output is its variable");
+            Assert.That(forInt, Contains.Item("repeat:"));
+            Assert.That(forInt, Does.Not.Contain("eq:"));
+        }
+
+        [Test]
+        public void TheLiteralBlockCanBeASourceButNotATarget()
+        {
+            var index = new PinTypeIndex(Library(), true);
+            Assert.That(BlockPins(index.Producing(PinType.Str)), Contains.Item("literal:"));
+            Assert.That(BlockPins(index.Accepting(PinType.Str)), Does.Not.Contain("literal:value"));
+        }
+
+        [Test]
+        public void ABlockMatchKnowsItsPositionAndSpec()
+        {
+            var match = new PinTypeIndex(Library(), true).Accepting(PinType.Int).First(m => m.Block != null && m.Block.Name == "for_range" && m.Pin == "stop");
+            Assert.That(match.Function, Is.Null);
+            Assert.That(match.Index, Is.EqualTo(1));
+            Assert.That(match.Type, Is.EqualTo(PinType.Int));
+            Assert.That(match.Block.Kind, Is.EqualTo(BlockKind.Flow));
+        }
+
+        [Test]
+        public void ASearchByAWildcardFindsEachPinOnce()
+        {
+            var found = new PinTypeIndex(Library(), true).Accepting(PinType.Variable("T"));
+            Assert.That(found.Count, Is.EqualTo(found.Distinct().Count()));
+        }
     }
 }
