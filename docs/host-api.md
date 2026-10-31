@@ -77,7 +77,7 @@ A native function can call a script function, built-in or bound method with `ctx
 
 ## Exceptions
 
-Register custom exception types with `vm.RegisterExceptionType("GameError")` so scripts can raise and catch them. A script error that is not caught ends the task: `task.State` is `TaskState.Error` and `task.Error` is a `PyRuntimeError` with `TypeName`, `Problem`, the line number and a Python-style traceback.
+Register custom exception types with `vm.RegisterExceptionType("GameError")` so scripts can raise and catch them. A script error that is not caught ends the task: `task.State` is `TaskState.Error` and `task.Error` is a `PyRuntimeError` with `TypeName`, `Problem`, the line number and a Python-style traceback. A host function that throws anything other than a `PyError` is a bug in the host: the task stops with a `HostError` that scripts cannot catch. Its `Problem` only names the .NET exception type (`an internal error stopped the script (InvalidOperationException)`), because the text of a .NET exception may say more than a player should see if the game shows the error; the exception itself, with its message and stack trace, is `task.Error.InnerException`, so log that.
 
 ## Limits
 

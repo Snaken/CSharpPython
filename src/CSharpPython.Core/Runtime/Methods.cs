@@ -721,18 +721,43 @@ namespace CSharpPython
             if (keys == null) keys = list.ToArray();
             List<Value> simple = SortSimple(list, keys, reverse);
             if (simple != null) return simple;
-            var comparer = Comparer<int>.Create((x, y) =>
-                Ops.Compare(keys[x], keys[y], Ops.Order.Lt) ? -1 : Ops.Compare(keys[y], keys[x], Ops.Order.Lt) ? 1 : 0);
-            var order = Enumerable.Range(0, list.Count).ToList();
+            // Only '<' is used, as in Python, and the sort is written here rather than taken from LINQ: .NET's sorts wrap
+            // whatever the comparison throws in an InvalidOperationException, and a script error (a RecursionError from a
+            // nested sort, say) must reach the script unchanged, without being caught and thrown again at every level.
+            var order = new int[list.Count];
+            for (int i = 0; i < order.Length; i++) order[i] = i;
             if (reverse)
             {
                 // reverse=True keeps equal elements in their original order, like Python.
-                order.Reverse();
-                order = order.OrderBy(v => v, comparer).ToList();
-                order.Reverse();
+                Array.Reverse(order);
+                order = MergeSort(order, (x, y) => Ops.Compare(keys[x], keys[y], Ops.Order.Lt));
+                Array.Reverse(order);
             }
-            else order = order.OrderBy(v => v, comparer).ToList();
+            else order = MergeSort(order, (x, y) => Ops.Compare(keys[x], keys[y], Ops.Order.Lt));
             return order.Select(i => list[i]).ToList();
+        }
+
+        // A stable merge sort of the numbers in 'a' (bottom up, so no recursion): 'less(x, y)' says whether item x sorts
+        // before item y, and an item from the right is taken first only when it is strictly less, which keeps equal items in order.
+        private static int[] MergeSort(int[] a, Func<int, int, bool> less)
+        {
+            int n = a.Length;
+            var b = new int[n];
+            for (int width = 1; width < n; width *= 2)
+            {
+                for (int lo = 0; lo < n; lo += 2 * width)
+                {
+                    int mid = Math.Min(lo + width, n), hi = Math.Min(lo + 2 * width, n);
+                    int i = lo, j = mid, k = lo;
+                    while (i < mid && j < hi) b[k++] = less(a[j], a[i]) ? a[j++] : a[i++];
+                    while (i < mid) b[k++] = a[i++];
+                    while (j < hi) b[k++] = a[j++];
+                }
+                var swap = a;
+                a = b;
+                b = swap;
+            }
+            return a;
         }
 
         // Sorting by keys that are all ints, all floats (none NaN) or all strings, which have one fixed order, needs no

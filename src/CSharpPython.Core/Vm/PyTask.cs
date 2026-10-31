@@ -316,7 +316,7 @@ namespace CSharpPython
             {
                 try
                 {
-                    return Loop();
+                    return RunLoop();
                 }
                 catch (PyError e)
                 {
@@ -337,8 +337,10 @@ namespace CSharpPython
                 }
                 catch (Exception e) when (!(e is OutOfMemoryException))
                 {
-                    // A bug in a host function. Stop the script rather than the whole game.
-                    Fail(new PyRuntimeError("HostError", e.Message, _script.Name, CurrentTrace(), e));
+                    // A bug in a host function. Stop the script rather than the whole game. The text of a .NET exception
+                    // can say more than a player should see, so the error names only its type; the host has the
+                    // exception itself as InnerException.
+                    Fail(new PyRuntimeError("HostError", "an internal error stopped the script (" + e.GetType().Name + ")", _script.Name, CurrentTrace(), e));
                     return TaskState.Error;
                 }
             }
@@ -362,6 +364,21 @@ namespace CSharpPython
             cache[site] = method;
             code.MethodCacheKind[site] = obj.Kind;
             return true;
+        }
+
+        // .NET's sorting wraps whatever its comparison throws in an InvalidOperationException. An error raised by a script's
+        // __lt__ or key function (a RecursionError, say) must still reach the script as that error, so it is unwrapped here.
+        private TaskState RunLoop()
+        {
+            try
+            {
+                return Loop();
+            }
+            catch (InvalidOperationException e) when (e.InnerException is PyError || e.InnerException is ScriptRaise || e.InnerException is StepLimitSignal)
+            {
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(e.InnerException).Throw();
+                throw;
+            }
         }
 
         private TaskState Loop()
@@ -2258,13 +2275,17 @@ namespace CSharpPython
         // Runs the frame just pushed (the top one) until it returns, as the body of a call made by a native function.
         private Value RunBoundary(int calleeIndex)
         {
+            // Each call from native code into a script (a sort comparison, a property getter, a callback) nests a whole
+            // interpreter loop on the .NET stack. MaxCallDepth bounds how many, but on a small stack that can still be
+            // too many, and a stack overflow ends the process.
+            if (_nested >= 4) Ops.CheckStackDeep(_nested); else Ops.CheckStack();
             int floor = _frameCount - 1;
             _frames[floor].IsBoundary = true;
             while (true)
             {
                 try
                 {
-                    var state = Loop();
+                    var state = RunLoop();
                     if (_boundaryHit)
                     {
                         _boundaryHit = false;

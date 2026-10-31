@@ -269,8 +269,10 @@ except VmTestBaseError:
             var e = Fails("import game\ngame.crash()", vm =>
                 vm.RegisterModule("game", m => m.Function("crash", () => throw new System.InvalidOperationException("bug"))));
             Assert.That(e.TypeName, Is.EqualTo("HostError"));
-            Assert.That(e.Problem, Is.EqualTo("bug"));
+            Assert.That(e.Problem, Is.EqualTo("an internal error stopped the script (InvalidOperationException)"));
+            Assert.That(e.Problem, Does.Not.Contain("bug"), "the .NET message is not shown to the script's user");
             Assert.That(e.InnerException, Is.InstanceOf<System.InvalidOperationException>());
+            Assert.That(e.InnerException.Message, Is.EqualTo("bug"), "the host still has it");
             Assert.That(e.Line, Is.EqualTo(2));
         }
 

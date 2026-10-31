@@ -190,6 +190,31 @@ namespace CSharpPython
                 throw new PyError("RecursionError", "maximum recursion depth exceeded");
         }
 
+        /// <summary>
+        /// Like <see cref="CheckStack"/> but for a call that nests a whole interpreter loop on the stack (a sort comparison,
+        /// a property getter), <paramref name="nested"/> levels deep. It asks for room in proportion to the depth: an error
+        /// raised at the bottom is caught and thrown again by every level on its way up, and .NET runs those handlers on
+        /// top of the stack that is still deep, so the room needed grows with the number of levels (about 64 KB, and 12 KB
+        /// for each level), and one more level of such a call can itself use over 64 KB (a sort inside a comparison).
+        /// </summary>
+        internal static void CheckStackDeep(int nested)
+        {
+            if (!ProbeStack(16 + 3 * nested)) throw new PyError("RecursionError", "maximum recursion depth exceeded");
+        }
+
+        // Reserves about 4 KB of stack for each of 'levels' nested calls, asking the runtime at each one whether there is
+        // still room, so that it stops (and answers no) before it could overflow the stack itself.
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private static bool ProbeStack(int levels)
+        {
+            if (!System.Runtime.CompilerServices.RuntimeHelpers.TryEnsureSufficientExecutionStack()) return false;
+            Span<byte> pad = stackalloc byte[4096];
+            pad[0] = (byte)levels;
+            pad[pad.Length - 1] = (byte)levels;
+            bool room = levels == 0 || ProbeStack(levels - 1);
+            return room && pad[0] == (byte)levels && pad[pad.Length - 1] == (byte)levels;
+        }
+
         public static int Hash(Value v)
         {
             switch (v.Kind)
