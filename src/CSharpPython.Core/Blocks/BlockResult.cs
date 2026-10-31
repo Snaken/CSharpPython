@@ -131,6 +131,10 @@ namespace CSharpPython.Blocks
 
         public IEnumerable<BlockDiagnostic> Errors => Diagnostics.Where(d => d.Severity == BlockSeverity.Error);
 
+        /// <summary>The diagnostics about one block, errors first, for the badge an editor draws on it.</summary>
+        public IReadOnlyList<BlockDiagnostic> DiagnosticsOf(string nodeId) =>
+            Diagnostics.Where(d => d.NodeId != null && d.NodeId == nodeId).OrderBy(d => d.Severity).ToList();
+
         internal BlockCompileResult(string source, SourceMap map, List<BlockDiagnostic> diagnostics)
         {
             Source = source;
