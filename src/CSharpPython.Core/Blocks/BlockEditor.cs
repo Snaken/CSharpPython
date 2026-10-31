@@ -52,6 +52,7 @@ namespace CSharpPython.Blocks
         {
             Graph = graph ?? throw new ArgumentNullException(nameof(graph));
             Library = library ?? new BlockLibrary();
+            _current = Snapshot();
         }
 
         // ---- Blocks ----
@@ -258,6 +259,7 @@ namespace CSharpPython.Blocks
 
         private EditResult Made(EditResult result)
         {
+            RecordEdit();
             Changed?.Invoke();
             return result;
         }
