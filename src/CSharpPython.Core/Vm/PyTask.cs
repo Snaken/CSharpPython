@@ -150,6 +150,20 @@ namespace CSharpPython
         /// <summary>What the script's top-level code returned (always None for now).</summary>
         public Value Result => _result;
 
+        /// <summary>
+        /// The line of the script the task is at, for an editor to highlight: the line of the instruction it last
+        /// started in the innermost function. A task that is waiting is on the line of the call that waits. It is
+        /// the line of the first instruction before the task has run, and 0 once the task has finished or failed
+        /// (a failed task's lines are in <see cref="Error"/>). Reading it costs nothing while the task runs.
+        /// </summary>
+        public int CurrentLine => _frameCount == 0 ? 0 : LineOf(_frames[_frameCount - 1]);
+
+        /// <summary>
+        /// Where each running function is, innermost first: the function a call is waiting in, then the one that
+        /// called it, down to the top level. Empty once the task has finished or failed. The list is a copy.
+        /// </summary>
+        public IReadOnlyList<TraceFrame> GetCallStack() => CurrentTrace();
+
         /// <summary>The total number of instructions executed so far.</summary>
         public long StepsExecuted => _totalSteps;
 
@@ -2100,10 +2114,15 @@ namespace CSharpPython
             for (int i = _frameCount - 1; i >= 0; i--)
             {
                 Frame f = _frames[i];
-                int index = Math.Max(0, Math.Min(f.Pc - 1, f.Code.Lines.Length - 1));
-                trace.Add(new TraceFrame(f.Code.Name, f.Code.Lines.Length == 0 ? 0 : f.Code.Lines[index]));
+                trace.Add(new TraceFrame(f.Code.Name, LineOf(f)));
             }
             return trace;
+        }
+
+        private static int LineOf(Frame f)
+        {
+            if (f.Code.Lines.Length == 0) return 0;
+            return f.Code.Lines[Math.Max(0, Math.Min(f.Pc - 1, f.Code.Lines.Length - 1))];
         }
 
         private void Fail(PyRuntimeError error)

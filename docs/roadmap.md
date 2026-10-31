@@ -39,7 +39,6 @@ Everything known to be missing, grouped by area. The order inside a group is rou
 
 ## Editor tooling and Blocks
 
-- A public "current line" on `PyTask`, so an editor can highlight the running line or block. There is none today.
 - A debugger: breakpoints, stepping and variable inspection, built on the step budget.
 - Hover and signature help for `self.method(` and `Class.method`.
 - A formatter, code actions, unused-name warnings and a console that runs a line against a live task.

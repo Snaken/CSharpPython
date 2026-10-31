@@ -67,6 +67,10 @@ The queue is bounded by `MaxQueuedEvents`; further events are dropped.
 
 Host objects are passed to scripts as plain-data handles: a host-defined type id plus an object id (`Value.FromHandle(typeId, objectId)`). Scripts can store, compare and pass them; the host looks the object up when a native function receives one. Handles are never saved with the game objects themselves, see [Saving and resuming tasks](snapshots.md).
 
+## Where a task is
+
+`task.CurrentLine` is the line of the script the task is at, for an editor to highlight: the line of the instruction it last started in the innermost function. A task that is waiting is on the line of the call that waits. Before the task has run it is the first line, and once it has finished or failed it is 0. `task.GetCallStack()` lists each running function innermost first (`TraceFrame.Function` and `Line`), so an editor can also mark the calls that led there; it is a copy. Reading either costs nothing while the task runs. A restored task reports the same lines. For a block script, `SourceMap.Running(task)` and `ActiveNodes(task)` turn these into block ids (see [blocks.md](blocks.md)).
+
 ## Calling back into the script
 
 A native function can call a script function, built-in or bound method with `ctx.Call(callee, args...)`, for example to apply a callback or a sort key. The call runs to completion before `Call` returns, so the callee cannot wait (it gets a `RuntimeError`); it counts towards `MaxSteps`, and an exception it raises continues up through the script as usual. A native function that loops over many items should call `ctx.Charge(steps)` now and then (once per batch of items is enough): the work then counts as steps, so it ends the current slice and `MaxSteps` can stop the loop part-way.
