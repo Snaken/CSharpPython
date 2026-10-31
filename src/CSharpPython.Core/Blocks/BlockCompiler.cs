@@ -228,6 +228,8 @@ namespace CSharpPython.Blocks
         private Frame _frame;
         // The loop being written (0 outside any), and how many have been started, to tell loops apart.
         private int _loopId, _loopSerial, _joinCount;
+        // The loops whose body is being written: their variable may be used.
+        private readonly HashSet<string> _activeLoops = new HashSet<string>();
 
         public Generator(BlockGraph graph, BlockLibrary lib)
         {
@@ -401,6 +403,7 @@ namespace CSharpPython.Blocks
             _loopSerial = 0;
             _joinCount = 0;
             _scope = new Scope(null);
+            _activeLoops.Clear();
             _flowIn = new Dictionary<string, int>();
             _joins = new Dictionary<string, Join>();
             _frames = new List<Frame>();
@@ -637,9 +640,29 @@ namespace CSharpPython.Blocks
             int outer = _loopId;
             _loopId = ++_loopSerial;
             _loopDepth++;
+            _activeLoops.Add(node.Id);
             EmitBody(FlowTarget(node, "body"), depth + 1, loopBody: true);
+            _activeLoops.Remove(node.Id);
             _loopDepth--;
             _loopId = outer;
+        }
+
+        // The loop's own variable, wired to an input. It only exists while the loop's body is being written.
+        private Ex LoopVariableOf(BlockNode owner, string pin, BlockNode loop)
+        {
+            if (string.IsNullOrEmpty(loop.Name))
+            {
+                Error("'" + loop.Block + "' has no value to connect to the input '" + pin + "' unless it is given a name", owner, pin);
+                return new Ex("None", false);
+            }
+            if (!_activeLoops.Contains(loop.Id))
+            {
+                Error("the value of the loop '" + loop.Name + "' can only be used by blocks inside that loop", owner, pin);
+                return new Ex("None", false);
+            }
+            _valueUsed.Add(loop.Id);
+            _frame.Reads.Add(loop.Name);
+            return new Ex(loop.Name, false);
         }
 
         // ---- Flow joins ----
@@ -982,6 +1005,7 @@ namespace CSharpPython.Blocks
                 Error("unknown block '" + source.Block + "'", source);
                 return new Ex("None", false);
             }
+            if (!isCall && spec.LoopVariable) return LoopVariableOf(owner, pin, source);
             if (!isCall && spec.Kind == BlockKind.Flow)
             {
                 Error("'" + source.Block + "' has no value to connect to the input '" + pin + "'", owner, pin);

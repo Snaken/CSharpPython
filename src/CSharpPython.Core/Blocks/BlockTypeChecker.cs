@@ -37,7 +37,7 @@ namespace CSharpPython.Blocks
 
         /// <summary>
         /// The type of a block's value in a function, with wildcards resolved from its wires, or null if there is no
-        /// such block or it is a step in the flow with no value. An editor uses it to colour a pin. For a block with
+        /// such block or it is a step in the flow with no value (a loop block has one: its item or count). An editor uses it to colour a pin. For a block with
         /// several outputs, name one with <paramref name="outputPin"/>; without it the answer is <c>any</c>.
         /// </summary>
         public static PinType OutputType(BlockGraph graph, string function, string nodeId, BlockLibrary library = null, string outputPin = null)
@@ -47,7 +47,7 @@ namespace CSharpPython.Blocks
             var node = fn?.Nodes.FirstOrDefault(n => n != null && n.Id == nodeId);
             if (node == null) return null;
             var lib = library ?? new BlockLibrary();
-            if (node.Block != "call" && lib.FindBlock(node.Block)?.Kind == BlockKind.Flow) return null;
+            if (node.Block != "call" && lib.FindBlock(node.Block) is BlockSpec spec && spec.Kind == BlockKind.Flow && !spec.LoopVariable) return null;
             return new FunctionTypes(fn, lib, UserFunctions(graph)).OutputOf(node, outputPin);
         }
 
@@ -70,8 +70,10 @@ namespace CSharpPython.Blocks
 
             var lib = library ?? new BlockLibrary();
             var userFunctions = UserFunctions(graph);
-            if (source.Block != "call" && lib.FindBlock(source.Block)?.Kind == BlockKind.Flow)
+            if (source.Block != "call" && lib.FindBlock(source.Block) is BlockSpec sourceSpec && sourceSpec.Kind == BlockKind.Flow && !sourceSpec.LoopVariable)
                 return PinCheck.No("'" + source.Block + "' is a step in the flow and has no value to wire.");
+            var scope = new LoopScopes(fn, lib, userFunctions).Problem(source, target);
+            if (scope != null) return PinCheck.No(scope);
 
             var before = new HashSet<string>(new FunctionTypes(fn, lib, userFunctions).Diagnostics().Select(Key));
             var after = new FunctionTypes(WithWire(fn, target, pin, fromNode, fromPin), lib, userFunctions).Diagnostics();
@@ -329,6 +331,12 @@ namespace CSharpPython.Blocks
             {
                 case "literal":
                     return InputType(node, "value");
+                case "for_each":
+                    var items = InputType(node, "items");
+                    return items.IsList ? items.Element : PinType.Any;
+                case "for_range":
+                case "repeat":
+                    return PinType.Int;
                 case "list":
                     return ListOfItems(node);
                 case "neg":

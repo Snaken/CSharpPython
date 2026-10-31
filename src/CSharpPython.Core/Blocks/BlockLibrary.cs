@@ -61,6 +61,13 @@ namespace CSharpPython.Blocks
             return PinType.Any;
         }
 
+        /// <summary>
+        /// True for the loop blocks (<c>for_each</c>, <c>for_range</c>, <c>repeat</c>), which have one output: the
+        /// loop's own variable (the item, the count, the pass number). It can only be wired to blocks inside the
+        /// loop's body. <c>repeat</c> has it only when the block is given a name.
+        /// </summary>
+        public bool LoopVariable => Name == "for_each" || Name == "for_range" || Name == "repeat";
+
         /// <summary>The type of the block's value, which may mention a type variable, or null for a step in the flow.</summary>
         public PinType OutputType
         {
