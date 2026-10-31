@@ -4,6 +4,7 @@
 
 - `BlockEditor.SetLiteral` refuses a typed-in value whose type does not fit the pin (a number into a text pin, a text onto a list of numbers), and text that is not a single number, string, `True`, `False` or `None`, with the reason. `BlockTypeChecker.CheckLiteral` answers the same question without changing the graph.
 - The operator blocks refuse two typed inputs that Python cannot combine, such as text minus a number, a number compared with a text, or a number as the container of "is in". The compiler reports it, and `Connect` and `SetLiteral` refuse the edit with the reason. Pins of unknown type (`any`, `None`, variables, nothing wired) are never refused, and equality and logic take anything. **Block graphs that wire such a pair no longer compile.**
+- `BlockEditor.PinsOf(function, node)` lists the pins of a block for a canvas to draw (`BlockPin`: name, kind and type), so it does not have to work them out from the library itself.
 - `BlockEditor.SuggestForOutput` and `SuggestForInput` also offer the functions of the graph.
 
 ## 0.2.3
