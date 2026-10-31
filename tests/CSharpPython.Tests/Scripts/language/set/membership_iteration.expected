@@ -1,0 +1,8 @@
+True False True True True
+60 60 10 30 3 True True
+[20, 40, 60] [(0, 10), (1, 20), (2, 30)] [(10, 'a'), (20, 'b'), (30, 'c')]
+[20, 30] [30, 20, 10]
+10 20 30
+axbxc
+3
+TypeError 'set' object is not subscriptable

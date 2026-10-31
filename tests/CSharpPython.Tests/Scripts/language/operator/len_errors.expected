@@ -1,0 +1,3 @@
+ValueError __len__() should return >= 0
+TypeError 'str' object cannot be interpreted as an integer
+TypeError object of type 'C' has no len()

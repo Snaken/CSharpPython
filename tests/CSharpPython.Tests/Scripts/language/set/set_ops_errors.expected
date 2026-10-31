@@ -1,0 +1,10 @@
+TypeError unsupported operand type(s) for -: 'set' and 'list'
+TypeError unsupported operand type(s) for -: 'list' and 'set'
+TypeError unsupported operand type(s) for +: 'set' and 'set'
+TypeError '<' not supported between instances of 'set' and 'list'
+TypeError '<' not supported between instances of 'set' and 'int'
+TypeError unsupported operand type(s) for *: 'set' and 'int'
+TypeError
+TypeError
+TypeError 'int' object is not iterable
+AttributeError 'set' object has no attribute 'nothing'

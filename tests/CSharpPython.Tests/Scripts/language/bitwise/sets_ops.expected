@@ -1,0 +1,13 @@
+[1, 2, 3, 4] [3] [1, 2, 4] [1, 2]
+[1, 2, 3] [] [] []
+[1, 2, 3, 9] True
+[1, 9] True
+[1, 7] True
+[1, 2] True
+[]
+TypeError unsupported operand type(s) for |: 'set' and 'list'
+TypeError unsupported operand type(s) for |: 'list' and 'set'
+TypeError unsupported operand type(s) for &: 'set' and 'int'
+TypeError unsupported operand type(s) for ^: 'set' and 'tuple'
+TypeError unsupported operand type(s) for |=: 'set' and 'list'
+[1]

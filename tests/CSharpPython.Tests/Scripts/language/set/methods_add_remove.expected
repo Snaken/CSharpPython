@@ -1,0 +1,8 @@
+[1, 2] 2
+{2}
+set() 0
+KeyError 2
+KeyError 'pop from an empty set'
+[5, 6, 7, 'x']
+True 3
+set() 0

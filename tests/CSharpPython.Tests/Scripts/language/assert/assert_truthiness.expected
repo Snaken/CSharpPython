@@ -1,0 +1,9 @@
+falsy object
+failed for 0
+failed for 0.0
+failed for ''
+failed for []
+failed for {}
+failed for ()
+failed for None
+failed for set()

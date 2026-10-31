@@ -1,0 +1,6 @@
+frozenset [1, 2, 3, 4]
+frozenset [2, 3]
+frozenset [2, 3]
+frozenset [1, 2, 4]
+frozenset [1, 2, 3]
+True True True False

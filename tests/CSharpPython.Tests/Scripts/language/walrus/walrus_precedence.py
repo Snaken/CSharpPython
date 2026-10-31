@@ -1,0 +1,5 @@
+print((x := 1 + 2 * 3), x)
+print((y := 1 if True else 2), y)
+print((z := lambda: 4)(), z())
+print((s := 'a' 'b'), s)
+print(not (n := 0), n)

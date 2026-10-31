@@ -1,0 +1,2 @@
+caught MyError('x')
+caught2 MyError() True

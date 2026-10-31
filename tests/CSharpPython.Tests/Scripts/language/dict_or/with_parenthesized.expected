@@ -1,0 +1,34 @@
+enter 1
+enter 2
+1 2
+exit 2
+exit 1
+enter 3
+enter 4
+7
+exit 4
+exit 3
+enter 5
+enter 6
+both
+exit 6
+exit 5
+enter 7
+7
+exit 7
+enter 8
+one
+exit 8
+enter 9
+9
+exit 9
+enter 10
+enter 11
+10
+exit 11
+exit 10
+enter 12
+enter 13
+13
+exit 13
+exit 12

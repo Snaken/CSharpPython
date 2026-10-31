@@ -1,0 +1,25 @@
+IndexError cannot fit 'int' into an index-sized integer
+IndexError cannot fit 'int' into an index-sized integer
+IndexError cannot fit 'int' into an index-sized integer
+IndexError cannot fit 'int' into an index-sized integer
+[1, 2, 3]
+[1, 2, 3]
+[]
+[1]
+bdf
+OverflowError cannot fit 'int' into an index-sized integer
+OverflowError cannot fit 'int' into an index-sized integer
+OverflowError cannot fit 'int' into an index-sized integer
+OverflowError cannot fit 'int' into an index-sized integer
+ValueError chr() arg not in range(0x110000)
+OverflowError %c arg not in range(0x110000)
+OverflowError Python int too large to convert to C ssize_t
+1
+False
+False
+0
+0
+OverflowError Python int too large to convert to C ssize_t
+OverflowError Python int too large to convert to C ssize_t
+ValueError
+2

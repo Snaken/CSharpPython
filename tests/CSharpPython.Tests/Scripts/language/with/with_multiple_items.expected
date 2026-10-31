@@ -1,0 +1,12 @@
+enter a
+enter b
+enter c
+a b
+exit c
+exit b
+exit a
+enter a
+enter b
+exit b
+exit a
+caught inner

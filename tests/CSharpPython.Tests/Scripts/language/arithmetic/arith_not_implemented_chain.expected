@@ -1,0 +1,3 @@
+B.radd skip
+unsupported operand type(s) for +: 'A' and 'A'
+unsupported operand type(s) for +: 'A' and 'int'

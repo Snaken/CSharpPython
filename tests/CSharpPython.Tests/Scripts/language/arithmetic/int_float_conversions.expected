@@ -1,0 +1,3 @@
+3 3.5
+__int__ returned non-int (type str)
+W.__float__ returned non-float (type int)

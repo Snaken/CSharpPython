@@ -1,0 +1,7 @@
+TypeError unsupported operand type(s) for |: 'dict' and 'list'
+TypeError unsupported operand type(s) for |: 'dict' and 'int'
+TypeError unsupported operand type(s) for |: 'list' and 'dict'
+'int' object is not iterable
+ValueError dictionary update sequence element #0 has length 3; 2 is required
+TypeError unsupported operand type(s) for &: 'dict' and 'dict'
+TypeError unsupported operand type(s) for ^: 'dict' and 'dict'

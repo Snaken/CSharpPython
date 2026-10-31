@@ -1,0 +1,6 @@
+TypeError 'int' object does not support the context manager protocol (missed __exit__ method)
+TypeError 'str' object does not support the context manager protocol (missed __exit__ method)
+TypeError 'NoneType' object does not support the context manager protocol (missed __exit__ method)
+TypeError 'NoExit' object does not support the context manager protocol (missed __exit__ method)
+TypeError 'NoEnter' object does not support the context manager protocol (missed __enter__ method)
+TypeError 'list' object does not support the context manager protocol (missed __exit__ method)

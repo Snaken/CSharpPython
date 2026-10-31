@@ -1,0 +1,7 @@
+make outer
+make inner
+wrap inner f
+wrap outer inner
+call outer inner
+call inner inner
+2 inner

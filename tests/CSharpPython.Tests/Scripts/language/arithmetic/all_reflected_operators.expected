@@ -1,0 +1,2 @@
+('radd', 2, 1) ('rsub', 2, 1) ('rmul', 2, 1) ('rtruediv', 2, 1) ('rfloordiv', 2, 1) ('rmod', 2, 1) ('rpow', 2, 1)
+('radd', 's', 1) ('rmul', [1], 1)

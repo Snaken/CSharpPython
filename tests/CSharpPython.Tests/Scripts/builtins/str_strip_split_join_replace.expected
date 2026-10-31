@@ -1,0 +1,27 @@
+HELLO
+hello
+hi
+hi
+hi  
+  hi
+hixx
+xxhi
+['a', 'b', '', 'c']
+['a', 'b', 'c']
+['a', 'b']
+['a', 'b,c']
+['a', 'c']
+[]
+['']
+['a', '', 'b']
+['a,b,c']
+['a', 'b', 'c d']
+a,b,c
+
+x-y
+a-b-c
+bonono
+bonona
+-a-b-c-
+ba
+True

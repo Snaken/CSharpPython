@@ -1,0 +1,5 @@
+False False False True
+True True False True True
+{'a'} {1} {2} set()
+[{1}] {'k': {2}} ({3},)
+True set

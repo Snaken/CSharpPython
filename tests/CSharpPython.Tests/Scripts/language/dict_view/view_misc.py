@@ -1,0 +1,13 @@
+d = {1: 'x', 2: 'y'}
+it = iter(d.keys())
+print(next(it), next(it))
+print(list(zip(d.keys(), d.values())), list(enumerate(d.items())))
+print(list(map(str, d.keys())), list(filter(None, d.values())))
+print(any(d.keys()), all(d.values()), ','.join(d.values()))
+print(sorted(d.items(), key=lambda kv: -kv[0]))
+x = d.keys()
+print(x is d.keys(), x == d.keys())
+print(list(d.keys()) == [1, 2], tuple(d.values()))
+print(f'{d.keys()} {d.items()}')
+print([d.keys(), d.values()])
+print(max(d.items()), min(d.items()))

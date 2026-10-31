@@ -1,0 +1,4 @@
+[1, 'cleanup']
+in finally
+ValueError pending
+['handler', 'fin0', 'normal', 'fin1']

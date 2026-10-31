@@ -1,0 +1,7 @@
+deleting a
+1
+deleting zz
+KeyError 'zz'
+TypeError 'Plain' object doesn't support item deletion
+slice 1 3 None
+slice None None 2

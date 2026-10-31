@@ -1,0 +1,5 @@
+False 2
+AttributeError 'A' object has no attribute 'x'
+5
+AttributeError type object 'A' has no attribute 'z'
+AttributeError type object 'A' has no attribute 'nothing'

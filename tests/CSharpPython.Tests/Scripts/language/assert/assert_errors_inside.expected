@@ -1,0 +1,3 @@
+ZeroDivisionError division by zero
+message not evaluated
+NameError name 'undefined_name' is not defined

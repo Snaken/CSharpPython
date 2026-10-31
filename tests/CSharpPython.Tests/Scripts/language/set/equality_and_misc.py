@@ -1,0 +1,5 @@
+print({1, 2} == [1, 2], {1} == 1, {1} is {1}, {1, 2} == {2, 1})
+print(isinstance({1}, set), isinstance({1}, (list, set)), isinstance([1], set), type({1}) is set, set is type(set()))
+print(repr({'a'}), str({1}), f'{ {2} }', f'{set()!r}')
+print([{1}], {'k': {2}}, ({3},))
+print(callable(set), set.__name__ if hasattr(set, '__name__') else 'set')

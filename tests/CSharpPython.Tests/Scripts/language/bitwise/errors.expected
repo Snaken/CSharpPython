@@ -1,0 +1,14 @@
+ValueError negative shift count
+ValueError negative shift count
+TypeError unsupported operand type(s) for &: 'float' and 'int'
+TypeError unsupported operand type(s) for |: 'int' and 'float'
+TypeError unsupported operand type(s) for |: 'str' and 'str'
+TypeError unsupported operand type(s) for &: 'list' and 'list'
+TypeError unsupported operand type(s) for ^: 'NoneType' and 'int'
+TypeError bad operand type for unary ~: 'float'
+TypeError bad operand type for unary ~: 'str'
+TypeError bad operand type for unary ~: 'NoneType'
+TypeError unsupported operand type(s) for <<: 'int' and 'str'
+TypeError unsupported operand type(s) for &: 'dict' and 'dict'
+TypeError unsupported operand type(s) for |: 'tuple' and 'tuple'
+TypeError unsupported operand type(s) for >>: 'int' and 'list'

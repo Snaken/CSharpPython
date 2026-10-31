@@ -1,0 +1,4 @@
+('rand', 1, 7) ('ror', 2, 7) ('rxor', 3, 7) ('rlshift', 4, 7) ('rrshift', 5, 7)
+TypeError unsupported operand type(s) for &: 'R' and 'int'
+TypeError unsupported operand type(s) for |: 'R' and 'R'
+TypeError bad operand type for unary ~: 'R'

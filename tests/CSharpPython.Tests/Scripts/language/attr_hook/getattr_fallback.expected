@@ -1,0 +1,7 @@
+1
+getattr fake
+FAKE
+getattr other
+getattr zzz
+OTHER True
+5

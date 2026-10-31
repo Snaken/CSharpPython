@@ -1,0 +1,3 @@
+'A' object is not iterable
+iter() returned non-iterator of type 'int'
+iter() returned non-iterator of type 'A'

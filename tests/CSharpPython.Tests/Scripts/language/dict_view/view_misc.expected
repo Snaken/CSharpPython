@@ -1,0 +1,10 @@
+1 2
+[(1, 'x'), (2, 'y')] [(0, (1, 'x')), (1, (2, 'y'))]
+['1', '2'] ['x', 'y']
+True True x,y
+[(2, 'y'), (1, 'x')]
+False True
+True ('x', 'y')
+dict_keys([1, 2]) dict_items([(1, 'x'), (2, 'y')])
+[dict_keys([1, 2]), dict_values(['x', 'y'])]
+(2, 'y') (1, 'x')

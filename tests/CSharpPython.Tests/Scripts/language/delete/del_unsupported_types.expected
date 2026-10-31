@@ -1,0 +1,5 @@
+TypeError 'tuple' object doesn't support item deletion
+TypeError 'str' object doesn't support item deletion
+TypeError 'set' object doesn't support item deletion
+TypeError 'int' object does not support item deletion
+AttributeError 'tuple' object has no attribute 'x' and no __dict__ for setting new attributes

@@ -1,0 +1,3 @@
+TypeError 'tuple' object does not support item assignment
+TypeError 'str' object does not support item assignment
+TypeError 'range' object does not support item assignment

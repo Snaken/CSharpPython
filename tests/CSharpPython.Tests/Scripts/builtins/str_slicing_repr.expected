@@ -1,0 +1,33 @@
+3
+True
+
+cba
+bc
+ace
+def
+abc
+
+bcdef
+
+ab
+fdb
+fedc
+True
+True
+False
+x
+"it's"
+'say "hi"'
+'a\nb\tc'
+'\\'
+'é'
+'\x00'
+'\x7f'
+None
+True
+1.0
+[1, 'a']
+(1,)
+()
+{}
+{'a': [1, {'b': 2}]}

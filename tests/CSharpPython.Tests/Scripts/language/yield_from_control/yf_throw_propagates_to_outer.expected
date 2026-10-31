@@ -1,0 +1,6 @@
+inner finally
+outer caught ZeroDivisionError('k')
+recovered
+done
+inner finally
+escaped t

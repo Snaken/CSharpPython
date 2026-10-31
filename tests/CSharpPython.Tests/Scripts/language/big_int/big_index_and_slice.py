@@ -1,0 +1,33 @@
+def t(f):
+    try:
+        print(f())
+    except Exception as e:
+        print(type(e).__name__, e)
+t(lambda: [1][2**70])
+t(lambda: [1][-2**70])
+t(lambda: (1, 2)[2**64])
+t(lambda: 'abc'[2**64])
+t(lambda: [1, 2, 3][:2**100])
+t(lambda: [1, 2, 3][-2**100:])
+t(lambda: [1, 2, 3][2**100:])
+t(lambda: [1, 2, 3][::2**100])
+t(lambda: 'abcdef'[1:2**70:2])
+t(lambda: [0] * 2**70)
+t(lambda: 2**70 * [0])
+t(lambda: [0] * -2**70)
+t(lambda: 'ab' * -2**70)
+t(lambda: chr(2**70))
+t(lambda: '%c' % 2**70)
+t(lambda: '%*d' % (2**70, 1))
+t(lambda: list(range(3))[True])
+t(lambda: 2**70 in range(10))
+t(lambda: float(2**70) in range(10))
+t(lambda: (2**70).bit_length() if False else 0)
+t(lambda: int.from_bytes if False else 0)
+t(lambda: ''.join(['a']).center(2**70))
+t(lambda: ''.join(['a']).split('a', 2**70))
+try:
+    [1, 2].index(1, 2**70)
+except ValueError:
+    print('ValueError')
+t(lambda: 'abc'.find('c', -2**70))

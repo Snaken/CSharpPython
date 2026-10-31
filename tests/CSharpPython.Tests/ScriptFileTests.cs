@@ -9,6 +9,7 @@ namespace CSharpPython.Tests
     /// <summary>
     /// Runs every <c>Scripts/**/*.py</c> file and compares what it prints with the <c>.expected</c> file beside it.
     /// The expected output comes from CPython: regenerate it with <c>python3 scripts/update-expected.py</c>.
+    /// The <c>errors</c> folder is different (several snippets in a file, each expected to fail): see <see cref="ErrorScriptTests"/>.
     /// </summary>
     public class ScriptFileTests
     {
@@ -16,6 +17,7 @@ namespace CSharpPython.Tests
 
         public static IEnumerable<TestCaseData> Scripts() =>
             Directory.GetFiles(Root, "*.py", SearchOption.AllDirectories)
+                .Where(p => Path.GetRelativePath(Root, p).Split(Path.DirectorySeparatorChar)[0] != "errors")
                 .OrderBy(p => p, StringComparer.Ordinal)
                 .Select(p => new TestCaseData(p).SetName(Path.GetRelativePath(Root, p).Replace('\\', '/')));
 

@@ -1,0 +1,3 @@
+outer finally
+RuntimeError generator ignored GeneratorExit
+done

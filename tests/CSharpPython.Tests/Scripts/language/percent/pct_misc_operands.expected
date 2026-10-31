@@ -1,0 +1,5 @@
+unsupported operand type(s) for %: 'int' and 'str'
+unsupported operand type(s) for %: 'list' and 'int'
+1 2 1.5
+aXb a1.5b
+1,2,3,

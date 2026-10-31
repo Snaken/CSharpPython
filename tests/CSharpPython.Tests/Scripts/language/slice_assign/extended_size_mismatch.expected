@@ -1,0 +1,4 @@
+ValueError attempt to assign sequence of size 2 to extended slice of size 3
+ValueError attempt to assign sequence of size 4 to extended slice of size 3
+[0, 1, 2, 3, 4, 5]
+ValueError slice step cannot be zero

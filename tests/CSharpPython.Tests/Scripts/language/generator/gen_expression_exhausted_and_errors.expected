@@ -1,0 +1,5 @@
+[0, 1] []
+stop
+1.0
+zde
+TypeError 'int' object is not iterable

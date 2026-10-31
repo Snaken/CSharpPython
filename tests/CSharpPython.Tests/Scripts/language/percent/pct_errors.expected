@@ -1,0 +1,22 @@
+TypeError not enough arguments for format string
+TypeError not all arguments converted during string formatting
+TypeError %d format: a real number is required, not str
+TypeError %d format: a real number is required, not NoneType
+TypeError %x format: an integer is required, not float
+TypeError must be real number, not str
+TypeError %c requires an int or a unicode character, not a string of length 2
+TypeError %c requires an int or a unicode character, not float
+OverflowError %c arg not in range(0x110000)
+ValueError unsupported format character 'z' (0x7a) at index 1
+ValueError incomplete format
+TypeError format requires a mapping
+KeyError 'a'
+ValueError incomplete format key
+TypeError not enough arguments for format string
+TypeError * wants int
+TypeError not enough arguments for format string
+OverflowError cannot convert float infinity to integer
+ValueError cannot convert float NaN to integer
+ValueError incomplete format
+TypeError not enough arguments for format string
+{'a': 1, 'b': 2}

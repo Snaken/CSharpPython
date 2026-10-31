@@ -1,0 +1,4 @@
+caught AssertionError
+outer inner
+MyErr mine
+True AssertionError

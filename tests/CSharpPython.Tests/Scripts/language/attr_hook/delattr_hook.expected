@@ -1,0 +1,5 @@
+1
+del x
+False
+del x
+AttributeError

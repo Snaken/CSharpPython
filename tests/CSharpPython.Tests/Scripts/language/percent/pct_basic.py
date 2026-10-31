@@ -1,0 +1,8 @@
+print('%s and %s' % ('a', 'b'))
+print('%d items' % 3)
+print('%s' % 'x', '%s' % 5, '%s' % None, '%s' % [1, 2])
+print('100%% sure %d' % 5)
+print('%r %r' % ('a', 1))
+print('%a' % 'é')
+print('%c%c' % (65, 'z'))
+print('no args' % ())

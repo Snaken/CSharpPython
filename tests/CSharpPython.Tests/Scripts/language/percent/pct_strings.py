@@ -1,0 +1,6 @@
+print('%10s|%-10s|%.2s|%10.2s|' % ('abc', 'abc', 'abc', 'abc'))
+print('%05s|' % 'ab')
+print('%s' % (1, 2) if False else '%s %s' % (1, 2))
+print('%5c|%-5c|' % ('a', 66))
+print('%s %s' % ((1, 2), [3]))
+print('%r' % 'it\'s')

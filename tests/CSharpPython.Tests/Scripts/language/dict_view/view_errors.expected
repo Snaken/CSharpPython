@@ -1,0 +1,13 @@
+TypeError 'dict_keys' object is not subscriptable
+TypeError 'dict_values' object is not subscriptable
+TypeError unhashable type: 'dict_keys'
+TypeError unsupported operand type(s) for |: 'dict_values' and 'dict_values'
+TypeError '<' not supported between instances of 'dict_values' and 'dict_values'
+TypeError 'int' object is not iterable
+TypeError 'int' object is not iterable
+TypeError unsupported operand type(s) for +: 'dict_keys' and 'dict_keys'
+TypeError '<' not supported between instances of 'dict_keys' and 'list'
+RuntimeError dictionary changed size during iteration
+{'a': 2, 'xa': 2}
+TypeError 'dict_keys' object is not an iterator
+TypeError object of type 'int' has no len()
