@@ -47,8 +47,38 @@ namespace CSharpPython.Blocks
                 });
                 w.End('}');
             });
+            if (!graph.Editor.IsEmpty) WriteEditor(w, graph.Editor);
             w.End('}');
             return w.ToString();
+        }
+
+        private static void WriteEditor(Writer w, BlockEditorData e)
+        {
+            w.Name("Editor");
+            w.Begin('{');
+            w.Name("Nodes");
+            w.Array(e.Nodes, n => { w.Begin('{'); w.Str("Id", n.Id); w.Number("X", n.X); w.Number("Y", n.Y); w.Flag("Collapsed", n.Collapsed); w.End('}'); });
+            w.Name("Comments");
+            w.Array(e.Comments, c => { w.Begin('{'); w.Str("Text", c.Text); w.Number("X", c.X); w.Number("Y", c.Y); w.Number("Width", c.Width); w.Number("Height", c.Height); w.End('}'); });
+            w.Name("Wires");
+            w.Array(e.Wires, b =>
+            {
+                w.Begin('{');
+                w.Str("Node", b.Node); w.Str("Pin", b.Pin);
+                w.Name("Points");
+                w.Array(b.Points, p => { w.Begin('{'); w.Number("X", p.X); w.Number("Y", p.Y); w.End('}'); });
+                w.End('}');
+            });
+            w.Name("Groups");
+            w.Array(e.Groups, g =>
+            {
+                w.Begin('{');
+                w.Str("Title", g.Title); w.Flag("Collapsed", g.Collapsed);
+                w.Name("Nodes");
+                w.Array(g.Nodes, id => w.Value(id));
+                w.End('}');
+            });
+            w.End('}');
         }
 
         private sealed class Writer
@@ -102,6 +132,19 @@ namespace CSharpPython.Blocks
             {
                 Quote(text ?? "");
                 _first = false;
+            }
+
+            public void Number(string name, float value)
+            {
+                Name(name);
+                // JSON has no NaN or infinity; a position that is neither is written as 0.
+                Raw(float.IsNaN(value) || float.IsInfinity(value) ? "0" : value.ToString("R", CultureInfo.InvariantCulture));
+            }
+
+            public void Flag(string name, bool value)
+            {
+                Name(name);
+                Raw(value ? "true" : "false");
             }
 
             public void Str(string name, string value)
@@ -194,7 +237,55 @@ namespace CSharpPython.Blocks
                 }
                 graph.Functions.Add(fn);
             }
+            if (obj.TryGetValue("Editor", out var editor) && editor != null) ReadEditor(AsObject(editor, "'Editor'"), graph.Editor);
             return graph;
+        }
+
+        private static void ReadEditor(Dictionary<string, object> o, BlockEditorData e)
+        {
+            foreach (var n in Items(o, "Nodes"))
+            {
+                var no = AsObject(n, "a block layout");
+                e.Nodes.Add(new BlockNodeLayout(Text(no, "Id"), Number(no, "X"), Number(no, "Y"), Flag(no, "Collapsed")));
+            }
+            foreach (var c in Items(o, "Comments"))
+            {
+                var co = AsObject(c, "a comment box");
+                e.Comments.Add(new BlockCommentBox(Text(co, "Text"), Number(co, "X"), Number(co, "Y"), Number(co, "Width"), Number(co, "Height")));
+            }
+            foreach (var w in Items(o, "Wires"))
+            {
+                var wo = AsObject(w, "a wire");
+                var bends = new BlockWireBends(Text(wo, "Node"), Text(wo, "Pin"));
+                foreach (var p in Items(wo, "Points"))
+                {
+                    var po = AsObject(p, "a point");
+                    bends.Points.Add(new BlockPoint(Number(po, "X"), Number(po, "Y")));
+                }
+                e.Wires.Add(bends);
+            }
+            foreach (var g in Items(o, "Groups"))
+            {
+                var go = AsObject(g, "a group");
+                var group = new BlockGroup { Title = Text(go, "Title"), Collapsed = Flag(go, "Collapsed") };
+                foreach (var id in Items(go, "Nodes"))
+                    group.Nodes.Add(id as string ?? throw new BlockGraphFormatException("a group's 'Nodes' must hold strings"));
+                e.Groups.Add(group);
+            }
+        }
+
+        private static float Number(Dictionary<string, object> o, string key)
+        {
+            if (!o.TryGetValue(key, out var v) || v == null) return 0f;
+            if (v is long whole) return whole;
+            if (v is double d) return float.IsNaN((float)d) || float.IsInfinity((float)d) ? 0f : (float)d;
+            throw new BlockGraphFormatException("'" + key + "' must be a number");
+        }
+
+        private static bool Flag(Dictionary<string, object> o, string key)
+        {
+            if (!o.TryGetValue(key, out var v) || v == null) return false;
+            return v is bool b ? b : throw new BlockGraphFormatException("'" + key + "' must be true or false");
         }
 
         private static Dictionary<string, object> AsObject(object value, string what)

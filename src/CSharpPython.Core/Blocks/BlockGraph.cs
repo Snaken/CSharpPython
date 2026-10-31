@@ -167,6 +167,9 @@ namespace CSharpPython.Blocks
         public List<BlockVariable> Variables = new List<BlockVariable>();
         public List<BlockFunction> Functions = new List<BlockFunction>();
 
+        /// <summary>Positions, comment boxes, reroute points and groups for an editor. The compiler ignores it.</summary>
+        public BlockEditorData Editor = new BlockEditorData();
+
         public BlockGraph AddVariable(string name, string initial, string type = null)
         {
             Variables.Add(new BlockVariable(name, initial, type));
