@@ -106,7 +106,42 @@ namespace CSharpPython
         public static bool Equal(Value a, Value b)
         {
             if (!IsNested(a)) return Equal(a, b, 0);
+            if (a.Kind == ValueKind.Tuple && b.Kind == ValueKind.Tuple && TryFlatTupleEqual(a, b, out bool same)) return same;
             using (Work.Walk()) return Equal(a, b, 0);
+        }
+
+        // A short tuple of plain scalars (the usual dict key, such as a grid position) cannot nest or call script code, so
+        // comparing or hashing it needs none of the walk budget. Returns false when the tuple is not of that kind.
+        private static bool IsScalar(Value v) => v.Kind != ValueKind.Instance && !IsNested(v);
+
+        private static bool TryFlatTupleEqual(Value a, Value b, out bool same)
+        {
+            var x = ((PyTuple)a.RawObject).Items;
+            var y = ((PyTuple)b.RawObject).Items;
+            same = false;
+            if (x.Length >= Work.ItemsPerStep) return false;
+            if (ReferenceEquals(x, y)) { same = true; return true; }
+            if (x.Length != y.Length) return true;
+            for (int i = 0; i < x.Length; i++)
+            {
+                if (!IsScalar(x[i]) || !IsScalar(y[i])) return false;
+                if (!Equal(x[i], y[i], 1)) return true;
+            }
+            same = true;
+            return true;
+        }
+
+        private static bool TryFlatTupleHash(Value v, out int hash)
+        {
+            var items = ((PyTuple)v.RawObject).Items;
+            hash = 17;
+            if (items.Length >= Work.ItemsPerStep) return false;
+            for (int i = 0; i < items.Length; i++)
+                if (!IsScalar(items[i])) return false;
+            int h = 17;
+            for (int i = 0; i < items.Length; i++) h = Combine(h, HashWalk(items[i]));
+            hash = h;
+            return true;
         }
 
         // Values that can hold other values, so that a walk over them needs the visit count.
@@ -230,6 +265,7 @@ namespace CSharpPython
         public static int Hash(Value v)
         {
             if (!IsNested(v)) return HashWalk(v);
+            if (v.Kind == ValueKind.Tuple && TryFlatTupleHash(v, out int flat)) return flat;
             using (Work.Walk()) return HashWalk(v);
         }
 
