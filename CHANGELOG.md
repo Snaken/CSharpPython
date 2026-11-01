@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Faster: a short tuple of numbers, strings and the like (such as a key `(x, y)`) is hashed and compared without the walk budget that guards nested values, about 25% quicker to compare; nested or long tuples and tuples that hold script objects are still budgeted. Results are the same.
+- Faster: measuring a task's memory (for `MaxMemoryBytes` and `EstimatedMemoryBytes`) counts a tuple of plain values without entering it in the set of objects already seen, which was most of the cost for a script that keeps many such tuples: a 48 MB task took about 9 ms to measure instead of 28. A plain tuple held in several places is now counted each time, a few bytes too many.
+
 ## 0.2.4
 
 Security hardening and limits, faster and smaller collections, and what the examples needed from Blocks. **Read the breaking notes before updating.** The snapshot format is still version 16, but **a saved task of a script that contains a tuple of constants such as `(0, 1)` cannot be restored**, because that tuple is now built once when the script is compiled and the compiled code (and so its fingerprint) is different. The new defaults also change what scripts may do: `MaxSequenceLength` 100,000, `MaxMemoryBytes` 64 MB, `MaxSourceLength` 1,000,000 characters, and a `HostError` now only names the .NET exception type (the exception itself is `task.Error.InnerException`). A host that needs more raises the limits in `VmOptions`.

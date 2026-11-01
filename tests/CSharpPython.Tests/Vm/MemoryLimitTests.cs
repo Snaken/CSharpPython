@@ -63,6 +63,22 @@ namespace CSharpPython.Tests.Vm
         }
 
         [Test]
+        public void ATupleOfPlainValuesIsCountedByItsLength()
+        {
+            var task = Run("L = [(i, i) for i in range(1000)]");
+            // 56 bytes and 24 for each of two items, a thousand times, and the list that holds them.
+            Assert.That(task.EstimatedMemoryBytes, Is.InRange(1000 * (56 + 48), 1000 * (56 + 48) + 40000));
+        }
+
+        [Test]
+        public void ATupleThatHoldsAnObjectStillCountsWhatItHoldsOnce()
+        {
+            // A thousand tuples that each hold the same 10,000-character string, and a thousand that share one list.
+            var task = Run("big = 'x' * 10000\nL = [(big, i) for i in range(1000)]\ninner = [0] * 1000\nM = [(inner,)] * 1000");
+            Assert.That(task.EstimatedMemoryBytes, Is.LessThan(1000000));
+        }
+
+        [Test]
         public void ZeroTurnsTheLimitOff()
         {
             var options = new VmOptions { MaxMemoryBytes = 0 };

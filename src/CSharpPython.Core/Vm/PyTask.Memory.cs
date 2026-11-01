@@ -134,6 +134,16 @@ namespace CSharpPython
 
         private bool First(object o) => _seen.Add(o);
 
+        // A tuple of plain values holds no other object that could be shared or form a cycle, so it is counted without
+        // entering it in the seen set (a tuple held twice counts twice, a few bytes too many). Most of a big search
+        // script's heap is tuples like this, and the set was most of the cost of a measurement.
+        private static bool Flat(Value[] items)
+        {
+            foreach (var item in items)
+                if (Counted(item.Kind) && !(item.Kind == ValueKind.Str && ((string)item.RawObject).Length < MemorySizes.SharedStringLength)) return false;
+            return true;
+        }
+
         private void Count(Value v)
         {
             switch (v.Kind)
@@ -156,13 +166,20 @@ namespace CSharpPython
                     }
                     break;
                 case ValueKind.Tuple:
+                {
+                    var items = ((PyTuple)v.RawObject).Items;
+                    if (Flat(items))
+                    {
+                        _bytes += MemorySizes.TupleHead + MemorySizes.Slot * items.Length;
+                        break;
+                    }
                     if (First(v.RawObject))
                     {
-                        var items = ((PyTuple)v.RawObject).Items;
                         _bytes += MemorySizes.TupleHead + MemorySizes.Slot * items.Length;
                         foreach (var item in items) Visit(item);
                     }
                     break;
+                }
                 case ValueKind.Deque:
                     if (First(v.RawObject))
                     {
