@@ -68,12 +68,15 @@ namespace CSharpPython.Blocks
         /// </summary>
         public bool LoopVariable => Name == "for_each" || Name == "for_range" || Name == "repeat";
 
+        /// <summary>True for a step in the flow that also has a value (<c>pop</c> removes an item and gives it back). Its value can be wired to blocks that run after it.</summary>
+        public bool FlowValue => Name == "pop";
+
         /// <summary>The type of the block's value, which may mention a type variable, or null for a step in the flow.</summary>
         public PinType OutputType
         {
             get
             {
-                if (Kind == BlockKind.Flow) return null;
+                if (Kind == BlockKind.Flow && !FlowValue) return null;
                 if (Typed != null && Typed.HasResult && Typed.Outputs.Count == 1) return Typed.Outputs[0].Type;
                 return PinType.Any;
             }
@@ -243,6 +246,8 @@ namespace CSharpPython.Blocks
             AddBlock("list", "List of", "Lists", BlockKind.Value, None, None, false);
             AddBlock("set_index", "Set item at", "Lists", BlockKind.Flow, new[] { "list", "index", "value" }, Next, false);
             AddBlock("append", "Append to list", "Lists", BlockKind.Flow, new[] { "list", "value" }, Next, false);
+            AddBlock("pop", "Remove and return item", "Lists", BlockKind.Flow, new[] { "list", "index" }, Next, false);
+            AddBlock("list_of_size", "List of size", "Lists", BlockKind.Value, new[] { "value", "count" }, None, false);
             AddBlock("remove_at", "Remove item at", "Lists", BlockKind.Flow, new[] { "list", "index" }, Next, false);
             AddBlock("get_attr", "Get field", "Objects", BlockKind.Value, new[] { "object" }, None, true);
             AddBlock("set_attr", "Set field", "Objects", BlockKind.Flow, new[] { "object", "value" }, Next, true);

@@ -53,6 +53,6 @@ Everything known to be missing, grouped by area. The order inside a group is rou
 
 ## Not planned
 
-- `async` and `await`.
+- `async` and `await`. A script already waits without them: a host function such as `game.wait(10)` pauses the task, and the code reads top to bottom, because the VM keeps its frames in its own stack and can stop and resume at any call (and a paused task can be saved). `async` would make every function that waits, and every function that calls one, change its signature and be called with `await`, which is hard on people writing small game scripts and has no meaning in the block and node editors, where a wait is just a block. It would also need coroutine objects, a scheduler and snapshot support for them, while generators already give scripts a way to produce values over time. The host does not need it either: it calls `task.Update()` once a tick, with no threads to bridge.
 - `eval`, `exec` and `compile`, `open` and other file or network access, threads, and importing CPython modules or C extensions. Scripts should only reach the game through the host API.
 - Complex numbers.

@@ -588,6 +588,9 @@ namespace CSharpPython.Blocks
                     case "append":
                         Emit(depth, Input(node, "list").Atom + ".append(" + Input(node, "value").Text + ")", node);
                         break;
+                    case "pop":
+                        EmitPop(node, depth);
+                        break;
                     case "remove_at":
                         Emit(depth, "del " + Input(node, "list").Atom + "[" + Input(node, "index").Text + "]", node);
                         break;
@@ -836,6 +839,22 @@ namespace CSharpPython.Blocks
 
         private string NewTemp() => "_b" + (++_tempCount).ToString(CultureInfo.InvariantCulture);
 
+        // Removes an item and, when a block reads it, keeps the item in a local that later blocks use.
+        private void EmitPop(BlockNode node, int depth)
+        {
+            var list = Input(node, "list");
+            var index = Input(node, "index", optional: true);
+            string text = list.Atom + ".pop(" + (index.Text ?? "") + ")";
+            if (!_referenced.Contains(node.Id))
+            {
+                Emit(depth, text, node);
+                return;
+            }
+            string temp = NewTemp();
+            _temps[node.Id] = temp;
+            Emit(depth, temp + " = " + text, node);
+        }
+
         private void EmitCall(BlockNode node, int depth)
         {
             var kind = ClassifyCall(node, out _);
@@ -1032,13 +1051,14 @@ namespace CSharpPython.Blocks
                 return new Ex("None", false);
             }
             if (!isCall && spec.LoopVariable) return LoopVariableOf(owner, pin, source);
-            if (!isCall && spec.Kind == BlockKind.Flow)
+            if (!isCall && spec.Kind == BlockKind.Flow && !spec.FlowValue)
             {
                 Error("'" + source.Block + "' has no value to connect to the input '" + pin + "'", owner, pin);
                 return new Ex("None", false);
             }
 
-            var kind = isCall ? ClassifyCall(source, out _) : Callee.Pure;
+            var kind = isCall ? ClassifyCall(source, out _) : spec.FlowValue ? Callee.Impure : Callee.Pure;
+            string label = isCall ? source.Name : source.Block;
             if (kind == Callee.Unknown)
             {
                 Error(string.IsNullOrEmpty(source.Name) ? "a call block needs a function name" : UnknownFunction(source.Name), source);
@@ -1049,12 +1069,12 @@ namespace CSharpPython.Blocks
             {
                 if (_noResults)
                 {
-                    Error("a loop condition cannot use the result of '" + source.Name + "'; compute it inside the loop and use if/break", owner, pin);
+                    Error("a loop condition cannot use the result of '" + label + "'; compute it inside the loop and use if/break", owner, pin);
                     return new Ex("None", false);
                 }
                 if (!_temps.TryGetValue(TempKey(fromId, fromPin), out var temp) || !_scope.Has(fromId))
                 {
-                    Error("this uses the result of '" + source.Name + "' before it has run; put that block earlier in the flow, in the same or an enclosing branch", owner, pin);
+                    Error("this uses the result of '" + label + "' before it has run; put that block earlier in the flow, in the same or an enclosing branch", owner, pin);
                     return new Ex("None", false);
                 }
                 _valueUsed.Add(fromId);
@@ -1134,6 +1154,8 @@ namespace CSharpPython.Blocks
                         return new Ex(Input(node, "list").Atom + "[" + Input(node, "index").Text + "]", false);
                     case "list":
                         return ListOf(node);
+                    case "list_of_size":
+                        return new Ex("[" + Input(node, "value").Text + "] * " + Input(node, "count").Atom, true);
                     case "call":
                         return Call(node);
                 }

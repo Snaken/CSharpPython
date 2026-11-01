@@ -42,6 +42,8 @@ The limit is per object, so many objects at the limit still add up (100 lists of
 
 **What it costs.** Nothing measurable for scripts that keep little (the usual case for game scripts). A task that holds most of its limit pays for the walks: in a measurement of a hot loop running with 25 to 40 MB of the 64 MB limit held, it ran 65 to 80% slower than with the limit off. A host that cannot afford that sets a higher limit (the cost falls as the headroom grows) or 0.
 
+**Scripts that remember everything.** A script that keeps every cell it has seen in a set or dict (a maze explorer, a visited list, a log) only grows, however long it runs, and a game that runs for hours will meet it. The growth costs twice: the estimate climbs towards `MaxMemoryBytes`, and the real heap grows too, so each garbage collection takes longer (on Unity's Mono and IL2CPP the collector scans the whole heap, so a run with a few hundred megabytes live can stall a frame for 100 ms or more). Three things help. Write scripts that forget what they no longer need (a bounded `deque`, clearing a set when the level changes). Keep `MaxMemoryBytes` low enough that one runaway task is stopped long before the heap gets that big. And have the host watch `task.EstimatedMemoryBytes` for tasks it wants to restart or warn about; it is available on every runtime, unlike `GC.GetAllocatedBytesForCurrentThread`, which reads 0 on Unity's Mono. A key that is a tuple costs more than an integer key that holds the same information (`y * width + x` instead of `(x, y)`), because a tuple is an object of its own.
+
 The limit is per task, so a game with 100 tasks can hold 100 times the limit. Size it for the number of tasks, or give each task its own `PyVm` with its own limit.
 
 ## Values that share parts

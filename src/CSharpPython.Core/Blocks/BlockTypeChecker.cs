@@ -49,7 +49,7 @@ namespace CSharpPython.Blocks
             var node = fn?.Nodes.FirstOrDefault(n => n != null && n.Id == nodeId);
             if (node == null) return null;
             var lib = library ?? new BlockLibrary();
-            if (node.Block != "call" && lib.FindBlock(node.Block) is BlockSpec spec && spec.Kind == BlockKind.Flow && !spec.LoopVariable) return null;
+            if (node.Block != "call" && lib.FindBlock(node.Block) is BlockSpec spec && spec.Kind == BlockKind.Flow && !spec.LoopVariable && !spec.FlowValue) return null;
             return new FunctionTypes(fn, lib, UserFunctions(graph), BlockVariableTypes.Table(graph)).OutputOf(node, outputPin);
         }
 
@@ -73,7 +73,7 @@ namespace CSharpPython.Blocks
             var lib = library ?? new BlockLibrary();
             var userFunctions = UserFunctions(graph);
             var variables = BlockVariableTypes.Table(graph);
-            if (source.Block != "call" && lib.FindBlock(source.Block) is BlockSpec sourceSpec && sourceSpec.Kind == BlockKind.Flow && !sourceSpec.LoopVariable)
+            if (source.Block != "call" && lib.FindBlock(source.Block) is BlockSpec sourceSpec && sourceSpec.Kind == BlockKind.Flow && !sourceSpec.LoopVariable && !sourceSpec.FlowValue)
                 return PinCheck.No("'" + source.Block + "' is a step in the flow and has no value to wire.");
             var scope = new LoopScopes(fn, lib, userFunctions).Problem(source, target);
             if (scope != null) return PinCheck.No(scope);

@@ -23,6 +23,8 @@ namespace CSharpPython.Blocks
             { "list", "*item -> list[any]" },
             { "set_index", "list: list[$T], index: int, value: $T" },
             { "append", "list: list[$T], value: $T" },
+            { "pop", "list: list[$T], index: int -> $T" },
+            { "list_of_size", "value: $T, count: int -> list[$T]" },
             { "remove_at", "list: list[any], index: int" },
             { "repeat", "count: int" },
             { "for_range", "start: int, stop: int, step: int" },
