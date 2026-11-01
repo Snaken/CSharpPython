@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.2.4
+
+Security hardening and limits, faster and smaller collections, and what the examples needed from Blocks. **Read the breaking notes before updating.** The snapshot format is still version 16, but **a saved task of a script that contains a tuple of constants such as `(0, 1)` cannot be restored**, because that tuple is now built once when the script is compiled and the compiled code (and so its fingerprint) is different. The new defaults also change what scripts may do: `MaxSequenceLength` 100,000, `MaxMemoryBytes` 64 MB, `MaxSourceLength` 1,000,000 characters, and a `HostError` now only names the .NET exception type (the exception itself is `task.Error.InnerException`). A host that needs more raises the limits in `VmOptions`.
 
 - **Less garbage from everyday operations.** Measured as bytes allocated each time an operation runs (a call, an attribute or method access, `try` and a native call such as `abs` already allocated nothing): `a, b = t` of a tuple or list 104 to 0, `min(a, b)` and `max(a, b)` 336 to 0, a tuple of constants such as `(1, 2)` or `(0, -1)` 104 to 0 (it is built once when the script is compiled and shared, as in CPython, so `(1, 2) is (1, 2)` is `True`), `for i, x in enumerate(xs)` over three items 688 to 64 (the pair goes straight to the two names), and `sorted` of five items 1,016 to 667 (and with a `key` 856 to 600). A script that loops over many such operations makes fewer garbage collections.
 - Fixed: `xs.sort(key=f)` where `f` (or a comparison) changed `xs` ended the task with a `HostError` (`ArgumentOutOfRangeException`). The sort now works on a copy and raises `ValueError: list modified during sort` if the list changed, as CPython does.
