@@ -72,9 +72,11 @@ namespace CSharpPython
     {
         public const long Slot = 24;        // one Value
         public const long Object = 40;      // header and fields of a small object
-        public const long ListHead = 32;
-        public const long DictEntry = 3 * Slot; // key, value and the bookkeeping of the entry
-        public const long SetEntry = 2 * Slot;
+        public const long ListHead = 80;    // the list object, its List<Value> and the header of the array
+        public const long TupleHead = 56;   // the tuple object and the header of its array
+        public const long DictHead = 112;   // the dictionary (or set) object with its arrays and table
+        public const long DictEntry = 80;   // key, value, hash and the table slots of the entry (measured: 79)
+        public const long SetEntry = 48;    // key, hash and the table slots (measured: 47)
         public const long StringHead = 24;
         public const long TraceFrame = 16;  // a function name and a line, for each frame of an exception's traceback
 
@@ -157,7 +159,7 @@ namespace CSharpPython
                     if (First(v.RawObject))
                     {
                         var items = ((PyTuple)v.RawObject).Items;
-                        _bytes += MemorySizes.ListHead + MemorySizes.Slot * items.Length;
+                        _bytes += MemorySizes.TupleHead + MemorySizes.Slot * items.Length;
                         foreach (var item in items) Visit(item);
                     }
                     break;
@@ -176,7 +178,7 @@ namespace CSharpPython
                     if (First(v.RawObject))
                     {
                         var set = ((PySet)v.RawObject).Items;
-                        _bytes += MemorySizes.Object + MemorySizes.SetEntry * set.Count;
+                        _bytes += MemorySizes.DictHead + MemorySizes.SetEntry * set.Count;
                         foreach (var pair in set.Pairs()) Visit(pair.Key);
                     }
                     break;
@@ -278,7 +280,7 @@ namespace CSharpPython
 
         private void CountDict(PyDict dict)
         {
-            _bytes += MemorySizes.Object + MemorySizes.DictEntry * dict.Count;
+            _bytes += MemorySizes.DictHead + MemorySizes.DictEntry * dict.Count;
             foreach (var pair in dict.Pairs())
             {
                 Visit(pair.Key);
