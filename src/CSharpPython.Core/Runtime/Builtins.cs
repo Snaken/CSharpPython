@@ -495,43 +495,65 @@ namespace CSharpPython
 
         // Sum for a generator, working like Sum above one value at a time: floats are added with compensation when the
         // first value (or the start) is a float, and every other case adds with Ops.Add.
-        private static Value SumGenerator(CallContext ctx, PyGenerator generator, Value total)
+        private sealed class GeneratorSum
         {
-            int count = 0;
-            bool first = true, floating = false;
-            double sum = 0, compensation = 0;
-            generator.Drain(item =>
+            private readonly CallContext _ctx;
+            private Value _total;
+            private bool _first = true;
+            private bool _floating;
+            private double _sum;
+            private double _compensation;
+            private int _count;
+
+            public GeneratorSum(CallContext ctx, Value total)
             {
-                if (first)
+                _ctx = ctx;
+                _total = total;
+            }
+
+            public bool Add(Value item)
+            {
+                if (_first)
                 {
-                    first = false;
-                    if ((total.Kind == ValueKind.Float || item.Kind == ValueKind.Float)
-                        && (total.IsInteger && total.Kind != ValueKind.BigInt || total.Kind == ValueKind.Float))
+                    _first = false;
+                    if ((_total.Kind == ValueKind.Float || item.Kind == ValueKind.Float)
+                        && (_total.IsInteger && _total.Kind != ValueKind.BigInt || _total.Kind == ValueKind.Float))
                     {
-                        floating = true;
-                        sum = total.AsFloat();
+                        _floating = true;
+                        _sum = _total.AsFloat();
                     }
                 }
-                if (floating)
+                if (_floating)
                 {
                     if (item.Kind == ValueKind.Float || item.IsInteger && item.Kind != ValueKind.BigInt)
                     {
-                        AddCompensated(ref sum, ref compensation, item.AsFloat());
-                        Tick(ctx, ref count);
+                        AddCompensated(ref _sum, ref _compensation, item.AsFloat());
+                        Tick(_ctx, ref _count);
                         return true;
                     }
-                    total = FloatTotal(sum, compensation);
-                    floating = false;
+                    _total = FloatTotal(_sum, _compensation);
+                    _floating = false;
                 }
-                long x = total.RawInt, y = item.RawInt, r = unchecked(x + y);
-                if (total.Kind == ValueKind.Int && item.Kind == ValueKind.Int && ((x ^ r) & (y ^ r)) >= 0) total = Value.FromInt(r);
-                else total = Ops.Add(total, item);
-                Tick(ctx, ref count);
+                long x = _total.RawInt, y = item.RawInt, r = unchecked(x + y);
+                if (_total.Kind == ValueKind.Int && item.Kind == ValueKind.Int && ((x ^ r) & (y ^ r)) >= 0) _total = Value.FromInt(r);
+                else _total = Ops.Add(_total, item);
+                Tick(_ctx, ref _count);
                 return true;
-            });
-            if (floating) total = FloatTotal(sum, compensation);
-            ctx.Charge(count);
-            return total;
+            }
+
+            public Value Finish()
+            {
+                if (_floating) _total = FloatTotal(_sum, _compensation);
+                _ctx.Charge(_count);
+                return _total;
+            }
+        }
+
+        private static Value SumGenerator(CallContext ctx, PyGenerator generator, Value total)
+        {
+            var sum = new GeneratorSum(ctx, total);
+            generator.Drain(sum.Add);
+            return sum.Finish();
         }
 
         private static Value Round(CallContext ctx, ReadOnlySpan<Value> a)
