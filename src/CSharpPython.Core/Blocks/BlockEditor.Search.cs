@@ -25,7 +25,8 @@ namespace CSharpPython.Blocks
         /// </summary>
         public string Pin { get; }
 
-        internal BlockChoice(string block, string name, string title, string category, string pin = null)
+        /// <summary>Makes a choice of the host's own, such as a custom entry in a search box.</summary>
+        public BlockChoice(string block, string name, string title, string category, string pin = null)
         {
             Block = block;
             Name = name;
@@ -71,7 +72,7 @@ namespace CSharpPython.Blocks
         {
             var type = BlockTypeChecker.OutputType(Graph, function, nodeId, Library, outputPin);
             if (type == null) return new BlockChoice[0];
-            var choices = Choices(Index().Accepting(type)).ToList();
+            var choices = WithVariables(Choices(Index().Accepting(type)), type, true).ToList();
             // Parameters of the graph's own functions have no declared type, so they take any value.
             foreach (var f in Graph.Functions.Where(f => f != null && !string.IsNullOrEmpty(f.Name)))
                 for (int i = 0; i < f.Parameters.Count; i++)
@@ -89,7 +90,8 @@ namespace CSharpPython.Blocks
             var fn = FindFunction(function);
             var node = fn == null ? null : FindNode(fn, nodeId);
             if (node == null || CheckInputPin(node, pin) != null) return new BlockChoice[0];
-            var choices = Choices(Index().Producing(InputTypeOf(node, pin))).ToList();
+            var inputType = InputTypeOf(node, pin);
+            var choices = WithVariables(Choices(Index().Producing(inputType)), inputType, false).ToList();
             // The graph's own functions may return a value of any type.
             foreach (var f in Graph.Functions.Where(f => f != null && !string.IsNullOrEmpty(f.Name)))
                 choices.Add(new BlockChoice("call", f.Name, f.Name, "Graph"));
@@ -125,12 +127,52 @@ namespace CSharpPython.Blocks
                 ? new BlockChoice("call", Qualified(m.Function), Qualified(m.Function), m.Function.Module ?? "Functions", m.Pin)
                 : new BlockChoice(m.Block.Name, null, m.Block.Title, m.Block.Category, m.Pin)).ToList();
 
+        private static bool IsVariableBlock(BlockChoice c) => c.Name == null && (c.Block == "get" || c.Block == "set" || c.Block == "change");
+
+        private IEnumerable<BlockVariable> NamedVariables() =>
+            Graph.Variables.Where(v => v != null && !string.IsNullOrEmpty(v.Name)).GroupBy(v => v.Name).Select(g => g.First());
+
+        private static string VerbOf(string block) => block == "get" ? "Get" : block == "set" ? "Set" : "Change";
+
+        private static bool IsNumber(PinType t) => t.Equals(PinType.Int) || t.Equals(PinType.Float);
+
+        // The generic get/set/change entries have no variable to work on, so with variables in the graph they are
+        // replaced by one entry for each variable whose type fits the pin the search started from.
+        private IEnumerable<BlockChoice> WithVariables(IEnumerable<BlockChoice> choices, PinType pinType, bool fromOutput)
+        {
+            var variables = NamedVariables().ToList();
+            if (variables.Count == 0) return choices;
+            var result = choices.Where(c => !IsVariableBlock(c)).ToList();
+            foreach (var v in variables)
+            {
+                var type = BlockVariableTypes.Declared(v, out _) ?? PinType.Any;
+                if (fromOutput)
+                {
+                    if (!PinCompatibility.Check(pinType, type).Allowed) continue;
+                    result.Add(new BlockChoice("set", v.Name, "Set " + v.Name, "Variables", "value"));
+                    if (IsNumber(type) && IsNumber(pinType)) result.Add(new BlockChoice("change", v.Name, "Change " + v.Name, "Variables", "value"));
+                }
+                else if (PinCompatibility.Check(type, pinType).Allowed)
+                    result.Add(new BlockChoice("get", v.Name, "Get " + v.Name, "Variables"));
+            }
+            return result;
+        }
+
         private static string Qualified(FunctionSpec f) => f.Module != null ? f.Module + "." + f.Name : f.Name;
 
         private IEnumerable<BlockChoice> AllChoices()
         {
+            var variables = NamedVariables().ToList();
             foreach (var b in Library.Blocks)
-                if (b.Name != "call") yield return new BlockChoice(b.Name, null, b.Title, b.Category);
+            {
+                if (b.Name == "call") continue;
+                if (variables.Count > 0 && (b.Name == "get" || b.Name == "set" || b.Name == "change"))
+                {
+                    foreach (var v in variables) yield return new BlockChoice(b.Name, v.Name, VerbOf(b.Name) + " " + v.Name, "Variables");
+                    continue;
+                }
+                yield return new BlockChoice(b.Name, null, b.Title, b.Category);
+            }
             foreach (var f in Library.Functions)
                 yield return new BlockChoice("call", Qualified(f), Qualified(f), f.Module ?? "Functions");
             foreach (var f in Graph.Functions.Where(f => f != null && !string.IsNullOrEmpty(f.Name)))

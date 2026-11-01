@@ -24,6 +24,65 @@ namespace CSharpPython.Tests.Blocks
             return new BlockEditor(graph, new BlockLibrary().AddAllModules(vm));
         }
 
+        private static BlockEditor EditorWithVariables()
+        {
+            var editor = Editor();
+            editor.Graph.AddVariable("score", "0", "int").AddVariable("name", "\"\"", "str");
+            return editor;
+        }
+
+        // ---- Variables ----
+
+        [Test]
+        public void SearchOffersGetSetAndChangeForEachVariable()
+        {
+            var found = EditorWithVariables().Search("score");
+            Assert.That(found.Select(c => c.Title), Is.EquivalentTo(new[] { "Get score", "Set score", "Change score" }));
+            Assert.That(found.Select(c => c.Block), Is.EquivalentTo(new[] { "get", "set", "change" }));
+            Assert.That(found.All(c => c.Name == "score" && c.Category == "Variables"), Is.True);
+        }
+
+        [Test]
+        public void SearchKeepsTheGenericVariableBlocksWhenThereAreNoVariables()
+        {
+            var found = Editor().Search("variable");
+            Assert.That(found.Any(c => c.Block == "get" && c.Name == null), Is.True);
+        }
+
+        [Test]
+        public void SearchDoesNotOfferTheGenericVariableBlocksWhenThereAreVariables()
+        {
+            var all = EditorWithVariables().Search("");
+            Assert.That(all.Any(c => IsGeneric(c)), Is.False);
+        }
+
+        private static bool IsGeneric(BlockChoice c) => c.Name == null && (c.Block == "get" || c.Block == "set" || c.Block == "change");
+
+        [Test]
+        public void SuggestionsOfferOnlyVariablesThatFit()
+        {
+            var editor = EditorWithVariables();
+            // hp gives an int: it can be stored in score (set, change) but not in name (str).
+            editor.AddNode("main", "call", "game.hp");
+            string hp = editor.Graph.Functions[0].Nodes.Last().Id;
+            var forOutput = editor.SuggestForOutput("main", hp);
+            Assert.That(forOutput.Where(c => c.Name == "score").Select(c => c.Block), Is.EquivalentTo(new[] { "set", "change" }));
+            Assert.That(forOutput.Any(c => c.Name == "name"), Is.False);
+            Assert.That(forOutput.Where(c => c.Name == "score").All(c => c.Pin == "value"), Is.True);
+
+            // A text pin can take the str variable but not the int one.
+            var forInput = editor.SuggestForInput("main", "s", "arg0");
+            Assert.That(forInput.Where(c => c.Block == "get").Select(c => c.Name), Is.EquivalentTo(new[] { "name" }));
+        }
+
+        [Test]
+        public void AHostCanMakeItsOwnChoice()
+        {
+            var choice = new BlockChoice("get", "score", "Get score", "Variables");
+            Assert.That(choice.Name, Is.EqualTo("score"));
+            Assert.That(choice.Pin, Is.Null);
+        }
+
         // ---- Text ----
 
         [Test]
