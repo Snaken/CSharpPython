@@ -101,6 +101,23 @@ namespace CSharpPython.Blocks
         }
 
         /// <summary>
+        /// The blocks on the path to a runtime error, innermost first: the block that failed, then the block that
+        /// called the function it was in, and so on up. A frame with no block on its line adds none, and a block is
+        /// listed once. The first one is what <see cref="Locate"/> returns.
+        /// </summary>
+        public IReadOnlyList<string> Path(PyRuntimeError error)
+        {
+            if (error == null) throw new ArgumentNullException(nameof(error));
+            var nodes = new List<string>();
+            foreach (var frame in error.Trace)
+            {
+                string id = NodeAt(frame.Line);
+                if (id != null && !nodes.Contains(id)) nodes.Add(id);
+            }
+            return nodes;
+        }
+
+        /// <summary>
         /// Finds the block to blame for a runtime error: the innermost frame of the traceback that lands on a line
         /// owned by a block. Returns null if no frame does.
         /// </summary>

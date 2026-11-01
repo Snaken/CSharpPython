@@ -11,12 +11,29 @@ namespace CSharpPython
         private Dictionary<Code, int> _codeIndex;
         private ulong _fingerprint;
 
-        internal Script(Code code)
+        private readonly string _source;
+        private string[] _lines;
+
+        internal Script(Code code, string source = null)
         {
             Code = code;
+            _source = source;
         }
 
         public string Name => Code.SourceName;
+
+        /// <summary>The text the script was compiled from, or null for a script made another way.</summary>
+        public string Source => _source;
+
+        /// <summary>One line of the source (1 is the first) without its line ending, or null when the line does not exist or the source is not kept.</summary>
+        public string SourceLine(int line)
+        {
+            if (_source == null) return null;
+            var lines = _lines;
+            if (lines == null) _lines = lines = _source.Split('\n');
+            if (line < 1 || line > lines.Length) return null;
+            return lines[line - 1].TrimEnd('\r');
+        }
 
         /// <summary>A readable bytecode listing, for debugging.</summary>
         public string Disassemble() => Code.Disassemble();

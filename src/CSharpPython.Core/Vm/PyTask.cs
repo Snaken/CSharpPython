@@ -218,12 +218,12 @@ namespace CSharpPython
             }
             catch (OutOfMemoryException e)
             {
-                Fail(new PyRuntimeError("MemoryLimitExceeded", "the script ran out of memory and was stopped", _script.Name, Array.Empty<TraceFrame>(), e));
+                Fail(new PyRuntimeError("MemoryLimitExceeded", "the script ran out of memory and was stopped", _script.Name, SafeTrace(), e));
                 return _state;
             }
             catch (Exception e)
             {
-                Fail(new PyRuntimeError("HostError", "an internal error stopped the script (" + e.GetType().Name + ")", _script.Name, Array.Empty<TraceFrame>(), e));
+                Fail(new PyRuntimeError("HostError", "an internal error stopped the script (" + e.GetType().Name + ")", _script.Name, SafeTrace(), e));
                 return _state;
             }
         }
@@ -2180,6 +2180,13 @@ namespace CSharpPython
             return new PyRuntimeError(exc.TypeName, exc.Message, _script.Name, exc.Trace, cause ?? context) { Cause = cause, Context = context };
         }
 
+        // The frames the task was in, for an error raised outside the interpreter loop; empty if they cannot be read.
+        private List<TraceFrame> SafeTrace()
+        {
+            try { return CurrentTrace(); }
+            catch (Exception) { return new List<TraceFrame>(); }
+        }
+
         private List<TraceFrame> CurrentTrace()
         {
             var trace = new List<TraceFrame>();
@@ -2199,6 +2206,7 @@ namespace CSharpPython
 
         private void Fail(PyRuntimeError error)
         {
+            error.AttachSource(_script);
             _error = error;
             _state = TaskState.Error;
             _frameCount = 0;

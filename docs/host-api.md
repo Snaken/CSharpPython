@@ -79,6 +79,25 @@ A native function can call a script function, built-in or bound method with `ctx
 
 Register custom exception types with `vm.RegisterExceptionType("GameError")` so scripts can raise and catch them. A script error that is not caught ends the task: `task.State` is `TaskState.Error` and `task.Error` is a `PyRuntimeError` with `TypeName`, `Problem`, the line number and a Python-style traceback. A host function that throws anything other than a `PyError` is a bug in the host: the task stops with a `HostError` that scripts cannot catch. Its `Problem` only names the .NET exception type (`an internal error stopped the script (InvalidOperationException)`), because the text of a .NET exception may say more than a player should see if the game shows the error; the exception itself, with its message and stack trace, is `task.Error.InnerException`, so log that. Nothing a script does reaches the host as an exception, running out of memory included: that ends the task with an uncatchable `MemoryLimitExceeded` (the `OutOfMemoryException` is the `InnerException`), and the host should drop the task, since it may still hold the memory in its variables.
 
+## Reading an error
+
+`task.Error` says where the script stopped and how it got there. `Trace` lists every running function innermost first (`TraceFrame.Function` and `Line`), and `FormatTraceback()` writes it the way CPython does, outermost call first, with the line of the script under each call:
+
+```
+Traceback (most recent call last):
+  File "robot.py", line 7, in <module>
+    outer()
+  File "robot.py", line 5, in outer
+    return inner(1, 0)
+  File "robot.py", line 2, in inner
+    return a / b
+ZeroDivisionError: division by zero
+```
+
+A function that calls itself is shown three times and then counted (`[Previous line repeated 94 more times]`), so a deep stack stays readable. An error raised from another (`raise ... from`, or inside an `except` block) comes after the one before it. `ToString()` of the error is this whole traceback, so logging `task.Error` is enough; `Message` is the short form with only the innermost line (`ZeroDivisionError: division by zero (line 2)`), for text a player may see. For a `HostError`, `ToString()` ends with the .NET exception that caused it. The source lines come from the compiled script (`Script.Source`, `Script.SourceLine(n)`), so they show for a restored task too. The limit errors (`StepLimitExceeded`, `MemoryLimitExceeded`) carry the call stack where the task was stopped.
+
+For a block script, `SourceMap.Path(error)` gives the blocks on that path, innermost first, so an editor can mark each call that led to the failing block (`Locate(error)` is the first of them).
+
 ## Threads
 
 A `PyTask` and its `PyVm` are not thread-safe: call `Update()`, `QueueEvent()` and the rest of one task from one thread at a time. Different VMs may run on different threads at once (the running task and its limits are tracked for each thread), but exception types are one registry shared by every VM in the process: `RegisterExceptionType` adds to it and it never shrinks (it holds at most 4,096 names; further unknown names become plain `Exception`).

@@ -93,7 +93,7 @@ namespace CSharpPython
             if (source != null && Options.MaxSourceLength > 0 && source.Length > Options.MaxSourceLength)
                 throw new PySyntaxError("the script is too long (" + source.Length + " characters; the limit is " + Options.MaxSourceLength + ")", 1, 1);
             var module = Parser.ParseModule(source);
-            return new Script(Compiler.Compile(module, sourceName));
+            return new Script(Compiler.Compile(module, sourceName), source);
         }
 
         /// <summary>Starts a new task for a script. Nothing runs until you call <see cref="PyTask.Run"/>.</summary>

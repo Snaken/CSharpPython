@@ -201,6 +201,7 @@ namespace CSharpPython
                     trace.Add(new TraceFrame(fn, r.ReadInt32()));
                 }
                 task._error = new PyRuntimeError(type, problem, source, trace);
+                task._error.AttachSource(script);
             }
 
             int globals = SnapshotIo.ReadCount(r, 5);
