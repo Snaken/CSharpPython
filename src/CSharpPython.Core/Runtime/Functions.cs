@@ -39,6 +39,9 @@ namespace CSharpPython
         /// <summary>True when a call can pause the script (it takes a <see cref="CallContext"/> and calls <c>Wait</c>). An editor marks such a call with a clock.</summary>
         public bool Latent { get; set; }
 
+        /// <summary>True when a call only computes a value and changes nothing (a question such as <c>wall_ahead()</c>). The block palette then offers it as a value block that can sit inside a <c>while</c> condition.</summary>
+        public bool Pure { get; set; }
+
         public NativeFunction(string name, NativeFn fn, int minArgs = 0, int maxArgs = -1, bool acceptsKeywords = false)
         {
             Name = name;

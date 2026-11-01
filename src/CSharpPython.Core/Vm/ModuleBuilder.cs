@@ -34,11 +34,13 @@ namespace CSharpPython
         /// <remarks>
         /// Parameters and the result may carry types: <c>"kind: str, count: int = 1 -&gt; Entity"</c>, or several
         /// named results as <c>"-&gt; (hit: bool, point: Vec)"</c>. Signature help still shows the plain list. Set
-        /// <paramref name="latent"/> for a function that can pause the script. Throws
-        /// <see cref="ArgumentException"/> when a type is malformed.
+        /// <paramref name="latent"/> for a function that can pause the script, and <paramref name="pure"/> for one that only
+        /// computes a value and changes nothing, so the block editor can use it as a value block. Throws
+        /// <see cref="ArgumentException"/> when a type is malformed or a function is both latent and pure.
         /// </remarks>
-        public ModuleBuilder Describe(string name, string signature, bool latent = false)
+        public ModuleBuilder Describe(string name, string signature, bool latent = false, bool pure = false)
         {
+            if (latent && pure) throw new ArgumentException("A function that can pause the script cannot be pure.", nameof(pure));
             if (Module.Members.TryGetValue(name, out var member) && member.Kind == ValueKind.Native)
             {
                 var fn = (NativeFunction)member.RawObject;
@@ -46,6 +48,7 @@ namespace CSharpPython
                 fn.Typed = typed;
                 fn.Signature = typed?.ParameterText;
                 fn.Latent = latent;
+                fn.Pure = pure;
             }
             return this;
         }

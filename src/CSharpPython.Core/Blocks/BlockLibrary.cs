@@ -297,9 +297,19 @@ namespace CSharpPython.Blocks
         /// Adds every function of a host module registered on <paramref name="vm"/>, so the palette follows the host
         /// API. Parameter names come from the function's signature; the ones with defaults become optional pins, and
         /// <c>*args</c>/<c>**kwargs</c> are left out. Set <paramref name="pure"/> for a module whose functions only
-        /// compute a value (such as <c>math</c>). Returns false if the module does not exist.
+        /// compute a value (such as <c>math</c>); a function the host described with <c>pure: true</c> is pure either way.
+        /// Returns false if the module does not exist.
         /// </summary>
-        public bool AddModule(PyVm vm, string module, bool pure = false)
+        public bool AddModule(PyVm vm, string module, bool pure = false) => AddModule(vm, module, pure, null);
+
+        /// <summary>
+        /// Like <see cref="AddModule(PyVm, string, bool)"/>, for a module that mixes actions and questions: only the
+        /// functions named in <paramref name="pureFunctions"/> (and those described with <c>pure: true</c>) are pure.
+        /// </summary>
+        public bool AddModule(PyVm vm, string module, IEnumerable<string> pureFunctions) =>
+            AddModule(vm, module, false, pureFunctions == null ? null : new HashSet<string>(pureFunctions, StringComparer.Ordinal));
+
+        private bool AddModule(PyVm vm, string module, bool pure, HashSet<string> pureNames)
         {
             if (vm == null) throw new ArgumentNullException(nameof(vm));
             if (module == null || !vm.Modules.TryGetValue(module, out var m)) return false;
@@ -322,12 +332,12 @@ namespace CSharpPython.Blocks
                     if (eq >= 0 && required < 0) required = parameters.Count;
                     parameters.Add(pname);
                 }
-                AddFunction(name, parameters.ToArray(), pure, module, required, signature, TypedSignatures.For(native, module + "." + name, 0), native.Latent);
+                AddFunction(name, parameters.ToArray(), pure || native.Pure || (pureNames != null && pureNames.Contains(name)), module, required, signature, TypedSignatures.For(native, module + "." + name, 0), native.Latent);
             }
             return true;
         }
 
-        /// <summary>Adds every module registered on <paramref name="vm"/> (see <see cref="AddModule"/>). The <c>math</c> module is treated as pure.</summary>
+        /// <summary>Adds every module registered on <paramref name="vm"/> (see <see cref="AddModule(PyVm, string, bool)"/>). The <c>math</c> module is treated as pure.</summary>
         public BlockLibrary AddAllModules(PyVm vm)
         {
             if (vm == null) throw new ArgumentNullException(nameof(vm));

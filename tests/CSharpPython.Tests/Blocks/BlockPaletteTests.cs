@@ -68,6 +68,59 @@ namespace CSharpPython.Tests.Blocks
         }
 
         [Test]
+        public void AddModuleCanMarkNamedFunctionsPure()
+        {
+            var lib = new BlockLibrary();
+            lib.AddModule(Host(), "game", new[] { "spawn" });
+            Assert.That(lib.FindFunction("game.spawn").Pure, Is.True);
+            Assert.That(lib.FindFunction("game.ping").Pure, Is.False);
+        }
+
+        [Test]
+        public void DescribeCanMarkAFunctionPure()
+        {
+            var vm = Host();
+            vm.RegisterModule("maze", m => m
+                .Function("wall_ahead", () => Value.False)
+                .Action("forward", () => { })
+                .Describe("wall_ahead", "-> bool", pure: true));
+            var lib = new BlockLibrary();
+            lib.AddModule(vm, "maze");
+            Assert.That(lib.FindFunction("maze.wall_ahead").Pure, Is.True);
+            Assert.That(lib.FindFunction("maze.forward").Pure, Is.False);
+        }
+
+        [Test]
+        public void ALatentFunctionCannotBePure()
+        {
+            Assert.Throws<System.ArgumentException>(() => Host().RegisterModule("maze", m => m
+                .Action("wait", () => { })
+                .Describe("wait", "", latent: true, pure: true)));
+        }
+
+        [Test]
+        public void APureQuestionCanBeTheConditionOfAWhile()
+        {
+            var vm = new PyVm();
+            vm.RegisterModule("maze", m => m
+                .Function("wall_ahead", () => Value.False)
+                .Action("forward", () => { })
+                .Describe("wall_ahead", "-> bool", pure: true)
+                .Describe("forward", "-> none"));
+            var lib = new BlockLibrary();
+            lib.AddModule(vm, "maze");
+            var f = new BlockFunction("main") { Start = "w" };
+            f.Add(N("w", "while").Connect("cond", "q").Then("body", "go"));
+            f.Add(N("q", "call", "maze.wall_ahead"));
+            f.Add(N("go", "call", "maze.forward"));
+            var g = new BlockGraph();
+            g.Functions.Add(f);
+            var r = BlockCompiler.Compile(g, lib);
+            Assert.That(r.Succeeded, Is.True, string.Join("; ", r.Diagnostics.Select(d => d.Message)));
+            Assert.That(r.Source, Does.Contain("while maze.wall_ahead():"));
+        }
+
+        [Test]
         public void UnknownModulesAndNullsAreHandled()
         {
             var lib = new BlockLibrary();
