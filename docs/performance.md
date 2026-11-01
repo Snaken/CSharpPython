@@ -1,6 +1,6 @@
 # Performance
 
-CSharpPython is a bytecode interpreter written in plain C#, built to be safe and predictable inside a game rather than to be fast. As a rough guide it runs **about 1.4 to 3 times slower than CPython**, which is itself a slow-ish language. Scripts that do game logic once per tick are nowhere near this limit; heavy number crunching belongs in C#, exposed as a [native function](https://github.com/Snaken/CSharpPython/blob/main/docs/host-api.md).
+CSharpPython is a bytecode interpreter written in plain C#, built to be safe and predictable inside a game rather than to be fast. As a rough guide it runs **between as fast as CPython and about 3 times slower**, which is itself a slow-ish language. Scripts that do game logic once per tick are nowhere near this limit; heavy number crunching belongs in C#, exposed as a [native function](https://github.com/Snaken/CSharpPython/blob/main/docs/host-api.md).
 
 ## Results
 
@@ -8,16 +8,16 @@ CPython 3.14.7, .NET 10.0.402, macOS arm64 (Apple M5 Pro), best of 7 runs after 
 
 | Script | CSharpPython | CPython | Slower by |
 | --- | ---: | ---: | ---: |
-| builtins_stream | 162.3 ms | 61.1 ms | 2.7x |
-| classes | 14.0 ms | 5.7 ms | 2.5x |
-| collections_ops | 30.0 ms | 10.8 ms | 2.8x |
+| builtins_stream | 61.1 ms | 59.7 ms | 1.0x |
+| classes | 14.9 ms | 5.6 ms | 2.6x |
+| collections_ops | 29.2 ms | 10.7 ms | 2.7x |
 | dict_ops | 7.0 ms | 3.0 ms | 2.3x |
-| fib | 4.6 ms | 1.8 ms | 2.5x |
-| generators | 9.0 ms | 3.3 ms | 2.7x |
-| list_ops | 12.4 ms | 4.8 ms | 2.6x |
-| loop_sum | 27.8 ms | 16.5 ms | 1.7x |
-| random_math | 15.4 ms | 11.2 ms | 1.4x |
-| strings | 5.1 ms | 1.9 ms | 2.7x |
+| fib | 4.7 ms | 1.8 ms | 2.6x |
+| generators | 9.2 ms | 3.3 ms | 2.8x |
+| list_ops | 11.8 ms | 4.9 ms | 2.4x |
+| loop_sum | 26.6 ms | 16.3 ms | 1.6x |
+| random_math | 15.6 ms | 11.2 ms | 1.4x |
+| strings | 5.2 ms | 1.9 ms | 2.7x |
 
 What each script does:
 
@@ -46,5 +46,6 @@ This builds and runs [the benchmark project](https://github.com/Snaken/CSharpPyt
 
 - Put hot code inside functions: local variables are faster than globals.
 - Do the heavy work in a native function and call it from the script.
+- Hand a generator expression to `sum`, `any`, `all` or `list` (`any(e.hp <= 0 for e in enemies)`) instead of looping over it in a `for` loop: the built-ins take its values in one run, about twice as fast as a `for` loop over the same generator.
 - Keep key and filter functions small: a `lambda` that only does arithmetic, comparisons and reads (`key=lambda p: p.hp`) runs several times faster inside `sorted`, `min`, `max` and `map` than one that calls other functions.
 - `StepsPerSlice` only decides how often a task yields back to the game; it does not change the total work done.

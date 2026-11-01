@@ -197,5 +197,65 @@ namespace CSharpPython
                 _ctx.SetCall(savedPositional, savedKeywords);
             }
         }
+
+        /// <summary>
+        /// Runs a generator for a native function, handing each value it yields to <paramref name="consumer"/> without
+        /// leaving the interpreter loop in between, which costs far less than resuming it once for each value. The consumer
+        /// returns false to stop, and the generator is then left suspended after the last value it gave, exactly as if
+        /// the native function had asked for values one at a time. An error the consumer throws is thrown from here after
+        /// the generator has been suspended, so the generator never sees it. One difference: the generator counts as
+        /// running while the consumer works, so a consumer that runs script code touching the same generator gets
+        /// "generator already executing".
+        /// </summary>
+        internal void Drain(PyGenerator g, Func<Value, bool> consumer)
+        {
+            if (g.State == GeneratorState.Done) return;
+            if (_nested >= MaxNestedCalls) throw new PyError("RecursionError", "maximum recursion depth exceeded");
+            int savedPositional = _ctx.PositionalCount;
+            string[] savedKeywords = _ctx.KeywordNames;
+            int calleeIndex = _sp;
+            _nested++;
+            try
+            {
+                ResumeGenerator(g, Value.None, calleeIndex, GenMode.Drain);
+                Frame frame = _frames[_frameCount - 1];
+                frame.Drain = consumer;
+                _drainError = null;
+                try
+                {
+                    RunBoundary(calleeIndex);
+                }
+                finally
+                {
+                    frame.Drain = null;
+                }
+                var error = _drainError;
+                if (error != null)
+                {
+                    _drainError = null;
+                    error.Throw();
+                }
+            }
+            finally
+            {
+                _nested--;
+                _ctx.SetCall(savedPositional, savedKeywords);
+            }
+        }
+
+        // Gives a value yielded by a drained generator to its consumer. False when the generator should stop here,
+        // because the consumer is done or threw (the error waits in _drainError until the generator is suspended).
+        private bool DrainYield(Frame frame, Value yielded)
+        {
+            try
+            {
+                return frame.Drain(yielded);
+            }
+            catch (Exception e)
+            {
+                _drainError = System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(e);
+                return false;
+            }
+        }
     }
 }

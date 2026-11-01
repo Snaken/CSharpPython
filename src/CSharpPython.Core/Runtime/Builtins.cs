@@ -402,6 +402,7 @@ namespace CSharpPython
         private static bool AnyAll(CallContext ctx, Value iterable, bool seen)
         {
             var it = Ops.GetIterator(iterable);
+            if (it is PyGenerator generator) return AnyAllGenerator(ctx, generator, seen);
             int count = 0;
             while (it.Next(out Value item))
             {
@@ -416,10 +417,53 @@ namespace CSharpPython
             return false;
         }
 
+        // The same for a generator, whose values are taken in one run instead of being asked for one at a time.
+        private static bool AnyAllGenerator(CallContext ctx, PyGenerator generator, bool seen)
+        {
+            int count = 0;
+            bool found = false;
+            generator.Drain(item =>
+            {
+                if (item.IsTruthy == seen)
+                {
+                    found = true;
+                    return false;
+                }
+                Tick(ctx, ref count);
+                return true;
+            });
+            ctx.Charge(count);
+            return found;
+        }
+
+        // Adds x to a running float sum, keeping what rounding loses so that sum([0.1, 0.2, 0.3]) is 0.6.
+        private static void AddCompensated(ref double sum, ref double compensation, double x)
+        {
+            double t = sum + x;
+            if (double.IsInfinity(t) || double.IsNaN(t))
+            {
+                sum = t;
+                compensation = 0;
+            }
+            else
+            {
+                if (Math.Abs(sum) >= Math.Abs(x)) compensation += (sum - t) + x;
+                else compensation += (x - t) + sum;
+                sum = t;
+            }
+        }
+
+        private static Value FloatTotal(double sum, double compensation)
+        {
+            if (compensation != 0 && !double.IsInfinity(sum) && !double.IsNaN(sum)) sum += compensation;
+            return Value.FromFloat(sum);
+        }
+
         private static Value Sum(CallContext ctx, ReadOnlySpan<Value> a)
         {
             Value total = a.Length > 1 ? a[1] : Value.FromInt(0);
             var it = Ops.GetIterator(a[0]);
+            if (it is PyGenerator generator) return SumGenerator(ctx, generator, total);
             int count = 0;
             bool more = it.Next(out Value item);
             // Like CPython 3.12+, floats are added with compensation, so sum([0.1, 0.2, 0.3]) is 0.6.
@@ -430,24 +474,11 @@ namespace CSharpPython
                     double sum = total.AsFloat(), compensation = 0;
                     while (more && (item.Kind == ValueKind.Float || item.IsInteger && item.Kind != ValueKind.BigInt))
                     {
-                        double x = item.AsFloat();
-                        double t = sum + x;
-                        if (double.IsInfinity(t) || double.IsNaN(t))
-                        {
-                            sum = t;
-                            compensation = 0;
-                        }
-                        else
-                        {
-                            if (Math.Abs(sum) >= Math.Abs(x)) compensation += (sum - t) + x;
-                            else compensation += (x - t) + sum;
-                            sum = t;
-                        }
+                        AddCompensated(ref sum, ref compensation, item.AsFloat());
                         more = it.Next(out item);
                         Tick(ctx, ref count);
                     }
-                    if (compensation != 0 && !double.IsInfinity(sum) && !double.IsNaN(sum)) sum += compensation;
-                    total = Value.FromFloat(sum);
+                    total = FloatTotal(sum, compensation);
                 }
             }
             while (more)
@@ -458,6 +489,47 @@ namespace CSharpPython
                 more = it.Next(out item);
                 Tick(ctx, ref count);
             }
+            ctx.Charge(count);
+            return total;
+        }
+
+        // Sum for a generator, working like Sum above one value at a time: floats are added with compensation when the
+        // first value (or the start) is a float, and every other case adds with Ops.Add.
+        private static Value SumGenerator(CallContext ctx, PyGenerator generator, Value total)
+        {
+            int count = 0;
+            bool first = true, floating = false;
+            double sum = 0, compensation = 0;
+            generator.Drain(item =>
+            {
+                if (first)
+                {
+                    first = false;
+                    if ((total.Kind == ValueKind.Float || item.Kind == ValueKind.Float)
+                        && (total.IsInteger && total.Kind != ValueKind.BigInt || total.Kind == ValueKind.Float))
+                    {
+                        floating = true;
+                        sum = total.AsFloat();
+                    }
+                }
+                if (floating)
+                {
+                    if (item.Kind == ValueKind.Float || item.IsInteger && item.Kind != ValueKind.BigInt)
+                    {
+                        AddCompensated(ref sum, ref compensation, item.AsFloat());
+                        Tick(ctx, ref count);
+                        return true;
+                    }
+                    total = FloatTotal(sum, compensation);
+                    floating = false;
+                }
+                long x = total.RawInt, y = item.RawInt, r = unchecked(x + y);
+                if (total.Kind == ValueKind.Int && item.Kind == ValueKind.Int && ((x ^ r) & (y ^ r)) >= 0) total = Value.FromInt(r);
+                else total = Ops.Add(total, item);
+                Tick(ctx, ref count);
+                return true;
+            });
+            if (floating) total = FloatTotal(sum, compensation);
             ctx.Charge(count);
             return total;
         }

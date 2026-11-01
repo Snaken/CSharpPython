@@ -48,7 +48,7 @@ Everything known to be missing, grouped by area. The order inside a group is rou
 
 ## Performance and quality
 
-- Optimisation, guided by [the benchmarks](performance.md): generators allocate arrays on every yield, and method calls and object creation are the slowest paths.
+- Optimisation, guided by [the benchmarks](performance.md): a `for` loop over a generator copies the generator's stack on every resume, and method calls and object creation are the slowest paths.
 - Fuzzing of the lexer, parser, VM and snapshot reader, and property tests that compare against CPython.
 
 ## Not planned

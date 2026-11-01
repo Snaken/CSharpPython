@@ -1137,12 +1137,26 @@ namespace CSharpPython
             if (iterable.Kind == ValueKind.Tuple) return new List<Value>(((PyTuple)iterable.RawObject).Items);
             if (iterable.Kind == ValueKind.Deque) return ((PyDeque)iterable.RawObject).ToList();
             var it = GetIterator(iterable);
+            if (it is PyGenerator generator) return DrainToList(generator);
             var result = new List<Value>();
             while (it.Next(out Value item))
             {
                 if (result.Count >= MaxSequenceLength) throw new PyError("MemoryError", "sequence too long");
                 result.Add(item);
             }
+            return result;
+        }
+
+        private static List<Value> DrainToList(PyGenerator generator)
+        {
+            var result = new List<Value>();
+            int max = MaxSequenceLength;
+            generator.Drain(item =>
+            {
+                if (result.Count >= max) throw new PyError("MemoryError", "sequence too long");
+                result.Add(item);
+                return true;
+            });
             return result;
         }
     }

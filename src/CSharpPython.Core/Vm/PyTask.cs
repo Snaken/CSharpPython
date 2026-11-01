@@ -37,12 +37,13 @@ namespace CSharpPython
             public PyGenerator Generator; // set while the frame is a generator's body
             public GenMode GenMode;       // who resumed the generator, and so what a yield or the end delivers
             public Value GenDefault;      // next(g, default): Unbound when there is none
+            public Func<Value, bool> Drain; // set while a native function takes the generator's values (see Drain)
             public PyFunctool CacheOwner; // set while the frame is a call that a functools cache will remember the result of
             public Value CacheKey;
         }
 
         // How a generator was resumed.
-        private enum GenMode { None, Call, For, Sync, Close }
+        private enum GenMode { None, Call, For, Sync, Close, Drain }
 
         // Raised by 'raise' so that it travels the same path as errors thrown by native code.
         // Thrown when a call made by a native function runs past MaxSteps; the task then fails with StepLimitExceeded.
@@ -105,6 +106,7 @@ namespace CSharpPython
         private int _nested;                   // how many native-initiated calls (CallSync) are in progress
         private bool _boundaryHit;
         private Value _boundaryResult;
+        private System.Runtime.ExceptionServices.ExceptionDispatchInfo _drainError; // what a drain's consumer threw, until Drain throws it again
         private bool _boundaryDone;            // the boundary frame was a generator that finished rather than yielded
         internal RandomState Random;           // made the first time the script uses the random module
         private Value _lastReturn;             // what the generator that most recently finished returned, for 'yield from'
@@ -882,7 +884,12 @@ namespace CSharpPython
                             _frameCount--;
                             throw new PyError("RuntimeError", "generator ignored GeneratorExit");
                         }
-                        bool yieldToNative = frame.GenMode == GenMode.Sync || frame.IsBoundary;
+                        if (frame.GenMode == GenMode.Drain && DrainYield(frame, yielded))
+                        {
+                            Push(Value.None); // the consumer wants more: carry on without suspending, with None as the value sent
+                            break;
+                        }
+                        bool yieldToNative = frame.GenMode == GenMode.Sync || frame.GenMode == GenMode.Drain || frame.IsBoundary;
                         int yieldTo = frame.CalleeIndex;
                         SuspendGenerator(frame);
                         _sp = yieldTo;
@@ -1034,7 +1041,7 @@ namespace CSharpPython
                         {
                             // The end of a generator: for a loop it ends the loop, for next() it raises StopIteration.
                             GenMode endMode = frame.GenMode;
-                            bool endsInNative = endMode == GenMode.Sync || frame.IsBoundary;
+                            bool endsInNative = endMode == GenMode.Sync || endMode == GenMode.Drain || frame.IsBoundary;
                             Value endDefault = frame.GenDefault;
                             int endTo = frame.CalleeIndex;
                             frame.Generator.State = GeneratorState.Done;

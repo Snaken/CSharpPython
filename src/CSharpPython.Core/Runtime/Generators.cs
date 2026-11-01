@@ -49,6 +49,13 @@ namespace CSharpPython
 
         public override bool Next(out Value value) => Step(Value.None, out value);
 
+        /// <summary>Hands each value to <paramref name="consumer"/> until it returns false or the generator ends; see <see cref="PyTask.Drain"/>.</summary>
+        public void Drain(System.Func<Value, bool> consumer)
+        {
+            var task = PyTask.Current ?? throw new PyError("RuntimeError", "a generator can only be run by a script");
+            task.Drain(this, consumer);
+        }
+
         /// <summary>Ends the generator. Unlike Python, pending <c>finally</c> blocks do not run.</summary>
         public void Close()
         {
