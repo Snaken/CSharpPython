@@ -369,6 +369,21 @@ namespace CSharpPython
             if (ctx.PositionalCount > 1 && hasDefault)
                 throw Ops.TypeError("Cannot specify a default for " + name + "() with multiple positional arguments");
 
+            // min(a, b, ...) of plain values: compare the arguments where they are, without an iterator over a copy.
+            if (ctx.PositionalCount > 1 && key.IsNone)
+            {
+                Value winner = a[0];
+                for (int i = 1; i < ctx.PositionalCount; i++)
+                {
+                    Value item = a[i];
+                    bool wins = item.Kind == ValueKind.Int && winner.Kind == ValueKind.Int
+                        ? (max ? item.RawInt > winner.RawInt : item.RawInt < winner.RawInt)
+                        : Ops.Compare(item, winner, max ? Ops.Order.Gt : Ops.Order.Lt);
+                    if (wins) winner = item;
+                }
+                return winner;
+            }
+
             int count = 0;
             PyIterator source = ctx.PositionalCount == 1 ? Ops.GetIterator(a[0]) : new ListIterator(new PyList(a.Slice(0, ctx.PositionalCount).ToArray().ToList()));
             if (!source.Next(out Value best))
@@ -648,7 +663,7 @@ namespace CSharpPython
             if (ctx.TryGetKeyword(a, "reverse", out Value r)) reverse = r.IsTruthy;
             ctx.TryGetKeyword(a, "key", out Value key);
             var items = Ops.ToList(a[0]);
-            return Value.FromList(new PyList(Methods.SortValues(items, reverse, Methods.KeysFor(ctx, key, items))));
+            return Value.FromList(PyList.Adopt(Methods.SortOwned(items, reverse, Methods.KeysFor(ctx, key, items))));
         }
 
         private static Value MakeDict(CallContext ctx, ReadOnlySpan<Value> a)

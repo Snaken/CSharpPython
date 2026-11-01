@@ -217,6 +217,15 @@ namespace CSharpPython
             value = Value.Tuple(Value.FromInt(_index++), item);
             return true;
         }
+
+        /// <summary>The next index and item without making the tuple, for a loop that unpacks them at once.</summary>
+        public bool NextPair(out long index, out Value item)
+        {
+            Ops.CheckStack();
+            if (!_source.Next(out item)) { index = 0; return false; }
+            index = _index++;
+            return true;
+        }
     }
 
     internal sealed class ZipIterator : PyIterator

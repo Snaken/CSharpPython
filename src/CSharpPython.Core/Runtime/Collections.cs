@@ -12,6 +12,11 @@ namespace CSharpPython
 
         public PyList(IEnumerable<Value> items) { Items = new List<Value>(items); }
 
+        private PyList(List<Value> owned, bool adopt) { Items = owned; }
+
+        /// <summary>A list that takes over <paramref name="owned"/> without copying it; the caller must not use the list afterwards.</summary>
+        internal static PyList Adopt(List<Value> owned) => new PyList(owned, true);
+
         public int Count => Items.Count;
     }
 

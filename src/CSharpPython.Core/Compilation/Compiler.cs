@@ -148,6 +148,37 @@ namespace CSharpPython.Compilation
             if (node.Line > 0) _unit.Line = node.Line;
         }
 
+        // The value of an expression made only of literals (numbers, strings, True, False, None, a negated number and
+        // tuples of those), or false when it has to be worked out as the script runs.
+        private bool TryConstant(Expr expr, out Value value)
+        {
+            value = default;
+            switch (expr)
+            {
+                case ConstantExpr c:
+                    value = ConstantValue(c.Value);
+                    return true;
+                case UnaryExpr u when u.Op == UnaryOp.Negate && u.Operand is ConstantExpr operand:
+                {
+                    var n = ConstantValue(operand.Value);
+                    if (n.Kind == ValueKind.Int) value = Value.FromInt(-n.RawInt);
+                    else if (n.Kind == ValueKind.Float) value = Value.FromFloat(-n.RawFloat);
+                    else return false;
+                    return true;
+                }
+                case TupleExpr t when !t.Items.Exists(x => x is StarExpr):
+                {
+                    var items = new Value[t.Items.Count];
+                    for (int i = 0; i < items.Length; i++)
+                        if (!TryConstant(t.Items[i], out items[i])) return false;
+                    value = Value.FromTuple(new PyTuple(items));
+                    return true;
+                }
+                default:
+                    return false;
+            }
+        }
+
         private int Constant(Value v)
         {
             string key;
@@ -802,6 +833,12 @@ namespace CSharpPython.Compilation
                     {
                         CompileSpreadDisplay(t.Items, Op.BuildList, Op.ListAppend, Op.ListExtend);
                         Emit(Op.ListToTuple);
+                        break;
+                    }
+                    if (TryConstant(t, out Value folded))
+                    {
+                        // A tuple of constants cannot change, so it is made once, here, and shared by every evaluation.
+                        Emit(Op.LoadConst, Constant(folded));
                         break;
                     }
                     foreach (var item in t.Items) CompileExpr(item);

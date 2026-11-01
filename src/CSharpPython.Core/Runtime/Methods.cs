@@ -677,7 +677,11 @@ namespace CSharpPython
                 if (c.TryGetKeyword(a, "reverse", out Value r)) reverse = r.IsTruthy;
                 c.TryGetKeyword(a, "key", out Value key);
                 var list = a[0].AsList();
-                var sorted = SortValues(list.Items, reverse, KeysFor(c, key, list.Items));
+                // The key function and the comparisons are script code and may change the list, so they work on a copy,
+                // and a list that changed meanwhile is reported, as CPython does.
+                var copy = new List<Value>(list.Items);
+                var sorted = SortOwned(copy, reverse, KeysFor(c, key, copy));
+                if (list.Items.Count != sorted.Count) throw new PyError("ValueError", "list modified during sort");
                 list.Items.Clear();
                 list.Items.AddRange(sorted);
                 return Value.None;
@@ -703,11 +707,18 @@ namespace CSharpPython
         /// A stable sort using Python ordering. When <paramref name="keys"/> is given, items are ordered by the key at
         /// the same position instead of by themselves. Raises TypeError for values that cannot be compared.
         /// </summary>
-        public static List<Value> SortValues(IEnumerable<Value> items, bool reverse, Value[] keys = null)
+        public static List<Value> SortValues(IEnumerable<Value> items, bool reverse, Value[] keys = null) =>
+            SortOwned(items.ToList(), reverse, keys);
+
+        /// <summary>
+        /// <see cref="SortValues"/> for a list nobody else holds (a fresh copy), so it is read where it is. Nothing a
+        /// script does while sorting can change it.
+        /// </summary>
+        internal static List<Value> SortOwned(List<Value> list, bool reverse, Value[] keys = null)
         {
             try
             {
-                return SortCore(items, reverse, keys);
+                return SortCore(list, reverse, keys);
             }
             catch (InvalidOperationException e) when (e.InnerException is PyError inner)
             {
@@ -716,9 +727,8 @@ namespace CSharpPython
             }
         }
 
-        private static List<Value> SortCore(IEnumerable<Value> items, bool reverse, Value[] keys)
+        private static List<Value> SortCore(List<Value> list, bool reverse, Value[] keys)
         {
-            var list = items.ToList();
             if (list.Count < 2) return list;
             if (keys == null) keys = list.ToArray();
             List<Value> simple = SortSimple(list, keys, reverse);

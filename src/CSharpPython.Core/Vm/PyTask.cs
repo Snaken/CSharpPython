@@ -816,6 +816,23 @@ namespace CSharpPython
                             bas = frame.Base;
                             break;
                         }
+                        if (iterator is EnumerateIterator pairs && instructions[pc].Op == Op.UnpackSequence && instructions[pc].Arg == 2)
+                        {
+                            // for i, x in enumerate(...): the pair goes straight to the two names, with no tuple made between.
+                            if (pairs.NextPair(out long pairIndex, out Value pairItem))
+                            {
+                                Push(pairItem);
+                                Push(Value.FromInt(pairIndex));
+                                pc++;
+                            }
+                            else
+                            {
+                                _sp--;
+                                pc = ins.Arg;
+                                _lastReturn = Value.None;
+                            }
+                            break;
+                        }
                         if (iterator.Next(out Value next)) Push(next);
                         else
                         {
@@ -1167,7 +1184,23 @@ namespace CSharpPython
                         break;
                     case Op.UnpackSequence:
                     {
-                        var items = UnpackSource(_stack[--_sp]);
+                        // A tuple or list is read where it is, without copying it to a list first.
+                        var packed = _stack[--_sp];
+                        if (packed.Kind == ValueKind.Tuple)
+                        {
+                            var fast = ((PyTuple)packed.RawObject).Items;
+                            if (fast.Length != ins.Arg) throw UnpackMismatch(fast.Length, ins.Arg);
+                            for (int k = fast.Length - 1; k >= 0; k--) Push(fast[k]);
+                            break;
+                        }
+                        if (packed.Kind == ValueKind.List)
+                        {
+                            var fast = ((PyList)packed.RawObject).Items;
+                            if (fast.Count != ins.Arg) throw UnpackMismatch(fast.Count, ins.Arg);
+                            for (int k = fast.Count - 1; k >= 0; k--) Push(fast[k]);
+                            break;
+                        }
+                        var items = UnpackSource(packed);
                         if (items.Count < ins.Arg)
                             throw new PyError("ValueError", "not enough values to unpack (expected " + ins.Arg + ", got " + items.Count + ")");
                         if (items.Count > ins.Arg)
@@ -2410,6 +2443,11 @@ namespace CSharpPython
         }
 
         // The items of what is being unpacked, or the TypeError for something that is not iterable.
+        private static PyError UnpackMismatch(int got, int expected) =>
+            got < expected
+                ? new PyError("ValueError", "not enough values to unpack (expected " + expected + ", got " + got + ")")
+                : new PyError("ValueError", "too many values to unpack (expected " + expected + ")");
+
         private static List<Value> UnpackSource(Value seq)
         {
             if (seq.Kind != ValueKind.List && seq.Kind != ValueKind.Deque && seq.Kind != ValueKind.Tuple && seq.Kind != ValueKind.Str

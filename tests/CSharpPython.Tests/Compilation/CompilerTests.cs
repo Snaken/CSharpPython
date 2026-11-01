@@ -272,7 +272,7 @@ namespace CSharpPython.Tests.Compilation
         public void CollectionLiterals()
         {
             Assert.That(Body("[1, 2]\n"), Does.Contain("BuildList 2"));
-            Assert.That(Body("(1, 2)\n"), Does.Contain("BuildTuple 2"));
+            Assert.That(Body("(a, 2)\n"), Does.Contain("BuildTuple 2"));
             Assert.That(Body("{1: 2, 3: 4}\n"), Does.Contain("BuildDict 2"));
         }
 
