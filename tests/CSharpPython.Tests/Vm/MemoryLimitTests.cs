@@ -94,6 +94,38 @@ namespace CSharpPython.Tests.Vm
         }
 
         [Test]
+        public void ATaskFarBelowItsLimitIsNeverWalked()
+        {
+            var task = new PyVm().Start("data = list(range(1000))\nfor i in range(20000):\n    x = i\n");
+            task.RunUntilDone();
+            Assert.That(task.State, Is.EqualTo(TaskState.Finished));
+            Assert.That(task.MemoryMeasurements, Is.EqualTo(0));
+            Assert.That(task.LastMeasuredMemoryBytes, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void TheLastMeasurementAndItsAgeAreKeptWithoutWalkingAgain()
+        {
+            var vm = new PyVm(new VmOptions { MaxMemoryBytes = 1L << 20 });
+            var task = vm.Start("data = list(range(5000))\nfor i in range(100000):\n    x = i\n");
+            task.RunUntilDone();
+            Assert.That(task.State, Is.EqualTo(TaskState.Finished));
+            Assert.That(task.MemoryMeasurements, Is.GreaterThan(0), "the bound reached the limit, so it was walked");
+
+            int walks = task.MemoryMeasurements;
+            long figure = task.LastMeasuredMemoryBytes;
+            Assert.That(figure, Is.InRange(5000 * 24, 5000 * 24 + 100000));
+            Assert.That(task.StepsSinceMemoryMeasured, Is.InRange(0, task.StepsExecuted));
+            Assert.That(task.LastMeasuredMemoryBytes, Is.EqualTo(figure));
+            Assert.That(task.MemoryMeasurements, Is.EqualTo(walks), "reading the figure does not walk");
+
+            long exact = task.EstimatedMemoryBytes;
+            Assert.That(task.MemoryMeasurements, Is.EqualTo(walks + 1));
+            Assert.That(task.LastMeasuredMemoryBytes, Is.EqualTo(exact));
+            Assert.That(task.StepsSinceMemoryMeasured, Is.EqualTo(0));
+        }
+
+        [Test]
         public void ANegativeLimitIsRefused() =>
             Assert.Throws<ArgumentOutOfRangeException>(() => new PyVm(new VmOptions { MaxMemoryBytes = -1 }));
 

@@ -4,6 +4,7 @@
 
 - Faster: a short tuple of numbers, strings and the like (such as a key `(x, y)`) is hashed and compared without the walk budget that guards nested values, about 25% quicker to compare; nested or long tuples and tuples that hold script objects are still budgeted. Results are the same.
 - Faster: measuring a task's memory (for `MaxMemoryBytes` and `EstimatedMemoryBytes`) counts a tuple of plain values without entering it in the set of objects already seen, which was most of the cost for a script that keeps many such tuples: a 48 MB task took about 9 ms to measure instead of 28. A plain tuple held in several places is now counted each time, a few bytes too many.
+- New: `task.MemoryMeasurements`, `task.LastMeasuredMemoryBytes` and `task.StepsSinceMemoryMeasured` show how often the memory check has walked a task, what the last walk found and how old it is, without walking again. A host can use them to see which script is growing (`EstimatedMemoryBytes` walks the whole heap, so it cannot be shown every frame) and to count how much the `MaxMemoryBytes` check costs. A task far below its limit stays at 0 walks. `EstimatedMemoryBytes` now also records its result as the last measurement.
 
 ## 0.2.4
 

@@ -10,6 +10,7 @@ namespace CSharpPython
         // MemoryLimitExceeded).
         private long _memoryUsed;
         private long _memoryGrowth;
+        private long _memoryStepsAtMeasure;
 
         /// <summary>
         /// An estimate of the memory the script holds, in bytes: everything the task can reach (its globals, stack, call
@@ -19,6 +20,23 @@ namespace CSharpPython
         /// counted in each. Walking a large heap takes time, so call it for display, not every frame.
         /// </summary>
         public long EstimatedMemoryBytes => MeasureMemory(long.MaxValue);
+
+        /// <summary>
+        /// How many times the heap has been walked to measure this task (by <see cref="EstimatedMemoryBytes"/> or by the
+        /// <see cref="VmOptions.MaxMemoryBytes"/> check). A host can compare it between frames to see how often the
+        /// check costs time; a task far below its limit stays at 0.
+        /// </summary>
+        public int MemoryMeasurements { get; private set; }
+
+        /// <summary>
+        /// What the last measurement found, in bytes, without walking the heap again: 0 before the first one. It is a
+        /// lower bound on a task that was stopped for going over the limit. Use it to show which script is growing
+        /// (see <see cref="StepsSinceMemoryMeasured"/> for how old it is).
+        /// </summary>
+        public long LastMeasuredMemoryBytes => _memoryUsed;
+
+        /// <summary>How many steps the task has run since <see cref="LastMeasuredMemoryBytes"/> was taken.</summary>
+        public long StepsSinceMemoryMeasured => _totalSteps - _memoryStepsAtMeasure;
 
         // Called at the end of a slice: stops the task with an uncatchable error when it holds more than MaxMemoryBytes.
         // Walking the heap costs about as much as running a step for every object in it, so it is not done every slice.
@@ -33,8 +51,7 @@ namespace CSharpPython
             _memoryGrowth += stepsRun * MemorySizes.BytesPerStep;
             if (_memoryUsed + _memoryGrowth <= limit) return false;
 
-            _memoryUsed = MeasureMemory(limit);
-            _memoryGrowth = 0;
+            MeasureMemory(limit);
             if (_memoryUsed <= limit) return false;
             Fail(new PyRuntimeError("MemoryLimitExceeded",
                 "the script held more than " + limit + " bytes of memory and was stopped", _script.Name, CurrentTrace()));
@@ -62,7 +79,12 @@ namespace CSharpPython
                 if (f.Generator != null) meter.Visit(Value.FromIterator(f.Generator));
             }
             meter.Visit(_lastReturn);
-            return meter.Measure();
+            long bytes = meter.Measure();
+            MemoryMeasurements++;
+            _memoryUsed = bytes;
+            _memoryGrowth = 0;
+            _memoryStepsAtMeasure = _totalSteps;
+            return bytes;
         }
     }
 
