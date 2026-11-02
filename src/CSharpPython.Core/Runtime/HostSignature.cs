@@ -154,8 +154,10 @@ namespace CSharpPython
     /// <summary>
     /// A host function description with types, read from a string such as
     /// <c>"kind: str, count: int = 1 -&gt; Entity"</c> or <c>"origin: Vec -&gt; (hit: bool, point: Vec)"</c>. A
-    /// parameter without a type is <see cref="PinType.Any"/>, and a string with no <c>-&gt;</c> declares no result,
-    /// so every description written before types existed still reads.
+    /// parameter without a type is <see cref="PinType.Any"/>, and a string with no <c>-&gt;</c> declares no result
+    /// type (<see cref="HasResult"/> is false), so every description written before types existed still reads. The
+    /// block editor then gives the function one <c>any</c> value pin, as it always did; write <c>-&gt; none</c> for a
+    /// function that returns nothing, and it has no value pin.
     /// </summary>
     public sealed class HostSignature
     {

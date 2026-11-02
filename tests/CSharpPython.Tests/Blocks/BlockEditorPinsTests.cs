@@ -43,6 +43,26 @@ namespace CSharpPython.Tests.Blocks
                 "a call is a step unless it is declared pure");
 
         [Test]
+        public void ADescriptionWithNoArrowHasAnAnyValuePinAndNoneRemovesIt()
+        {
+            var vm = new PyVm();
+            vm.RegisterModule("game", m =>
+            {
+                m.Native("say", (c, a) => Value.None, 1, 1).Describe("say", "text: str");
+                m.Native("quiet", (c, a) => Value.None, 1, 1).Describe("quiet", "text: str -> none");
+                m.Native("plain", (c, a) => Value.None, 1, 1);
+            });
+            var main = new BlockFunction("main") { Start = "a" };
+            main.Add(new BlockNode("a", "call", "game.say"));
+            main.Add(new BlockNode("b", "call", "game.quiet"));
+            main.Add(new BlockNode("c", "call", "game.plain"));
+            var editor = new BlockEditor(new BlockGraph().AddFunction(main), new BlockLibrary().AddAllModules(vm));
+            Assert.That(Pins(editor, "a"), Is.EqualTo(new[] { "FlowIn -", "Input arg0: str", "FlowOut next", "Output -: any" }), "no -> gives an any result, as documented");
+            Assert.That(Pins(editor, "b"), Is.EqualTo(new[] { "FlowIn -", "Input arg0: str", "FlowOut next" }), "-> none has no value pin");
+            Assert.That(Pins(editor, "c").Last(), Is.EqualTo("Output -: any"), "an undescribed function is the same");
+        }
+
+        [Test]
         public void ACallWithSeveralResultsHasANamedOutputForEach() =>
             Assert.That(Pins(Editor(), "r").Where(p => p.StartsWith("Output")), Is.EqualTo(new[] { "Output hit: bool", "Output point: str" }));
 

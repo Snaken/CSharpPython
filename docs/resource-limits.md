@@ -12,6 +12,23 @@ How a host keeps a player's script from using too much time or memory. Written f
 | Characters of source `Compile` accepts | `MaxSourceLength` | 1,000,000 | 0 for no limit, or any size |
 | Memory one task can reach (an estimate) | `MaxMemoryBytes` | 64 MB | 0 for no limit, or any size |
 
+## Moving from 0.2.3
+
+0.2.4 added limits that are on by default, so a host that worked on 0.2.3 may meet one for the first time. Each is a setting in `VmOptions`; a host that needs more raises it.
+
+| What | 0.2.3 | 0.2.4 and later | What a script sees | What a host does |
+| --- | --- | --- | --- | --- |
+| Items in one string, list, tuple, dict, set or deque (`MaxSequenceLength`) | 4,194,304, and only for `append`, `extend`, `+`, `*` and the like; dict and set stores, `update`, `insert`, slice assignment had none | 100,000 on every way a container grows | a catchable `MemoryError` (`list too long`, `set too long` and so on) | raise it, up to 4,194,304 |
+| Memory one task can reach (`MaxMemoryBytes`) | none | 64 MB, an estimate, checked as the task runs | an uncatchable `MemoryLimitExceeded`; the task is in `TaskState.Error` | raise it, or 0 for no limit; the limit is per task |
+| Characters `Compile` accepts (`MaxSourceLength`) | none | 1,000,000 | `PyVm.Compile` and `Start(string)` throw a `PySyntaxError` ("the script is too long") | raise it, or 0 |
+| Steps (`MaxSteps`, `StepsPerSlice`) | one step for a native call on any size of value | also charged for the size of the value: 1 step for every 16 items, `n log n` for a sort; a charged call ends the slice | `StepLimitExceeded` sooner for a script that scans or copies big values | raise `MaxSteps`, or write the script to avoid the scan |
+| Error from a host function that throws | `Problem` held the .NET exception's text | `Problem` names the exception type only (`HostError`); the exception with its message is `task.Error.InnerException` | the task stops, as before | log `task.Error.InnerException` |
+| Saved tasks | | a saved task of a script that contains a tuple of constants such as `(0, 1)` cannot be restored, because the script compiles differently; a paired assignment such as `a, b = x, y` does the same from the next release | `SnapshotException` on restore | save again after updating |
+
+**A maze or grid kept as one list.** The cells of a `W` by `H` grid in one list need `W * H` to stay within `MaxSequenceLength`: a 301 by 301 grid is 90,601 cells and fits, a 316 by 316 grid (99,856) still fits and a 317 by 317 grid (100,489) raises `MemoryError: list too long` at the 100,001st item (checked). Raise `MaxSequenceLength`, or keep the grid in rows (a list of lists) or in a dict that holds only the cells in use.
+
+**Scripts that did not hit a limit before can reach `MaxMemoryBytes` sooner.** The memory estimate was too low for lists, tuples, dicts and sets (it counted a set member as 48 bytes when it cost 145 on .NET), so 0.2.4 counts each at its measured size. Since then the compact storage for integer keys and for cells `(x, y)` makes the estimate for those smaller again (see below).
+
 ## Native work costs steps
 
 A native operation on a large value used to be one step however long the value was, so one `x in big_list` on a 4 million item list froze a frame for about 25 ms, and a loop of them for minutes while `MaxSteps` and `StepsPerSlice` saw almost nothing. Operations that walk or copy a value are now charged in proportion to its size, before the work is done:
