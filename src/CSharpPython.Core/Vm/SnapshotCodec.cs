@@ -84,11 +84,19 @@ namespace CSharpPython
         private readonly List<Value> _containers = new List<Value>();
         private readonly List<Value> _leaves = new List<Value>();
         private Dictionary<NativeFunction, string> _natives;
+        private readonly List<PyDict> _unpacked = new List<PyDict>();
 
         public SnapshotWriter(PyVm vm, Script script)
         {
             _vm = vm;
             _script = script;
+        }
+
+        /// <summary>Puts the dictionaries that were given key objects for the save back to their compact layout.</summary>
+        public void Repack()
+        {
+            foreach (var dict in _unpacked) dict.Repack();
+            _unpacked.Clear();
         }
 
         // ---- Pass 1: find every object that needs an id ---------------------------------------------------------
@@ -122,6 +130,7 @@ namespace CSharpPython
                     if (AddContainer(v))
                     {
                         var dict = (PyDict)v.RawObject;
+                        if (dict.Unpack()) _unpacked.Add(dict);
                         foreach (var pair in dict.Pairs())
                         {
                             Collect(pair.Key);

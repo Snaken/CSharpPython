@@ -284,6 +284,101 @@ extra = K(1000) in d
         }
 
         [Test]
+        public void RandomOperationsOnTupleKeysAgreeWithAnOrdinaryDictionary()
+        {
+            var random = new Random(31337);
+            var dict = new PyDict();
+            var model = new Dictionary<(long, long), long>();
+            var order = new List<(long, long)>();
+            for (int step = 0; step < 80000; step++)
+            {
+                var k = ((long)random.Next(-5, 25), random.Next(8) == 0 ? ((long)random.Next(1, 4) << 33) + 7 : random.Next(0, 25));
+                var key = Value.Tuple(Value.FromInt(k.Item1), Value.FromInt(k.Item2));
+                switch (random.Next(5))
+                {
+                    case 0:
+                    case 1:
+                        dict.Set(key, Value.FromInt(step));
+                        if (!model.ContainsKey(k)) order.Add(k);
+                        model[k] = step;
+                        break;
+                    case 2:
+                        Assert.That(dict.Remove(key), Is.EqualTo(model.Remove(k)));
+                        order.Remove(k);
+                        break;
+                    case 3:
+                        Assert.That(dict.ContainsKey(key), Is.EqualTo(model.ContainsKey(k)));
+                        break;
+                    default:
+                        bool found = dict.TryGetValue(key, out var v);
+                        Assert.That(found, Is.EqualTo(model.ContainsKey(k)));
+                        if (found) Assert.That(v.AsInt(), Is.EqualTo(model[k]));
+                        break;
+                }
+                Assert.That(dict.Count, Is.EqualTo(model.Count));
+            }
+            Assert.That(dict.IntKeyed && dict.KeyWidth == 2, Is.True);
+            var keys = dict.Pairs().Select(p => { var t = p.Key.AsTuple().Items; return (t[0].AsInt(), t[1].AsInt()); }).ToList();
+            Assert.That(keys, Is.EqualTo(order), "insertion order survives removals and compaction");
+        }
+
+        [Test]
+        public void ATupleKeyOfAnotherShapeTurnsTheDictionaryIntoAnOrdinaryOne()
+        {
+            var vm = new PyVm();
+            var task = vm.Start(
+                "from collections import namedtuple\nP = namedtuple('P', 'x y')\n" +
+                "s = {(1, 2), (3, 4), (5, 6)}\ns.remove((3, 4))\n" +
+                "r = ((1.0, 2.0) in s, (True, 2) in s, P(1, 2) in s, (1, 2, 3) in s, (1,) in s, 1 in s, (1, 'a') in s)\n" +
+                "s.add((7, 8, 9))\ns.add((1, 'a'))\nn = len(s)\nm = sorted(map(str, s))\n" +
+                "t = {(0, 0), (1, 1)}\nt.add(P(2, 2))\nk = (2, 2) in t\nc = len(t)\n" +
+                "u = {(1, 2): 'a'}\nu[(1, 2)] = 'b'\nu[(1.0, 2.0)] = 'c'\nuv = list(u.values())\nuk = len(u)\n");
+            task.RunUntilDone();
+            Assert.That(task.Error, Is.Null);
+            Assert.That(task.Globals["r"].AsTuple().Items.Select(v => v.AsBool()), Is.EqualTo(new[] { true, true, true, false, false, false, false }));
+            Assert.That(task.Globals["n"].AsInt(), Is.EqualTo(4));
+            Assert.That(task.Globals["m"].AsList().Items.Select(v => v.AsString()), Is.EqualTo(new[] { "(1, 'a')", "(1, 2)", "(5, 6)", "(7, 8, 9)" }));
+            Assert.That(task.Globals["k"].AsBool(), Is.True, "P(2, 2) equals (2, 2)");
+            Assert.That(task.Globals["c"].AsInt(), Is.EqualTo(3).Or.EqualTo(2));
+            Assert.That(task.Globals["uk"].AsInt(), Is.EqualTo(1));
+            Assert.That(task.Globals["uv"].AsList().Items.Select(v => v.AsString()), Is.EqualTo(new[] { "c" }));
+        }
+
+        [Test]
+        public void SavingATupleKeyedDictionaryLeavesItCompactAndItsIterationsIntact()
+        {
+            var vm = new PyVm(new VmOptions { EnableSnapshots = true });
+            var script = vm.Compile("d = {}\nfor i in range(20):\n    d[(i, i * 2)] = i\nit = iter(d)\nfirst = next(it)\ndel d[(3, 6)]\nwait = 1\n");
+            var task = vm.Start(script);
+            task.RunUntilDone();
+            var dict = task.Globals["d"].AsDict();
+            Assert.That(dict.IntKeyed, Is.True);
+            task.Save();
+            Assert.That(dict.IntKeyed && dict.KeyWidth == 2, Is.True, "compact again after the save");
+            Assert.That(dict.Count, Is.EqualTo(19));
+            Assert.That(dict.ContainsKey(Value.Tuple(Value.FromInt(4), Value.FromInt(8))), Is.True);
+            Assert.That(dict.ContainsKey(Value.Tuple(Value.FromInt(3), Value.FromInt(6))), Is.False);
+            var restored = vm.Restore(script, task.Save());
+            var d2 = restored.Globals["d"].AsDict();
+            Assert.That(d2.Count, Is.EqualTo(19));
+            Assert.That(d2.ContainsKey(Value.Tuple(Value.FromInt(5), Value.FromInt(10))), Is.True, "the index is built on first use");
+            Assert.That(d2.IntKeyed && d2.KeyWidth == 2, Is.True, "a restored dictionary is compact too");
+            Assert.That(d2.Pairs().Select(p => p.Value.AsInt()).Take(4), Is.EqualTo(new long[] { 0, 1, 2, 4 }));
+        }
+
+        [Test]
+        public void TheMemoryEstimateOfATupleSetMatchesItsRealSize()
+        {
+            var vm = new PyVm(new VmOptions { MaxSequenceLength = 4194304, MaxMemoryBytes = 0 });
+            var task = vm.Start("s = set()\nfor i in range(100000):\n    s.add((i, i + 1))\n");
+            task.RunUntilDone();
+            Assert.That(task.EstimatedMemoryBytes / 100000.0, Is.InRange(28.0, 40.0), "cells are kept as two plain numbers");
+            var mixed = vm.Start("s = set()\nfor i in range(100000):\n    s.add((i, 'a'))\n");
+            mixed.RunUntilDone();
+            Assert.That(mixed.EstimatedMemoryBytes / 100000.0, Is.InRange(120.0, 280.0), "other tuples are still tuples");
+        }
+
+        [Test]
         public void AnIntegerSetAndDictSurviveASnapshot()
         {
             var vm = new PyVm(new VmOptions { EnableSnapshots = true });

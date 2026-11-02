@@ -99,7 +99,7 @@ namespace CSharpPython
         public const long DictHead = 112;   // the dictionary (or set) object with its arrays and table
         public const long DictEntry = 80;   // key, value, hash and the table slots of the entry (measured: 79)
         public const long SetEntry = 48;    // key, hash and the table slots (measured: 47)
-        public const long IntSetEntry = 24;   // a set whose members are all integers: an 8-byte key and the table slots (measured: 21)
+        public const long IntSetEntry = 24;   // a set whose members are all integers: an 8-byte key and the table slots (measured: 21); each number of a wider key adds 8
         public const long IntDictEntry = 56;  // the same for a dict: a key, a 24-byte value and the table slots (measured: 52 to 63)
         public const long StringHead = 24;
         public const long TraceFrame = 16;  // a function name and a line, for each frame of an exception's traceback
@@ -221,7 +221,7 @@ namespace CSharpPython
                         var set = ((PySet)v.RawObject).Items;
                         if (set.IntKeyed)
                         {
-                            _bytes += MemorySizes.DictHead + MemorySizes.IntSetEntry * set.Count; // integers own nothing, so there is nothing to walk
+                            _bytes += MemorySizes.DictHead + (MemorySizes.IntSetEntry + 8 * (set.KeyWidth - 1)) * set.Count; // numbers own nothing, so there is nothing to walk
                             break;
                         }
                         _bytes += MemorySizes.DictHead + MemorySizes.SetEntry * set.Count;
@@ -327,7 +327,7 @@ namespace CSharpPython
         private void CountDict(PyDict dict)
         {
             bool ints = dict.IntKeyed;
-            _bytes += MemorySizes.DictHead + (ints ? MemorySizes.IntDictEntry : MemorySizes.DictEntry) * dict.Count;
+            _bytes += MemorySizes.DictHead + (ints ? MemorySizes.IntDictEntry + 8 * (dict.KeyWidth - 1) : MemorySizes.DictEntry) * dict.Count;
             foreach (var pair in dict.Pairs())
             {
                 if (!ints) Visit(pair.Key);

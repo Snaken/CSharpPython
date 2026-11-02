@@ -171,10 +171,13 @@ namespace CSharpPython
         // A deleted entry's key is Unbound, which is never a real key.
         private Value[] _keys = NoKeys;
 
-        // While every key is an integer the keys live here instead of in _keys: 8 bytes a key instead of 24, no stored
-        // hash (an integer's hash follows from it), and nothing for the collector to scan. The first key that is not an
-        // integer moves everything back to _keys (ToGeneral). A deleted entry is a set bit in _dead.
+        // While every key is an integer, or every key is a plain tuple of the same number of integers (a cell (x, y)),
+        // the keys live here instead of in _keys: _arity numbers a key (8 bytes each, against 24 and an object of its own
+        // for a tuple), no stored hash (it follows from the numbers, and is the hash Ops.Hash gives the same tuple), and
+        // nothing for the collector to scan. The first key of another shape moves everything back to _keys (ToGeneral).
+        // A deleted entry is a set bit in _dead. A key read back from a tuple dictionary is a new tuple each time.
         private long[] _ints;
+        private int _arity = 1;
         private ulong[] _dead;
         private Value[] _vals;                    // null while every value is None (always for a set)
         private int[] _hashes;                    // valid only once there is a table
@@ -216,14 +219,48 @@ namespace CSharpPython
         /// <summary>True while every key is an integer and the keys are kept as plain numbers.</summary>
         internal bool IntKeyed => _ints != null;
 
-        private int Capacity => _ints != null ? _ints.Length : _keys.Length;
+        /// <summary>How many numbers each key takes while <see cref="IntKeyed"/> (1 for integers, 2 for a cell (x, y)).</summary>
+        internal int KeyWidth => _arity;
+
+        private const int MaxKeyWidth = 8;
+
+        private int Capacity => _ints != null ? _ints.Length / _arity : _keys.Length;
+
+        // How many numbers the key would take as a compact key: 1 for an integer, the length for a plain tuple of two to
+        // MaxKeyWidth integers, 0 for anything else.
+        private static int ShapeOf(Value key)
+        {
+            if (key.Kind == ValueKind.Int) return 1;
+            if (key.Kind != ValueKind.Tuple) return 0;
+            var tuple = (PyTuple)key.RawObject;
+            if (tuple.Named != null) return 0;
+            var items = tuple.Items;
+            if (items.Length < 2 || items.Length > MaxKeyWidth) return 0;
+            foreach (var item in items) if (item.Kind != ValueKind.Int) return 0;
+            return items.Length;
+        }
+
+        private static int HashOfKey(Value key) =>
+            key.Kind == ValueKind.Int ? Ops.HashInt(key.RawInt) : Ops.HashIntTuple(((PyTuple)key.RawObject).Items);
 
         private bool Alive(int i) =>
             _ints != null ? _dead == null || (_dead[i >> 6] & (1UL << (i & 63))) == 0 : _keys[i].Kind != ValueKind.Unbound;
 
-        private Value KeyAt(int i) => _ints != null ? Value.FromInt(_ints[i]) : _keys[i];
+        private Value KeyAt(int i)
+        {
+            if (_ints == null) return _keys[i];
+            if (_arity == 1) return Value.FromInt(_ints[i]);
+            var items = new Value[_arity];
+            for (int j = 0; j < items.Length; j++) items[j] = Value.FromInt(_ints[i * _arity + j]);
+            return Value.FromTuple(new PyTuple(items));
+        }
 
-        private int HashAt(int i) => _ints != null ? Ops.HashInt(_ints[i]) : _hashes[i];
+        private int HashAt(int i)
+        {
+            if (_ints == null) return _hashes[i];
+            if (_arity == 1) return Ops.HashInt(_ints[i]);
+            return Ops.HashIntTuple(_ints, i * _arity, _arity);
+        }
 
         private Value ValueAt(int i) => _vals == null ? default : _vals[i];
 
@@ -260,64 +297,100 @@ namespace CSharpPython
             _used++;
         }
 
-        private void AppendInt(long key, Value value)
+        private void AppendInt(Value key, Value value)
         {
-            if (_used == _ints.Length)
+            if (_used == Capacity)
             {
                 int size = _used == 0 ? 4 : _used * 2;
-                Array.Resize(ref _ints, size);
+                Array.Resize(ref _ints, size * _arity);
                 if (_vals != null) Array.Resize(ref _vals, size);
                 if (_dead != null) Array.Resize(ref _dead, (size + 63) >> 6);
             }
-            _ints[_used] = key;
+            if (_arity == 1) _ints[_used] = key.RawInt;
+            else
+            {
+                var items = ((PyTuple)key.RawObject).Items;
+                for (int j = 0; j < _arity; j++) _ints[_used * _arity + j] = items[j].RawInt;
+            }
             StoreValue(_used, value);
             _used++;
         }
 
-        // Moves the keys back to Value slots, for the first key that is not an integer.
+        // Moves the keys back to Value slots, for the first key of another shape.
         private void ToGeneral()
         {
-            var keys = new Value[_ints.Length];
-            var hashes = new int[_ints.Length];
+            int capacity = Capacity;
+            var keys = new Value[capacity];
+            var hashes = new int[capacity];
             for (int i = 0; i < _used; i++)
             {
                 if (!Alive(i)) { keys[i] = Value.Unbound; continue; }
-                keys[i] = Value.FromInt(_ints[i]);
-                hashes[i] = Ops.HashInt(_ints[i]);
+                keys[i] = KeyAt(i);
+                hashes[i] = HashAt(i);
             }
             for (int i = _used; i < keys.Length; i++) keys[i] = Value.Unbound;
             _keys = keys;
             _hashes = hashes;
             _ints = null;
+            _arity = 1;
             _dead = null;
             BuildTable(_used + 1);
         }
 
-        // Keeps the keys of a dictionary that just had its index rebuilt as plain numbers when they all are.
+        // Keeps the keys of a dictionary that just had its index rebuilt as plain numbers when they all are integers, or
+        // all are plain tuples of the same number of integers. Every entry keeps its slot (a deleted one stays deleted),
+        // so an iteration in progress is not disturbed.
         private void TryUseInts()
         {
             if (_count == 0) return;
-            for (int i = 0; i < _used; i++)
-                if (Alive(i) && _keys[i].Kind != ValueKind.Int) return;
-            int size = Math.Max(_count, 4);
-            var ints = new long[size];
-            var vals = _vals == null ? null : new Value[size];
-            int n = 0;
+            int arity = 0;
             for (int i = 0; i < _used; i++)
             {
                 if (!Alive(i)) continue;
-                ints[n] = _keys[i].RawInt;
-                if (vals != null) vals[n] = _vals[i];
-                n++;
+                int shape = ShapeOf(_keys[i]);
+                if (shape == 0 || (arity != 0 && shape != arity)) return;
+                arity = shape;
             }
+            int size = _keys.Length;
+            var ints = new long[size * arity];
+            ulong[] dead = null;
+            for (int i = 0; i < _used; i++)
+            {
+                if (!Alive(i))
+                {
+                    if (dead == null) dead = new ulong[(size + 63) >> 6];
+                    dead[i >> 6] |= 1UL << (i & 63);
+                    continue;
+                }
+                if (arity == 1) ints[i] = _keys[i].RawInt;
+                else
+                {
+                    var items = ((PyTuple)_keys[i].RawObject).Items;
+                    for (int j = 0; j < arity; j++) ints[i * arity + j] = items[j].RawInt;
+                }
+            }
+            _arity = arity;
             _ints = ints;
-            _vals = vals;
+            _dead = dead;
             _keys = NoKeys;
             _hashes = null;
-            _dead = null;
-            _used = n;
             BuildTable(_used + 1);
         }
+
+        /// <summary>
+        /// Gives a dictionary keyed by cells real key objects, so that a snapshot can refer to each key by identity (a
+        /// compact one makes a new tuple every time a key is read). Returns false when nothing changed. Pair it with
+        /// <see cref="Repack"/>.
+        /// </summary>
+        internal bool Unpack()
+        {
+            if (_ints == null || _arity == 1) return false;
+            ToGeneral();
+            return true;
+        }
+
+        /// <summary>Puts a dictionary that <see cref="Unpack"/> opened back to the compact layout, entries in the same slots.</summary>
+        internal void Repack() => TryUseInts();
 
         private void EnsureIndex()
         {
@@ -409,11 +482,20 @@ namespace CSharpPython
             EnsureIndex();
             if (_ints != null)
             {
-                if (key.Kind == ValueKind.Int)
+                if (_arity == 1)
                 {
-                    hash = Ops.HashInt(key.RawInt);
+                    if (key.Kind == ValueKind.Int)
+                    {
+                        hash = Ops.HashInt(key.RawInt);
+                        hashed = true;
+                        return ProbeInt(key.RawInt, hash, out tablePos);
+                    }
+                }
+                else if (ShapeOf(key) == _arity)
+                {
+                    hash = Ops.HashIntTuple(((PyTuple)key.RawObject).Items);
                     hashed = true;
-                    return ProbeInt(key.RawInt, hash, out tablePos);
+                    return ProbeCell(((PyTuple)key.RawObject).Items, hash, out tablePos);
                 }
                 ToGeneral();
             }
@@ -450,6 +532,34 @@ namespace CSharpPython
                 {
                     tablePos = pos;
                     return t - 1;
+                }
+                pos = (pos + 1) & mask;
+            }
+            tablePos = -1;
+            return -1;
+        }
+
+        // The same for keys that are tuples of _arity integers.
+        private int ProbeCell(Value[] wanted, int hash, out int tablePos)
+        {
+            var table = _table;
+            var ints = _ints;
+            int arity = _arity;
+            int mask = table.Length - 1;
+            int pos = Spot(hash);
+            while (true)
+            {
+                int t = table[pos];
+                if (t == 0) break;
+                if (t > 0)
+                {
+                    int start = (t - 1) * arity, j = 0;
+                    while (j < arity && ints[start + j] == wanted[j].RawInt) j++;
+                    if (j == arity)
+                    {
+                        tablePos = pos;
+                        return t - 1;
+                    }
                 }
                 pos = (pos + 1) & mask;
             }
@@ -545,15 +655,18 @@ namespace CSharpPython
                 StoreValue(slot, value);
                 return;
             }
-            if (_used == 0 && _ints == null && key.Kind == ValueKind.Int && !_pending)
+            int shape;
+            if (_used == 0 && _ints == null && !_pending && (shape = ShapeOf(key)) > 0)
             {
-                // The first key is an integer: keep the keys as plain numbers until one that is not turns up.
-                _ints = new long[4];
+                // The first key is an integer, or a tuple of integers: keep the keys as plain numbers until one of
+                // another shape turns up.
+                _arity = shape;
+                _ints = new long[4 * shape];
                 _keys = NoKeys;
                 _hashes = null;
                 _table = new int[8];
                 _tableBits = 3;
-                hash = Ops.HashInt(key.RawInt);
+                hash = HashOfKey(key);
             }
             if (_ints != null)
             {
@@ -563,7 +676,7 @@ namespace CSharpPython
                     if (_used > _count) CompactInts();
                     else BuildTable(_used + 1);
                 }
-                AppendInt(key.RawInt, value);
+                AppendInt(key, value);
                 Place(_used - 1, hash);
                 _count++;
                 return;
@@ -591,7 +704,7 @@ namespace CSharpPython
             if (_table != null) _table[tablePos] = -1;
             if (_ints != null)
             {
-                if (_dead == null) _dead = new ulong[(_ints.Length + 63) >> 6];
+                if (_dead == null) _dead = new ulong[(Capacity + 63) >> 6];
                 _dead[slot >> 6] |= 1UL << (slot & 63);
             }
             else _keys[slot] = Value.Unbound;
@@ -608,6 +721,7 @@ namespace CSharpPython
             _vals = null;
             _keys = NoKeys;
             _ints = null;
+            _arity = 1;
             _dead = null;
             _used = 0;
             _count = 0;
@@ -636,13 +750,13 @@ namespace CSharpPython
         private void CompactInts()
         {
             int size = Math.Max(_count, 4);
-            var ints = new long[size];
+            var ints = new long[size * _arity];
             var vals = _vals == null ? null : new Value[size];
             int n = 0;
             for (int i = 0; i < _used; i++)
             {
                 if (!Alive(i)) continue;
-                ints[n] = _ints[i];
+                Array.Copy(_ints, i * _arity, ints, n * _arity, _arity);
                 if (vals != null) vals[n] = _vals[i];
                 n++;
             }

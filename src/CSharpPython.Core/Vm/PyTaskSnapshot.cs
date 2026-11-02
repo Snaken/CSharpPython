@@ -29,6 +29,18 @@ namespace CSharpPython
                 throw new SnapshotException("snapshots are disabled; set VmOptions.EnableSnapshots to true");
 
             var writer = new SnapshotWriter(Vm, _script);
+            try
+            {
+                return WriteSnapshot(writer);
+            }
+            finally
+            {
+                writer.Repack(); // a dictionary keyed by cells was given key objects for the save
+            }
+        }
+
+        private byte[] WriteSnapshot(SnapshotWriter writer)
+        {
             writer.Collect(_result);
             foreach (var kv in Globals) writer.Collect(kv.Value);
             foreach (var ev in _events) foreach (var a in ev.Args) writer.Collect(a);

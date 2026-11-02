@@ -366,6 +366,21 @@ namespace CSharpPython
 
         // Joins two hashes, in order, so that a tuple's hash depends on its items in a way a script cannot predict:
         // with a plain h * 31 + item, the tuples (k, C - 31 * k) all share one hash.
+        // The hash of a plain tuple of integers, as Hash gives it, from the numbers (no tuple needed).
+        internal static int HashIntTuple(long[] numbers, int start, int count)
+        {
+            int h = 17;
+            for (int i = 0; i < count; i++) h = Combine(h, HashInt(numbers[start + i]));
+            return h;
+        }
+
+        internal static int HashIntTuple(Value[] items)
+        {
+            int h = 17;
+            for (int i = 0; i < items.Length; i++) h = Combine(h, HashInt(items[i].RawInt));
+            return h;
+        }
+
         private static int Combine(int h, int x) => MixHash(((ulong)(uint)h << 32) | (uint)x);
 
         // Strings are hashed here, not with string.GetHashCode(): that is randomized per process on .NET Core but not on
