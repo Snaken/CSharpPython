@@ -126,6 +126,47 @@ namespace CSharpPython.Tests.Vm
         }
 
         [Test]
+        public void DiagnosticsReportTheCountersWithoutTimingUnlessAsked()
+        {
+            const string source = "data = list(range(5000))\nfor i in range(100000):\n    x = i\n";
+            var plain = new PyVm(new VmOptions { MaxMemoryBytes = 1L << 20 }).Start(source);
+            plain.RunUntilDone();
+            var d = plain.GetDiagnostics();
+            Assert.That(d.StepsExecuted, Is.EqualTo(plain.StepsExecuted));
+            Assert.That(d.MemoryLimitBytes, Is.EqualTo(1L << 20));
+            Assert.That(d.MemoryMeasurements, Is.EqualTo(plain.MemoryMeasurements).And.GreaterThan(0));
+            Assert.That(d.LastMeasuredMemoryBytes, Is.EqualTo(plain.LastMeasuredMemoryBytes));
+            Assert.That(d.StepsSinceMemoryMeasured, Is.EqualTo(plain.StepsSinceMemoryMeasured));
+            Assert.That(d.MemoryWalkMilliseconds, Is.EqualTo(0), "timing is off by default");
+
+            var timed = new PyVm(new VmOptions { MaxMemoryBytes = 1L << 20, CollectDiagnostics = true }).Start(source);
+            timed.RunUntilDone();
+            var t = timed.GetDiagnostics();
+            Assert.That(t.MemoryMeasurements, Is.GreaterThan(0));
+            Assert.That(t.MemoryWalkMilliseconds, Is.GreaterThan(0));
+            Assert.That(t.MemoryWalkMilliseconds, Is.LessThan(5000));
+        }
+
+        [Test]
+        public void DiagnosticsSayHowManyStepsRemainUntilTheNextWalk()
+        {
+            var vm = new PyVm(new VmOptions { MaxMemoryBytes = 1L << 20, StepsPerSlice = 1000 });
+            var task = vm.Start("i = 0\nwhile True:\n    i += 1\n");
+            Assert.That(task.GetDiagnostics().StepsUntilNextMemoryMeasurement, Is.EqualTo((1L << 20) / MemorySizes.BytesPerStep));
+            task.Run();
+            long first = task.GetDiagnostics().StepsUntilNextMemoryMeasurement;
+            task.Run();
+            long second = task.GetDiagnostics().StepsUntilNextMemoryMeasurement;
+            Assert.That(second, Is.LessThan(first));
+            Assert.That(first - second, Is.InRange(900, 1100), "about one slice of steps passed");
+            Assert.That(task.GetDiagnostics().MemoryMeasurements, Is.EqualTo(0), "reading diagnostics does not walk");
+
+            var unlimited = new PyVm(new VmOptions { MaxMemoryBytes = 0 }).Start("x = 1\n");
+            Assert.That(unlimited.GetDiagnostics().StepsUntilNextMemoryMeasurement, Is.EqualTo(-1));
+            Assert.That(unlimited.GetDiagnostics().MemoryLimitBytes, Is.EqualTo(0));
+        }
+
+        [Test]
         public void ANegativeLimitIsRefused() =>
             Assert.Throws<ArgumentOutOfRangeException>(() => new PyVm(new VmOptions { MaxMemoryBytes = -1 }));
 

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Numerics;
 
 namespace CSharpPython
@@ -11,6 +12,7 @@ namespace CSharpPython
         private long _memoryUsed;
         private long _memoryGrowth;
         private long _memoryStepsAtMeasure;
+        private long _memoryWalkTicks;
 
         /// <summary>
         /// An estimate of the memory the script holds, in bytes: everything the task can reach (its globals, stack, call
@@ -38,6 +40,19 @@ namespace CSharpPython
         /// <summary>How many steps the task has run since <see cref="LastMeasuredMemoryBytes"/> was taken.</summary>
         public long StepsSinceMemoryMeasured => _totalSteps - _memoryStepsAtMeasure;
 
+        /// <summary>
+        /// What the task has cost so far, in one value: steps, the memory limit, how often the memory was walked, what
+        /// the last walk found and how old it is, how many steps remain until the next walk, and (when
+        /// <see cref="VmOptions.CollectDiagnostics"/> is on) how long the walks took. It does not walk the heap.
+        /// </summary>
+        public TaskDiagnostics GetDiagnostics()
+        {
+            long limit = Vm.Options.MaxMemoryBytes;
+            long until = limit <= 0 ? -1 : Math.Max(0, (limit - _memoryUsed - _memoryGrowth) / MemorySizes.BytesPerStep);
+            return new TaskDiagnostics(_totalSteps, Math.Max(limit, 0), MemoryMeasurements, _memoryUsed, StepsSinceMemoryMeasured, until,
+                _memoryWalkTicks * 1000.0 / Stopwatch.Frequency);
+        }
+
         // Called at the end of a slice: stops the task with an uncatchable error when it holds more than MaxMemoryBytes.
         // Walking the heap costs about as much as running a step for every object in it, so it is not done every slice.
         // Instead the task keeps a bound on how much it can have grown since the last walk (a script allocates at most a
@@ -62,6 +77,8 @@ namespace CSharpPython
         // stopAbove (so a measurement against a limit costs at most about the limit's worth of objects).
         private long MeasureMemory(long stopAbove)
         {
+            bool timed = Vm.Options.CollectDiagnostics;
+            long started = timed ? Stopwatch.GetTimestamp() : 0;
             var meter = new MemoryMeter(stopAbove);
             meter.AddBytes(MemorySizes.Slot * (_stack.Length + 8L * _frames.Length));
             meter.Visit(_result);
@@ -80,6 +97,7 @@ namespace CSharpPython
             }
             meter.Visit(_lastReturn);
             long bytes = meter.Measure();
+            if (timed) _memoryWalkTicks += Stopwatch.GetTimestamp() - started;
             MemoryMeasurements++;
             _memoryUsed = bytes;
             _memoryGrowth = 0;

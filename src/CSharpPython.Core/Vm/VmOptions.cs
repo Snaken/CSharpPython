@@ -78,6 +78,14 @@ namespace CSharpPython
         /// that never saves script state does not depend on it; calling them while it is off throws.
         /// </summary>
         public bool EnableSnapshots = false;
+
+        /// <summary>
+        /// Turns on the measurements that cost time, so that <see cref="PyTask.GetDiagnostics"/> can report them (today:
+        /// how long the <see cref="MaxMemoryBytes"/> check has spent walking the task's memory). Off by default; the
+        /// counters that cost nothing are always kept. The host decides what to do with the numbers: show them in a debug
+        /// panel, or add them to a crash report. The library sends nothing anywhere.
+        /// </summary>
+        public bool CollectDiagnostics = false;
     }
 
     /// <summary>Where a task is in its life.</summary>
