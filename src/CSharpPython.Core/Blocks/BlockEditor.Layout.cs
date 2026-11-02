@@ -19,7 +19,7 @@ namespace CSharpPython.Blocks
             if (FindNode(fn, nodeId) == null) return EditResult.Refused(NoNode(function, nodeId));
             var layout = Graph.Editor.LayoutOf(nodeId) ?? Graph.Editor.Place(nodeId, 0, 0);
             layout.Collapsed = collapsed;
-            return Made(EditResult.Done());
+            return Made(EditResult.Done(), program: false);
         }
 
         // ---- Comment boxes ----
@@ -32,7 +32,7 @@ namespace CSharpPython.Blocks
             if (problem == null && Graph.Editor.Comments.Count >= Limits.MaxEditorEntries) problem = TooManyEditorEntries("comment boxes");
             if (problem != null) return EditResult.Refused(problem);
             Graph.Editor.Comments.Add(new BlockCommentBox(text ?? "", x, y, width, height));
-            return Made(EditResult.Done());
+            return Made(EditResult.Done(), program: false);
         }
 
         public EditResult SetCommentText(int index, string text)
@@ -41,7 +41,7 @@ namespace CSharpPython.Blocks
             problem = problem ?? CheckCommentText(text);
             if (problem != null) return EditResult.Refused(problem);
             box.Text = text ?? "";
-            return Made(EditResult.Done());
+            return Made(EditResult.Done(), program: false);
         }
 
         public EditResult MoveComment(int index, float x, float y)
@@ -51,7 +51,7 @@ namespace CSharpPython.Blocks
             if (problem != null) return EditResult.Refused(problem);
             box.X = x;
             box.Y = y;
-            return Made(EditResult.Done());
+            return Made(EditResult.Done(), program: false);
         }
 
         public EditResult ResizeComment(int index, float width, float height)
@@ -62,7 +62,7 @@ namespace CSharpPython.Blocks
             if (problem != null) return EditResult.Refused(problem);
             box.Width = width;
             box.Height = height;
-            return Made(EditResult.Done());
+            return Made(EditResult.Done(), program: false);
         }
 
         public EditResult RemoveComment(int index)
@@ -70,7 +70,7 @@ namespace CSharpPython.Blocks
             CommentAt(index, out string problem);
             if (problem != null) return EditResult.Refused(problem);
             Graph.Editor.Comments.RemoveAt(index);
-            return Made(EditResult.Done());
+            return Made(EditResult.Done(), program: false);
         }
 
         // ---- Reroute points ----
@@ -95,7 +95,7 @@ namespace CSharpPython.Blocks
                 Graph.Editor.Wires.Add(bends);
             }
             bends.Points.Insert(Math.Min(index, bends.Points.Count), new BlockPoint(x, y));
-            return Made(EditResult.Done());
+            return Made(EditResult.Done(), program: false);
         }
 
         public EditResult MoveBend(string function, string nodeId, string pin, int index, float x, float y)
@@ -104,7 +104,7 @@ namespace CSharpPython.Blocks
             problem = problem ?? CheckFinite(x, y);
             if (problem != null) return EditResult.Refused(problem);
             bends.Points[index] = new BlockPoint(x, y);
-            return Made(EditResult.Done());
+            return Made(EditResult.Done(), program: false);
         }
 
         /// <summary>Removes a reroute point; the wire stays and goes straight between its neighbours.</summary>
@@ -114,7 +114,7 @@ namespace CSharpPython.Blocks
             if (problem != null) return EditResult.Refused(problem);
             bends.Points.RemoveAt(index);
             if (bends.Points.Count == 0) Graph.Editor.Wires.Remove(bends);
-            return Made(EditResult.Done());
+            return Made(EditResult.Done(), program: false);
         }
 
         // ---- Groups ----
@@ -134,7 +134,7 @@ namespace CSharpPython.Blocks
             if (problem != null) return EditResult.Refused(problem);
 
             Graph.Editor.Groups.Add(new BlockGroup(title ?? "", ids.ToArray()));
-            return Made(EditResult.Done());
+            return Made(EditResult.Done(), program: false);
         }
 
         public EditResult RenameGroup(int index, string title)
@@ -143,7 +143,7 @@ namespace CSharpPython.Blocks
             problem = problem ?? CheckGroupTitle(title);
             if (problem != null) return EditResult.Refused(problem);
             group.Title = title ?? "";
-            return Made(EditResult.Done());
+            return Made(EditResult.Done(), program: false);
         }
 
         public EditResult SetGroupCollapsed(int index, bool collapsed)
@@ -151,7 +151,7 @@ namespace CSharpPython.Blocks
             var group = GroupAt(index, out string problem);
             if (problem != null) return EditResult.Refused(problem);
             group.Collapsed = collapsed;
-            return Made(EditResult.Done());
+            return Made(EditResult.Done(), program: false);
         }
 
         /// <summary>Adds a block to a group. Refused when the block is already in a group.</summary>
@@ -162,7 +162,7 @@ namespace CSharpPython.Blocks
             if (problem == null && CountMembers() >= Limits.MaxEditorEntries) problem = TooManyEditorEntries("blocks in groups");
             if (problem != null) return EditResult.Refused(problem);
             group.Nodes.Add(nodeId);
-            return Made(EditResult.Done());
+            return Made(EditResult.Done(), program: false);
         }
 
         /// <summary>Takes a block out of a group. A group left with no blocks is removed.</summary>
@@ -173,7 +173,7 @@ namespace CSharpPython.Blocks
             if (problem != null) return EditResult.Refused(problem);
             group.Nodes.Remove(nodeId);
             if (group.Nodes.Count == 0) Graph.Editor.Groups.RemoveAt(index);
-            return Made(EditResult.Done());
+            return Made(EditResult.Done(), program: false);
         }
 
         /// <summary>Removes a group. Its blocks stay.</summary>
@@ -182,7 +182,7 @@ namespace CSharpPython.Blocks
             GroupAt(index, out string problem);
             if (problem != null) return EditResult.Refused(problem);
             Graph.Editor.Groups.RemoveAt(index);
-            return Made(EditResult.Done());
+            return Made(EditResult.Done(), program: false);
         }
 
         // ---- Helpers ----

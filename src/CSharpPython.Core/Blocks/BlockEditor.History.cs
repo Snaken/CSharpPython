@@ -115,6 +115,7 @@ namespace CSharpPython.Blocks
             Replace(Graph.Editor.Comments, restored.Editor.Comments);
             Replace(Graph.Editor.Wires, restored.Editor.Wires);
             Replace(Graph.Editor.Groups, restored.Editor.Groups);
+            _programVersion++;
             Changed?.Invoke();
             return EditResult.Done();
         }

@@ -208,6 +208,9 @@ namespace CSharpPython.Blocks
         private static readonly string[] AB = { "a", "b" };
         private static readonly string[] Next = { "next" };
 
+        // Changes whenever a block or function is added, so a compile that depended on the library can be told from a new one.
+        internal int Revision { get; private set; }
+
         private readonly Dictionary<string, BlockSpec> _blocks = new Dictionary<string, BlockSpec>();
         private readonly List<BlockSpec> _blockOrder = new List<BlockSpec>();
         private readonly Dictionary<string, FunctionSpec> _functions = new Dictionary<string, FunctionSpec>();
@@ -299,6 +302,7 @@ namespace CSharpPython.Blocks
         public BlockLibrary AddFunction(string name, string[] parameters, bool pure = false, string module = null, int required = -1, string signature = null, HostSignature typed = null, bool latent = false)
         {
             if (string.IsNullOrEmpty(name)) throw new ArgumentException("A function needs a name.", nameof(name));
+            Revision++;
             typed = typed ?? TypedSignatures.Find(module == null ? name : module + "." + name);
             var spec = new FunctionSpec(name, module, parameters ?? None, pure, required, signature, typed, latent);
             string key = module == null ? name : module + "." + name;
@@ -398,6 +402,7 @@ namespace CSharpPython.Blocks
 
         private void AddBlock(string name, string title, string category, BlockKind kind, string[] inputs, string[] flowPins, bool needsName)
         {
+            Revision++;
             var spec = new BlockSpec(name, title, category, kind, inputs, flowPins, needsName, BlockTypes.Find(name));
             _blocks[name] = spec;
             _blockOrder.Add(spec);

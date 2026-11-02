@@ -149,7 +149,7 @@ namespace CSharpPython.Blocks
             string place = CheckFinite(x, y);
             if (place != null) return EditResult.Refused(place);
             Graph.Editor.Place(nodeId, x, y);
-            return Made(EditResult.Done());
+            return Made(EditResult.Done(), program: false);
         }
 
         // ---- Wires and links ----
@@ -268,8 +268,11 @@ namespace CSharpPython.Blocks
 
         // ---- Helpers ----
 
-        private EditResult Made(EditResult result)
+        // 'program' is false for an edit that only changes how the graph is drawn (a block's place, a comment box, a group,
+        // a reroute point): it cannot change the generated Python or its diagnostics, so it keeps the compile cache.
+        private EditResult Made(EditResult result, bool program = true)
         {
+            if (program) _programVersion++;
             RecordEdit();
             Changed?.Invoke();
             return result;
