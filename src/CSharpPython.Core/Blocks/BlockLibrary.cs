@@ -249,6 +249,16 @@ namespace CSharpPython.Blocks
             AddBlock("pop", "Remove and return item", "Lists", BlockKind.Flow, new[] { "list", "index" }, Next, false);
             AddBlock("list_of_size", "List of size", "Lists", BlockKind.Value, new[] { "value", "count" }, None, false);
             AddBlock("remove_at", "Remove item at", "Lists", BlockKind.Flow, new[] { "list", "index" }, Next, false);
+            AddBlock("tuple", "Tuple of", "Collections", BlockKind.Value, None, None, false);
+            AddBlock("tuple_item", "Tuple item at", "Collections", BlockKind.Value, new[] { "tuple", "index" }, None, false);
+            AddBlock("set_of", "Set of", "Collections", BlockKind.Value, None, None, false);
+            AddBlock("set_add", "Add to set", "Collections", BlockKind.Flow, new[] { "set", "value" }, Next, false);
+            AddBlock("set_discard", "Remove from set", "Collections", BlockKind.Flow, new[] { "set", "value" }, Next, false);
+            AddBlock("dict_of", "Dictionary of", "Collections", BlockKind.Value, None, None, false);
+            AddBlock("dict_get", "Dictionary item or default", "Collections", BlockKind.Value, new[] { "dict", "key", "default" }, None, false);
+            AddBlock("dict_set", "Set dictionary item", "Collections", BlockKind.Flow, new[] { "dict", "key", "value" }, Next, false);
+            AddBlock("dict_remove", "Remove dictionary item", "Collections", BlockKind.Flow, new[] { "dict", "key" }, Next, false);
+            AddBlock("sorted", "Sorted list", "Collections", BlockKind.Value, new[] { "items", "reverse" }, None, false);
             AddBlock("get_attr", "Get field", "Objects", BlockKind.Value, new[] { "object" }, None, true);
             AddBlock("set_attr", "Set field", "Objects", BlockKind.Flow, new[] { "object", "value" }, Next, true);
 

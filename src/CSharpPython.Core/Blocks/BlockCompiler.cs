@@ -591,6 +591,18 @@ namespace CSharpPython.Blocks
                     case "pop":
                         EmitPop(node, depth);
                         break;
+                    case "set_add":
+                        Emit(depth, Input(node, "set").Atom + ".add(" + Input(node, "value").Text + ")", node);
+                        break;
+                    case "set_discard":
+                        Emit(depth, Input(node, "set").Atom + ".discard(" + Input(node, "value").Text + ")", node);
+                        break;
+                    case "dict_set":
+                        Emit(depth, Input(node, "dict").Atom + "[" + Input(node, "key").Text + "] = " + Input(node, "value").Text, node);
+                        break;
+                    case "dict_remove":
+                        Emit(depth, Input(node, "dict").Atom + ".pop(" + Input(node, "key").Text + ", None)", node);
+                        break;
                     case "remove_at":
                         Emit(depth, "del " + Input(node, "list").Atom + "[" + Input(node, "index").Text + "]", node);
                         break;
@@ -901,7 +913,7 @@ namespace CSharpPython.Blocks
             bool ok = true;
             IReadOnlyList<string> inputs;
             IReadOnlyList<string> flows;
-            bool variadic = node.Block == "list";
+            bool variadic = BlockTypes.IsVariadic(node.Block);
             if (node.Block == "call")
             {
                 var kind = ClassifyCall(node, out int arity);
@@ -931,7 +943,7 @@ namespace CSharpPython.Blocks
             {
                 if (input == null) continue;
                 string pin = input.Pin ?? "";
-                bool known = inputs.Contains(pin) || (variadic && IsItemPin(pin));
+                bool known = inputs.Contains(pin) || (variadic && BlockTypes.IsVariadicPin(node.Block, pin));
                 if (!known)
                 {
                     Error("'" + node.Block + "' has no input pin '" + pin + "'", node, pin);
@@ -962,8 +974,7 @@ namespace CSharpPython.Blocks
             return ok;
         }
 
-        private static bool IsItemPin(string pin) =>
-            pin.Length > 4 && pin.StartsWith("item", StringComparison.Ordinal) && pin.Skip(4).All(c => c >= '0' && c <= '9');
+        private static bool IsNumbered(string pin, string prefix) => BlockTypes.IsNumbered(pin, prefix);
 
         private string RequireVariable(BlockNode node, bool mustExist)
         {
@@ -1153,7 +1164,26 @@ namespace CSharpPython.Blocks
                     case "index":
                         return new Ex(Input(node, "list").Atom + "[" + Input(node, "index").Text + "]", false);
                     case "list":
-                        return ListOf(node);
+                        return new Ex("[" + string.Join(", ", Numbered(node, "item", "a list's items must be numbered item0, item1, ... without gaps")) + "]", false);
+                    case "tuple":
+                        var members = Numbered(node, "item", "a tuple's items must be numbered item0, item1, ... without gaps");
+                        return new Ex(members.Count == 1 ? "(" + members[0] + ",)" : "(" + string.Join(", ", members) + ")", false);
+                    case "set_of":
+                        var elements = Numbered(node, "item", "a set's items must be numbered item0, item1, ... without gaps");
+                        return new Ex(elements.Count == 0 ? "set()" : "{" + string.Join(", ", elements) + "}", false);
+                    case "dict_of":
+                        return DictOf(node);
+                    case "tuple_item":
+                        return new Ex(Input(node, "tuple").Atom + "[" + Input(node, "index").Text + "]", false);
+                    case "dict_get":
+                        var table = Input(node, "dict");
+                        var key = Input(node, "key");
+                        var fallback = Input(node, "default", optional: true);
+                        return new Ex(table.Atom + ".get(" + key.Text + (fallback.Text == null ? "" : ", " + fallback.Text) + ")", false);
+                    case "sorted":
+                        var toSort = Input(node, "items");
+                        var backwards = Input(node, "reverse", optional: true);
+                        return new Ex("sorted(" + toSort.Text + (backwards.Text == null ? "" : ", reverse=" + backwards.Text) + ")", false);
                     case "list_of_size":
                         return new Ex("[" + Input(node, "value").Text + "] * " + Input(node, "count").Atom, true);
                     case "call":
@@ -1172,22 +1202,38 @@ namespace CSharpPython.Blocks
         private static string AttributeBase(Ex value) =>
             value.Text.Length > 0 && char.IsDigit(value.Text[0]) ? "(" + value.Text + ")" : value.Atom;
 
-        private Ex ListOf(BlockNode node)
+        // The texts of the numbered inputs of a block (item0, item1, ...), in order. A gap is an error, and gives no items.
+        private List<string> Numbered(BlockNode node, string prefix, string gapMessage)
         {
-            int count = (node.Inputs ?? new List<BlockInput>()).Count(i => i != null);
+            int count = (node.Inputs ?? new List<BlockInput>()).Count(i => i != null && IsNumbered(i.Pin ?? "", prefix));
             var parts = new List<string>();
             for (int i = 0; i < count; i++)
             {
-                string pin = "item" + i.ToString(CultureInfo.InvariantCulture);
+                string pin = prefix + i.ToString(CultureInfo.InvariantCulture);
                 bool present = node.Inputs.Any(x => x != null && x.Pin == pin);
                 if (!present)
                 {
-                    Error("a list's items must be numbered item0, item1, ... without gaps", node, pin);
-                    return new Ex("[]", false);
+                    Error(gapMessage, node, pin);
+                    return new List<string>();
                 }
                 parts.Add(Input(node, pin).Text);
             }
-            return new Ex("[" + string.Join(", ", parts) + "]", false);
+            return parts;
+        }
+
+        private Ex DictOf(BlockNode node)
+        {
+            const string gap = "a dictionary's keys and values must be numbered key0 with value0, key1 with value1, ... without gaps";
+            var keys = Numbered(node, "key", gap);
+            var values = Numbered(node, "value", gap);
+            if (keys.Count != values.Count)
+            {
+                Error(gap, node);
+                return new Ex("{}", false);
+            }
+            var pairs = new List<string>();
+            for (int i = 0; i < keys.Count; i++) pairs.Add(keys[i] + ": " + values[i]);
+            return new Ex("{" + string.Join(", ", pairs) + "}", false);
         }
 
         // ---- Calls ----

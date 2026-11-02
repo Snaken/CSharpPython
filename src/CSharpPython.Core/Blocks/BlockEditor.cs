@@ -330,7 +330,7 @@ namespace CSharpPython.Blocks
         private string CheckInputPin(BlockNode node, string pin)
         {
             if (string.IsNullOrEmpty(pin)) return "A pin needs a name.";
-            bool variadic = node.Block == "list" && pin.Length > 4 && pin.StartsWith("item", StringComparison.Ordinal) && pin.Skip(4).All(c => c >= '0' && c <= '9');
+            bool variadic = BlockTypes.IsVariadicPin(node.Block, pin);
             if (variadic || InputPinsOf(node).Contains(pin)) return null;
             return "A '" + node.Block + "' block has no input pin '" + pin + "'.";
         }

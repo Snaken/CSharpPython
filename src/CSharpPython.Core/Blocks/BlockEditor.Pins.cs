@@ -76,16 +76,19 @@ namespace CSharpPython.Blocks
             return pins;
         }
 
-        // The numbered inputs of a list block: those in use, then the next one.
+        // The numbered inputs of a list, tuple or set block (those in use, then the next one), or the numbered key and
+        // value pairs of a dictionary block.
         private static IEnumerable<string> ItemPinsOf(BlockNode node)
         {
-            if (node.Block != "list") return Array.Empty<string>();
+            if (!BlockTypes.IsVariadic(node.Block)) return Array.Empty<string>();
+            string[] prefixes = node.Block == "dict_of" ? new[] { "key", "value" } : new[] { "item" };
             int count = 0;
             foreach (var input in node.Inputs ?? new List<BlockInput>())
-                if (input?.Pin != null && input.Pin.StartsWith("item", StringComparison.Ordinal)
-                    && int.TryParse(input.Pin.Substring(4), NumberStyles.None, CultureInfo.InvariantCulture, out int n))
-                    count = Math.Max(count, n + 1);
-            return Enumerable.Range(0, count + 1).Select(i => "item" + i.ToString(CultureInfo.InvariantCulture));
+                foreach (var prefix in prefixes)
+                    if (input?.Pin != null && input.Pin.StartsWith(prefix, StringComparison.Ordinal)
+                        && int.TryParse(input.Pin.Substring(prefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out int n))
+                        count = Math.Max(count, n + 1);
+            return Enumerable.Range(0, count + 1).SelectMany(i => prefixes.Select(p => p + i.ToString(CultureInfo.InvariantCulture)));
         }
 
         // The names of the value outputs of a block: one null name for a single output, the result names for several.

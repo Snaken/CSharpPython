@@ -244,7 +244,7 @@ namespace CSharpPython.Blocks
             var ka = KindOf(a);
             var kb = KindOf(b);
             if (op == "neg") return ka == Kind.Unknown || ka == Kind.Number;
-            if (op == "contains") return kb == Kind.Unknown || kb == Kind.List || (kb == Kind.Text && (ka == Kind.Unknown || ka == Kind.Text));
+            if (op == "contains") return kb == Kind.Unknown || kb == Kind.List || IsCollection(b) || (kb == Kind.Text && (ka == Kind.Unknown || ka == Kind.Text));
             if (ka == Kind.Unknown || kb == Kind.Unknown) return true;
             switch (op)
             {
@@ -257,6 +257,9 @@ namespace CSharpPython.Blocks
                 default: return ka == Kind.Number && kb == Kind.Number;
             }
         }
+
+        // A set, a dictionary or a tuple: what "is in" can look through, as it can a list.
+        private static bool IsCollection(PinType t) => t.Name == "set" || t.Name == "dict" || t.Name == "tuple";
 
         // int or bool: what text or a list can be repeated by.
         private static bool IsWhole(PinType t) => t.Equals(PinType.Int) || t.Equals(PinType.Bool);
@@ -455,6 +458,12 @@ namespace CSharpPython.Blocks
                     return PinType.Int;
                 case "list":
                     return ListOfItems(node);
+                case "tuple":
+                    return PinType.Parse("tuple");
+                case "set_of":
+                    return PinType.Parse("set");
+                case "dict_of":
+                    return PinType.Parse("dict");
                 case "neg":
                     var operand = InputType(node, "a");
                     return IsNumber(operand) ? operand : PinType.Any;
