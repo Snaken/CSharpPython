@@ -323,12 +323,36 @@ namespace CSharpPython.Compilation
 
         private void CompileAssign(AssignStmt a)
         {
+            if (TryCompilePairedAssign(a)) return;
             CompileExpr(a.Value);
             for (int i = 0; i < a.Targets.Count; i++)
             {
                 if (i < a.Targets.Count - 1) Emit(Op.Dup);
                 CompileStore(a.Targets[i]);
             }
+        }
+
+        // 'a, b = x, y' and 'a, b, c = x, y, z': the values are pushed one after another and stored, instead of being
+        // packed into a tuple that is unpacked at once (the tuple was the only allocation, and the common swap
+        // 'a, b = b, a' and 'x, y = f(), g()' do it all the time). The values are still all computed before the first
+        // store, and the stores still go left to right. Any other shape (a starred item, a count that does not match,
+        // a chained assignment) takes the general path, which also raises the ValueError.
+        private bool TryCompilePairedAssign(AssignStmt a)
+        {
+            if (a.Targets.Count != 1 || !(a.Value is TupleExpr values)) return false;
+            List<Expr> targets;
+            if (a.Targets[0] is TupleExpr tt) targets = tt.Items;
+            else if (a.Targets[0] is ListExpr tl) targets = tl.Items;
+            else return false;
+            int n = values.Items.Count;
+            if ((n != 2 && n != 3) || targets.Count != n) return false;
+            foreach (var item in values.Items) if (item is StarExpr) return false;
+            foreach (var item in targets) if (item is StarExpr) return false;
+            foreach (var item in values.Items) CompileExpr(item);
+            if (n == 3) Emit(Op.Rot3);
+            Emit(Op.Rot2);
+            foreach (var item in targets) CompileStore(item);
+            return true;
         }
 
         // Stores the value on top of the stack into the target.

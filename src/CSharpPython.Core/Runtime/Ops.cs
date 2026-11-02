@@ -1172,6 +1172,7 @@ namespace CSharpPython
             if (iterable.Kind == ValueKind.List) return new List<Value>(((PyList)iterable.RawObject).Items);
             if (iterable.Kind == ValueKind.Tuple) return new List<Value>(((PyTuple)iterable.RawObject).Items);
             if (iterable.Kind == ValueKind.Deque) return ((PyDeque)iterable.RawObject).ToList();
+            if (iterable.Kind == ValueKind.Range) return RangeToList((PyRange)iterable.RawObject);
             var it = GetIterator(iterable);
             if (it is PyGenerator generator) return DrainToList(generator);
             var result = new List<Value>();
@@ -1180,6 +1181,16 @@ namespace CSharpPython
                 if (result.Count >= MaxSequenceLength) throw new PyError("MemoryError", "sequence too long");
                 result.Add(item);
             }
+            return result;
+        }
+
+        // The length is known, so the list is made the right size at once.
+        private static List<Value> RangeToList(PyRange range)
+        {
+            long length = range.Length;
+            if (length > MaxSequenceLength) throw new PyError("MemoryError", "sequence too long");
+            var result = new List<Value>((int)length);
+            for (long i = 0; i < length; i++) result.Add(Value.FromInt(range[i]));
             return result;
         }
 

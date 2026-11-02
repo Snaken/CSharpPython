@@ -730,6 +730,7 @@ namespace CSharpPython
         private static List<Value> SortCore(List<Value> list, bool reverse, Value[] keys)
         {
             if (list.Count < 2) return list;
+            if (list.Count <= SmallSort && SortSmall(list, keys, reverse)) return list;
             if (keys == null) keys = list.ToArray();
             List<Value> simple = SortSimple(list, keys, reverse);
             if (simple != null) return simple;
@@ -747,6 +748,52 @@ namespace CSharpPython
             }
             else order = MergeSort(order, (x, y) => Ops.Compare(keys[x], keys[y], Ops.Order.Lt));
             return order.Select(i => list[i]).ToList();
+        }
+
+        private const int SmallSort = 16;
+
+        // A short list whose keys are all ints, all floats (none NaN) or all strings is sorted where it is, by a stable
+        // insertion sort, which allocates nothing (the general path makes four arrays and a second list). The list and the
+        // keys belong to the sort (see SortOwned). Equal items never pass each other, so reverse=True keeps equal items in
+        // their original order, as Python does. Returns false, having changed nothing, for any other keys.
+        private static bool SortSmall(List<Value> list, Value[] keys, bool reverse)
+        {
+            int n = list.Count;
+            ValueKind kind = keys != null ? keys[0].Kind : list[0].Kind;
+            if (kind != ValueKind.Int && kind != ValueKind.Float && kind != ValueKind.Str) return false;
+            for (int i = 0; i < n; i++)
+            {
+                Value k = keys != null ? keys[i] : list[i];
+                if (k.Kind != kind || (kind == ValueKind.Float && double.IsNaN(k.RawFloat))) return false;
+            }
+            for (int i = 1; i < n; i++)
+            {
+                Value item = list[i];
+                Value key = keys != null ? keys[i] : item;
+                int j = i;
+                while (j > 0)
+                {
+                    Value prev = keys != null ? keys[j - 1] : list[j - 1];
+                    int c = CompareSimple(kind, prev, key);
+                    if (reverse ? c >= 0 : c <= 0) break;
+                    list[j] = list[j - 1];
+                    if (keys != null) keys[j] = keys[j - 1];
+                    j--;
+                }
+                list[j] = item;
+                if (keys != null) keys[j] = key;
+            }
+            return true;
+        }
+
+        private static int CompareSimple(ValueKind kind, Value a, Value b)
+        {
+            switch (kind)
+            {
+                case ValueKind.Int: return a.RawInt.CompareTo(b.RawInt);
+                case ValueKind.Float: return a.RawFloat.CompareTo(b.RawFloat);
+                default: return string.CompareOrdinal((string)a.RawObject, (string)b.RawObject);
+            }
         }
 
         // A stable merge sort of the numbers in 'a' (bottom up, so no recursion): 'less(x, y)' says whether item x sorts
