@@ -340,6 +340,7 @@ namespace CSharpPython.Compilation
         private bool TryCompilePairedAssign(AssignStmt a)
         {
             if (a.Targets.Count != 1 || !(a.Value is TupleExpr values)) return false;
+            if (TryConstant(values, out _)) return false; // a tuple of constants is one constant already: no tuple is built
             List<Expr> targets;
             if (a.Targets[0] is TupleExpr tt) targets = tt.Items;
             else if (a.Targets[0] is ListExpr tl) targets = tl.Items;
