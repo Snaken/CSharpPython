@@ -174,7 +174,134 @@ extra = K(1000) in d
             var task = vm.Start("s = set()\nfor i in range(100000):\n    s.add(i)\n");
             task.RunUntilDone();
             double perItem = task.EstimatedMemoryBytes / 100000.0;
-            Assert.That(perItem, Is.InRange(45.0, 52.0));
+            Assert.That(perItem, Is.InRange(20.0, 28.0), "the members are integers, kept as plain numbers");
+
+            var strings = vm.Start("s = set()\nfor i in range(100000):\n    s.add(str(i) + 'k')\n");
+            strings.RunUntilDone();
+            Assert.That((strings.EstimatedMemoryBytes - 100000 * (24 + 2 * 7)) / 100000.0, Is.InRange(45.0, 56.0));
+        }
+
+        [Test]
+        public void RandomOperationsOnIntegerKeysAgreeWithAnOrdinaryDictionary()
+        {
+            var random = new Random(777);
+            var pool = new List<long>();
+            for (int i = 0; i < 400; i++) pool.Add(i);
+            for (int i = 0; i < 100; i++) pool.Add(-i - 1);
+            for (int i = 0; i < 100; i++) pool.Add(((long)i << 33) + 5);
+            pool.Add(long.MaxValue); pool.Add(long.MinValue); pool.Add(int.MaxValue); pool.Add((long)int.MaxValue + 1); pool.Add(int.MinValue);
+            var dict = new PyDict();
+            var model = new Dictionary<long, long>();
+            var order = new List<long>();
+            for (int step = 0; step < 80000; step++)
+            {
+                long k = pool[random.Next(pool.Count)];
+                switch (random.Next(5))
+                {
+                    case 0:
+                    case 1:
+                        dict.Set(Value.FromInt(k), Value.FromInt(step));
+                        if (!model.ContainsKey(k)) order.Add(k);
+                        model[k] = step;
+                        break;
+                    case 2:
+                        Assert.That(dict.Remove(Value.FromInt(k)), Is.EqualTo(model.Remove(k)));
+                        order.Remove(k);
+                        break;
+                    case 3:
+                        Assert.That(dict.ContainsKey(Value.FromInt(k)), Is.EqualTo(model.ContainsKey(k)));
+                        break;
+                    default:
+                        bool found = dict.TryGetValue(Value.FromInt(k), out var v);
+                        Assert.That(found, Is.EqualTo(model.ContainsKey(k)));
+                        if (found) Assert.That(v.AsInt(), Is.EqualTo(model[k]));
+                        break;
+                }
+                Assert.That(dict.Count, Is.EqualTo(model.Count));
+                if (step % 5000 == 0) Assert.That(dict.Pairs().Select(p => p.Key.AsInt()).ToList(), Is.EqualTo(order));
+            }
+            Assert.That(dict.IntKeyed, Is.True);
+            Assert.That(dict.Pairs().Select(p => p.Key.AsInt()).ToList(), Is.EqualTo(order), "insertion order survives removals and compaction");
+        }
+
+        [Test]
+        public void ADictThatHeldIntegersTurnsIntoAnOrdinaryOneForTheFirstOtherKey()
+        {
+            var set = new PySet();
+            for (int i = 0; i < 100; i++) set.Add(Value.FromInt(i * 3));
+            set.Remove(Value.FromInt(6));
+            Assert.That(set.Items.IntKeyed, Is.True);
+            set.Add(Value.FromString("x"));
+            Assert.That(set.Items.IntKeyed, Is.False);
+            Assert.That(set.Count, Is.EqualTo(100));
+            Assert.That(set.Contains(Value.FromInt(9)), Is.True);
+            Assert.That(set.Contains(Value.FromInt(6)), Is.False, "a removed member stays removed");
+            Assert.That(set.Contains(Value.FromString("x")), Is.True);
+            var members = set.Members().ToList();
+            Assert.That(members.Take(3).Select(m => m.AsInt()), Is.EqualTo(new long[] { 0, 3, 9 }));
+            Assert.That(members.Last().AsString(), Is.EqualTo("x"));
+            set.Add(Value.FromInt(1000));
+            Assert.That(set.Contains(Value.FromInt(1000)), Is.True);
+        }
+
+        [Test]
+        public void LookingUpAnotherKindOfKeyInAnIntegerSetFollowsPythonsRules()
+        {
+            var vm = new PyVm();
+            var task = vm.Start(
+                "s = {1, 2, 3}\nd = {1: 'a', 2: 'b'}\n" +
+                "r1 = (1.0 in s, True in s, 'a' in s, 2.5 in s)\n" +
+                "d[1.0] = 'c'\nd[True] = 'e'\nk = list(d.keys())\nv = list(d.values())\n" +
+                "s.add(True)\nn = len(s)\n" +
+                "try:\n    [] in s\n    r2 = 'no error'\nexcept TypeError:\n    r2 = 'TypeError'\n" +
+                "d[2.5] = 'f'\nk2 = list(d.keys())\n");
+            task.RunUntilDone();
+            Assert.That(task.Error, Is.Null);
+            Assert.That(task.Globals["n"].AsInt(), Is.EqualTo(3));
+            Assert.That(task.Globals["r2"].AsString(), Is.EqualTo("TypeError"));
+            Assert.That(task.Globals["v"].AsList().Items.Select(x => x.AsString()), Is.EqualTo(new[] { "e", "b" }), "1.0 and True are the key 1");
+            Assert.That(task.Globals["k"].AsList().Items.Select(x => x.AsInt()), Is.EqualTo(new long[] { 1, 2 }));
+            Assert.That(task.Globals["k2"].AsList().Items.Count, Is.EqualTo(3));
+            Assert.That(task.Globals["k2"].AsList().Items[2].AsFloat(), Is.EqualTo(2.5));
+        }
+
+        [Test]
+        public void AnIntegerDictionaryCanBeEmptiedAndReused()
+        {
+            var dict = new PyDict();
+            for (int i = 0; i < 1000; i++) dict.Set(Value.FromInt(i), Value.FromInt(i));
+            for (int i = 0; i < 995; i++) dict.Remove(Value.FromInt(i));
+            Assert.That(dict.Count, Is.EqualTo(5));
+            for (int i = 2000; i < 2100; i++) dict.Set(Value.FromInt(i), Value.None);
+            Assert.That(dict.Count, Is.EqualTo(105));
+            Assert.That(dict.Pairs().First().Key.AsInt(), Is.EqualTo(995));
+            dict.Clear();
+            Assert.That(dict.Count, Is.EqualTo(0));
+            Assert.That(dict.IntKeyed, Is.False);
+            dict.Set(Value.FromInt(7), Value.FromString("seven"));
+            Assert.That(dict.IntKeyed, Is.True);
+            Assert.That(dict.TryGetValue(Value.FromInt(7), out var v) && v.AsString() == "seven", Is.True);
+        }
+
+        [Test]
+        public void AnIntegerSetAndDictSurviveASnapshot()
+        {
+            var vm = new PyVm(new VmOptions { EnableSnapshots = true });
+            var script = vm.Compile("s = set()\nfor i in range(500):\n    s.add(i * 5)\ns.remove(25)\nd = {i: i * i for i in range(40)}\ndel d[7]\nwait = 1\n");
+            var task = vm.Start(script);
+            task.RunUntilDone();
+            var restored = vm.Restore(script, task.Save());
+            var s = restored.Globals["s"].AsSet();
+            Assert.That(s.Count, Is.EqualTo(499));
+            Assert.That(s.Contains(Value.FromInt(30)), Is.True);
+            Assert.That(s.Contains(Value.FromInt(25)), Is.False);
+            s.Add(Value.FromInt(25));
+            Assert.That(s.Count, Is.EqualTo(500));
+            var d = restored.Globals["d"].AsDict();
+            Assert.That(d.Count, Is.EqualTo(39));
+            Assert.That(d.TryGetValue(Value.FromInt(9), out var nine) && nine.AsInt() == 81, Is.True);
+            Assert.That(d.ContainsKey(Value.FromInt(7)), Is.False);
+            Assert.That(restored.Globals["s"].AsSet().Members().Select(m => m.AsInt()).Take(3), Is.EqualTo(new long[] { 0, 5, 10 }));
         }
     }
 }

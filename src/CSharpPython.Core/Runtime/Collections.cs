@@ -170,6 +170,12 @@ namespace CSharpPython
 
         // A deleted entry's key is Unbound, which is never a real key.
         private Value[] _keys = NoKeys;
+
+        // While every key is an integer the keys live here instead of in _keys: 8 bytes a key instead of 24, no stored
+        // hash (an integer's hash follows from it), and nothing for the collector to scan. The first key that is not an
+        // integer moves everything back to _keys (ToGeneral). A deleted entry is a set bit in _dead.
+        private long[] _ints;
+        private ulong[] _dead;
         private Value[] _vals;                    // null while every value is None (always for a set)
         private int[] _hashes;                    // valid only once there is a table
         private int[] _table;                     // null while the dictionary is small; 0 empty, -1 deleted, else entry + 1
@@ -207,7 +213,17 @@ namespace CSharpPython
             }
         }
 
-        private bool Alive(int i) => _keys[i].Kind != ValueKind.Unbound;
+        /// <summary>True while every key is an integer and the keys are kept as plain numbers.</summary>
+        internal bool IntKeyed => _ints != null;
+
+        private int Capacity => _ints != null ? _ints.Length : _keys.Length;
+
+        private bool Alive(int i) =>
+            _ints != null ? _dead == null || (_dead[i >> 6] & (1UL << (i & 63))) == 0 : _keys[i].Kind != ValueKind.Unbound;
+
+        private Value KeyAt(int i) => _ints != null ? Value.FromInt(_ints[i]) : _keys[i];
+
+        private int HashAt(int i) => _ints != null ? Ops.HashInt(_ints[i]) : _hashes[i];
 
         private Value ValueAt(int i) => _vals == null ? default : _vals[i];
 
@@ -216,7 +232,7 @@ namespace CSharpPython
             if (_vals == null)
             {
                 if (value.Kind == ValueKind.None) return;
-                _vals = new Value[_keys.Length];
+                _vals = new Value[Capacity];
             }
             _vals[i] = value;
         }
@@ -224,6 +240,7 @@ namespace CSharpPython
         /// <summary>Adds an entry while restoring a snapshot, without hashing the key.</summary>
         internal void RestoreEntry(Value key, Value value)
         {
+            if (_ints != null) ToGeneral();
             Append(key, value, 0);
             _pending = true;
         }
@@ -241,6 +258,65 @@ namespace CSharpPython
             if (_hashes != null) _hashes[_used] = hash;
             StoreValue(_used, value);
             _used++;
+        }
+
+        private void AppendInt(long key, Value value)
+        {
+            if (_used == _ints.Length)
+            {
+                int size = _used == 0 ? 4 : _used * 2;
+                Array.Resize(ref _ints, size);
+                if (_vals != null) Array.Resize(ref _vals, size);
+                if (_dead != null) Array.Resize(ref _dead, (size + 63) >> 6);
+            }
+            _ints[_used] = key;
+            StoreValue(_used, value);
+            _used++;
+        }
+
+        // Moves the keys back to Value slots, for the first key that is not an integer.
+        private void ToGeneral()
+        {
+            var keys = new Value[_ints.Length];
+            var hashes = new int[_ints.Length];
+            for (int i = 0; i < _used; i++)
+            {
+                if (!Alive(i)) { keys[i] = Value.Unbound; continue; }
+                keys[i] = Value.FromInt(_ints[i]);
+                hashes[i] = Ops.HashInt(_ints[i]);
+            }
+            for (int i = _used; i < keys.Length; i++) keys[i] = Value.Unbound;
+            _keys = keys;
+            _hashes = hashes;
+            _ints = null;
+            _dead = null;
+            BuildTable(_used + 1);
+        }
+
+        // Keeps the keys of a dictionary that just had its index rebuilt as plain numbers when they all are.
+        private void TryUseInts()
+        {
+            if (_count == 0) return;
+            for (int i = 0; i < _used; i++)
+                if (Alive(i) && _keys[i].Kind != ValueKind.Int) return;
+            int size = Math.Max(_count, 4);
+            var ints = new long[size];
+            var vals = _vals == null ? null : new Value[size];
+            int n = 0;
+            for (int i = 0; i < _used; i++)
+            {
+                if (!Alive(i)) continue;
+                ints[n] = _keys[i].RawInt;
+                if (vals != null) vals[n] = _vals[i];
+                n++;
+            }
+            _ints = ints;
+            _vals = vals;
+            _keys = NoKeys;
+            _hashes = null;
+            _dead = null;
+            _used = n;
+            BuildTable(_used + 1);
         }
 
         private void EnsureIndex()
@@ -263,7 +339,11 @@ namespace CSharpPython
                 _count++;
                 if (_keys[i].Kind != ValueKind.Str) small = false;
             }
-            if (!small) BuildIndex();
+            if (!small)
+            {
+                BuildIndex();
+                TryUseInts();
+            }
         }
 
         // Hashes every live key and builds the table. Nothing changes if hashing a key throws.
@@ -285,7 +365,7 @@ namespace CSharpPython
             _tableBits = bits;
             _table = table;
             for (int i = 0; i < _used; i++)
-                if (Alive(i)) Place(i, _hashes[i]);
+                if (Alive(i)) Place(i, HashAt(i));
         }
 
         private int Spot(int hash) => (int)(((uint)hash * 2654435769u) >> (32 - _tableBits));
@@ -327,6 +407,16 @@ namespace CSharpPython
             hashed = false;
             tablePos = -1;
             EnsureIndex();
+            if (_ints != null)
+            {
+                if (key.Kind == ValueKind.Int)
+                {
+                    hash = Ops.HashInt(key.RawInt);
+                    hashed = true;
+                    return ProbeInt(key.RawInt, hash, out tablePos);
+                }
+                ToGeneral();
+            }
             if (_table == null)
             {
                 if (key.Kind == ValueKind.Str)
@@ -344,6 +434,27 @@ namespace CSharpPython
             hash = Ops.Hash(key);
             hashed = true;
             return Probe(key, hash, out tablePos);
+        }
+
+        private int ProbeInt(long key, int hash, out int tablePos)
+        {
+            var table = _table;
+            var ints = _ints;
+            int mask = table.Length - 1;
+            int pos = Spot(hash);
+            while (true)
+            {
+                int t = table[pos];
+                if (t == 0) break;
+                if (t > 0 && ints[t - 1] == key)
+                {
+                    tablePos = pos;
+                    return t - 1;
+                }
+                pos = (pos + 1) & mask;
+            }
+            tablePos = -1;
+            return -1;
         }
 
         // Looking at a key may run a script's __eq__, which may change this dictionary; then the search starts again.
@@ -434,6 +545,29 @@ namespace CSharpPython
                 StoreValue(slot, value);
                 return;
             }
+            if (_used == 0 && _ints == null && key.Kind == ValueKind.Int && !_pending)
+            {
+                // The first key is an integer: keep the keys as plain numbers until one that is not turns up.
+                _ints = new long[4];
+                _keys = NoKeys;
+                _hashes = null;
+                _table = new int[8];
+                _tableBits = 3;
+                hash = Ops.HashInt(key.RawInt);
+            }
+            if (_ints != null)
+            {
+                if (_used - _count > 16 && _used - _count > _count) CompactInts();
+                if ((_used + 1) * 3 > _table.Length * 2)
+                {
+                    if (_used > _count) CompactInts();
+                    else BuildTable(_used + 1);
+                }
+                AppendInt(key.RawInt, value);
+                Place(_used - 1, hash);
+                _count++;
+                return;
+            }
             if (_table == null && _used >= SmallLimit) BuildIndex();
             if (_table != null)
             {
@@ -455,7 +589,12 @@ namespace CSharpPython
             int slot = Find(key, out _, out _, out int tablePos);
             if (slot < 0) return false;
             if (_table != null) _table[tablePos] = -1;
-            _keys[slot] = Value.Unbound;
+            if (_ints != null)
+            {
+                if (_dead == null) _dead = new ulong[(_ints.Length + 63) >> 6];
+                _dead[slot >> 6] |= 1UL << (slot & 63);
+            }
+            else _keys[slot] = Value.Unbound;
             if (_vals != null) _vals[slot] = default;
             _count--;
             return true;
@@ -468,6 +607,8 @@ namespace CSharpPython
             _hashes = null;
             _vals = null;
             _keys = NoKeys;
+            _ints = null;
+            _dead = null;
             _used = 0;
             _count = 0;
             Version++;
@@ -478,9 +619,9 @@ namespace CSharpPython
 
         internal bool TryGetEntry(int slot, out Value key, out Value value)
         {
-            key = _keys[slot];
+            key = KeyAt(slot);
             value = ValueAt(slot);
-            return key.Kind != ValueKind.Unbound;
+            return Alive(slot);
         }
 
         /// <summary>The live entries in insertion order.</summary>
@@ -488,8 +629,29 @@ namespace CSharpPython
         {
             for (int i = 0; i < _used; i++)
             {
-                if (Alive(i)) yield return new KeyValuePair<Value, Value>(_keys[i], ValueAt(i));
+                if (Alive(i)) yield return new KeyValuePair<Value, Value>(KeyAt(i), ValueAt(i));
             }
+        }
+
+        private void CompactInts()
+        {
+            int size = Math.Max(_count, 4);
+            var ints = new long[size];
+            var vals = _vals == null ? null : new Value[size];
+            int n = 0;
+            for (int i = 0; i < _used; i++)
+            {
+                if (!Alive(i)) continue;
+                ints[n] = _ints[i];
+                if (vals != null) vals[n] = _vals[i];
+                n++;
+            }
+            _ints = ints;
+            _vals = vals;
+            _dead = null;
+            _used = n;
+            BuildTable(_used + 1);
+            Version++;
         }
 
         private void Compact()

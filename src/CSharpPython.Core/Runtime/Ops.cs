@@ -337,7 +337,7 @@ namespace CSharpPython
         // Python). Bigger ones, floats with a fraction and very large integers go through a mixer with a seed chosen when
         // the process starts, so a script cannot pick keys that all share a hash and make every dict or set insert walk
         // the same chain (keys like (a << 32) | a collided under a plain fold of the high bits onto the low ones).
-        private static int HashInt(long i) =>
+        internal static int HashInt(long i) =>
             i >= int.MinValue && i <= int.MaxValue ? (int)i : MixHash(unchecked((ulong)i));
 
         private static readonly ulong HashSeed = MakeHashSeed();
