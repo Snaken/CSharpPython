@@ -101,7 +101,7 @@ namespace CSharpPython.Tests.Blocks
             Assert.That(missing.Succeeded, Is.False, "the host does not have game.explode yet");
             Assert.That(editor.Compile(), Is.SameAs(missing));
 
-            library.AddFunction("explode", new string[0], module: "game");
+            library.AddFunction("explode", System.Array.Empty<string>(), module: "game");
             var found = editor.Compile();
             Assert.That(found, Is.Not.SameAs(missing));
             Assert.That(found.Succeeded, Is.True);
