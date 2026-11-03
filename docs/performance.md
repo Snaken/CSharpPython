@@ -8,15 +8,15 @@ CPython 3.14.7, .NET 10.0.402, macOS arm64 (Apple M5 Pro), best of 7 runs after 
 
 | Script | CSharpPython | CPython | Slower by |
 | --- | ---: | ---: | ---: |
-| builtins_stream | 61.1 ms | 59.7 ms | 1.0x |
-| classes | 14.9 ms | 5.6 ms | 2.6x |
-| collections_ops | 29.2 ms | 10.7 ms | 2.7x |
-| dict_ops | 7.0 ms | 3.0 ms | 2.3x |
-| fib | 4.7 ms | 1.8 ms | 2.6x |
-| generators | 9.2 ms | 3.3 ms | 2.8x |
-| list_ops | 11.8 ms | 4.9 ms | 2.4x |
-| loop_sum | 26.6 ms | 16.3 ms | 1.6x |
-| random_math | 15.6 ms | 11.2 ms | 1.4x |
+| builtins_stream | 62.0 ms | 61.2 ms | 1.0x |
+| classes | 14.9 ms | 5.6 ms | 2.7x |
+| collections_ops | 25.2 ms | 10.8 ms | 2.3x |
+| dict_ops | 5.6 ms | 3.0 ms | 1.8x |
+| fib | 4.6 ms | 1.8 ms | 2.5x |
+| generators | 9.1 ms | 3.3 ms | 2.7x |
+| list_ops | 11.1 ms | 4.9 ms | 2.3x |
+| loop_sum | 27.0 ms | 16.6 ms | 1.6x |
+| random_math | 15.8 ms | 11.6 ms | 1.4x |
 | strings | 5.2 ms | 1.9 ms | 2.7x |
 
 What each script does:
