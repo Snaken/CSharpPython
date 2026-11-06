@@ -144,6 +144,32 @@ namespace CSharpPython
         /// <summary>Free for the host to use, for example to remember which game object owns the task.</summary>
         public object Owner { get; set; }
 
+        /// <summary>
+        /// The owner as a <typeparamref name="T"/>, for a host that always gives its tasks the same kind of owner.
+        /// Throws <see cref="InvalidOperationException"/> when the owner is not set (it is not saved in a snapshot, so
+        /// a restored task has none until the host sets it) or is another type; use <see cref="TryGetOwner{T}"/> when
+        /// either is expected.
+        /// </summary>
+        public T GetOwner<T>()
+        {
+            if (Owner is T owner) return owner;
+            throw new InvalidOperationException(Owner == null
+                ? "The task has no owner."
+                : "The task's owner is a " + Owner.GetType().Name + ", not a " + typeof(T).Name + ".");
+        }
+
+        /// <summary>True and the owner when it is set and is a <typeparamref name="T"/>; otherwise false and the default.</summary>
+        public bool TryGetOwner<T>(out T owner)
+        {
+            if (Owner is T value)
+            {
+                owner = value;
+                return true;
+            }
+            owner = default;
+            return false;
+        }
+
         public TaskState State => _state;
 
         /// <summary>The error that ended the task, or null.</summary>

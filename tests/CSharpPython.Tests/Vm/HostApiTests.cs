@@ -158,6 +158,25 @@ game.log3('a', 'b', 'c')";
         }
 
         [Test]
+        public void TypedOwnerIsReturnedOrReportedClearly()
+        {
+            var vm = new PyVm();
+            var task = vm.Start("x = 1");
+            Assert.That(task.TryGetOwner<string>(out _), Is.False);
+            Assert.That(() => task.GetOwner<string>(), Throws.InvalidOperationException.With.Message.Contains("no owner"));
+
+            task.Owner = "bot";
+            Assert.That(task.GetOwner<string>(), Is.EqualTo("bot"));
+            Assert.That(task.TryGetOwner<string>(out var name), Is.True);
+            Assert.That(name, Is.EqualTo("bot"));
+            Assert.That(task.TryGetOwner<object>(out _), Is.True);
+
+            Assert.That(task.TryGetOwner<int[]>(out var wrong), Is.False);
+            Assert.That(wrong, Is.Null);
+            Assert.That(() => task.GetOwner<int[]>(), Throws.InvalidOperationException.With.Message.EqualTo("The task's owner is a String, not a Int32[]."));
+        }
+
+        [Test]
         public void OwnerAndStartSourceNameAreKept()
         {
             var vm = new PyVm();
