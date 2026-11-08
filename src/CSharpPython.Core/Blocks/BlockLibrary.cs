@@ -131,8 +131,21 @@ namespace CSharpPython.Blocks
         /// </summary>
         public IReadOnlyList<HostOutput> Outputs { get; }
 
-        internal FunctionSpec(string name, string module, string[] parameters, bool pure, int required, string signature, HostSignature typed, bool latent)
+        /// <summary>What the function does, as the host described it, or null. For a palette tooltip.</summary>
+        public string Doc { get; }
+
+        /// <summary>What each of <see cref="Parameters"/> is, in the same order (the pins <c>arg0</c>, <c>arg1</c>, ...); null where there is no text.</summary>
+        public IReadOnlyList<string> ParameterDocs { get; }
+
+        internal FunctionSpec(string name, string module, string[] parameters, bool pure, int required, string signature, HostSignature typed, bool latent,
+                              string doc = null, IReadOnlyDictionary<string, string> parameterDocs = null)
         {
+            Doc = doc;
+            var docs = new string[parameters.Length];
+            if (parameterDocs != null)
+                for (int i = 0; i < docs.Length; i++)
+                    if (parameterDocs.TryGetValue(parameters[i], out string text)) docs[i] = text;
+            ParameterDocs = docs;
             Latent = latent;
             Name = name;
             Module = module;
@@ -316,13 +329,16 @@ namespace CSharpPython.Blocks
         /// <summary>
         /// Makes a built-in function (when <paramref name="module"/> is null) or a host module function callable from
         /// blocks. The compiler adds <c>import module</c> automatically. Registering a name again replaces it.
+        /// <paramref name="doc"/> and <paramref name="parameterDocs"/> (texts by parameter name) are for tooltips;
+        /// <see cref="AddModule(PyVm, string, bool)"/> takes them from what the host gave <c>Describe</c>.
         /// </summary>
-        public BlockLibrary AddFunction(string name, string[] parameters, bool pure = false, string module = null, int required = -1, string signature = null, HostSignature typed = null, bool latent = false)
+        public BlockLibrary AddFunction(string name, string[] parameters, bool pure = false, string module = null, int required = -1, string signature = null, HostSignature typed = null, bool latent = false,
+                                       string doc = null, IReadOnlyDictionary<string, string> parameterDocs = null)
         {
             if (string.IsNullOrEmpty(name)) throw new ArgumentException("A function needs a name.", nameof(name));
             Revision++;
             typed = typed ?? TypedSignatures.Find(module == null ? name : module + "." + name);
-            var spec = new FunctionSpec(name, module, parameters ?? None, pure, required, signature, typed, latent);
+            var spec = new FunctionSpec(name, module, parameters ?? None, pure, required, signature, typed, latent, doc, parameterDocs);
             string key = module == null ? name : module + "." + name;
             if (_functions.ContainsKey(key)) _functionOrder.Remove(_functions[key]);
             _functions[key] = spec;
@@ -369,7 +385,7 @@ namespace CSharpPython.Blocks
                     if (eq >= 0 && required < 0) required = parameters.Count;
                     parameters.Add(pname);
                 }
-                AddFunction(name, parameters.ToArray(), pure || native.Pure || (pureNames != null && pureNames.Contains(name)), module, required, signature, TypedSignatures.For(native, module + "." + name, 0), native.Latent);
+                AddFunction(name, parameters.ToArray(), pure || native.Pure || (pureNames != null && pureNames.Contains(name)), module, required, signature, TypedSignatures.For(native, module + "." + name, 0), native.Latent, native.Doc, native.ParameterDocs);
             }
             return true;
         }

@@ -38,8 +38,12 @@ namespace CSharpPython.Blocks
         /// </summary>
         public PinType Type { get; }
 
-        internal BlockPin(string name, BlockPinKind kind, PinType type)
+        /// <summary>What a parameter of a host function is, as the host described it, or null. Only set for the inputs of a call.</summary>
+        public string Doc { get; }
+
+        internal BlockPin(string name, BlockPinKind kind, PinType type, string doc = null)
         {
+            Doc = doc;
             Name = name;
             Kind = kind;
             Type = type;
@@ -64,8 +68,9 @@ namespace CSharpPython.Blocks
             if (node == null) return pins;
 
             if (IsStep(node)) pins.Add(new BlockPin(null, BlockPinKind.FlowIn, null));
+            var called = node.Block == "call" && Graph.Functions.All(f => f == null || f.Name != node.Name) ? Library.FindFunction(node.Name) : null;
             foreach (var pin in InputPinsOf(node).Concat(ItemPinsOf(node)))
-                pins.Add(new BlockPin(pin, BlockPinKind.Input, InputTypeOf(node, pin)));
+                pins.Add(new BlockPin(pin, BlockPinKind.Input, InputTypeOf(node, pin), ParameterDoc(called, pin)));
             foreach (var pin in FlowPinsOf(node))
                 pins.Add(new BlockPin(pin, BlockPinKind.FlowOut, null));
             foreach (var name in OutputNamesOf(node))
@@ -74,6 +79,13 @@ namespace CSharpPython.Blocks
                 if (type != null && !type.Equals(PinType.None)) pins.Add(new BlockPin(name, BlockPinKind.Output, type));
             }
             return pins;
+        }
+
+        // The text for the pin arg<i> of a call to a library function, or null.
+        private static string ParameterDoc(FunctionSpec spec, string pin)
+        {
+            if (spec == null || pin == null || !pin.StartsWith("arg", StringComparison.Ordinal)) return null;
+            return int.TryParse(pin.Substring(3), NumberStyles.None, CultureInfo.InvariantCulture, out int i) && i < spec.ParameterDocs.Count ? spec.ParameterDocs[i] : null;
         }
 
         // The numbered inputs of a list, tuple or set block (those in use, then the next one), or the numbered key and

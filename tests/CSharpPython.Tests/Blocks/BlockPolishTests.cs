@@ -145,5 +145,49 @@ namespace CSharpPython.Tests.Blocks
             f.Add(N("r", "for_range", "i").Literal("start", "0").Literal("stop", "4"));
             Assert.That(Source(f), Does.Contain("for i in range(4):"));
         }
+
+        private static BlockLibrary DocumentedLibrary()
+        {
+            var vm = new PyVm();
+            vm.RegisterModule("game", m => m
+                .Native("spawn", (c, a) => Value.None, 1, 2)
+                .Describe("spawn", "kind: str, count: int = 1 -> none", doc: "Puts new entities in the world.")
+                .DescribeParameter("spawn", "count", "How many to make.")
+                .Native("plain", (c, a) => Value.None, 1, 1)
+                .Describe("plain", "x -> none"));
+            return new BlockLibrary().AddAllModules(vm);
+        }
+
+        [Test]
+        public void ThePaletteHasTheTextAHostDescribed()
+        {
+            var spec = DocumentedLibrary().FindFunction("game.spawn");
+            Assert.That(spec.Doc, Is.EqualTo("Puts new entities in the world."));
+            Assert.That(spec.ParameterDocs, Is.EqualTo(new string[] { null, "How many to make." }));
+            var plain = DocumentedLibrary().FindFunction("game.plain");
+            Assert.That(plain.Doc, Is.Null);
+            Assert.That(plain.ParameterDocs, Is.EqualTo(new string[] { null }));
+        }
+
+        [Test]
+        public void AFunctionAddedByHandCanCarryText()
+        {
+            var lib = new BlockLibrary().AddFunction("jump", new[] { "height" }, doc: "Jumps.",
+                parameterDocs: new System.Collections.Generic.Dictionary<string, string> { { "height", "In metres." } });
+            var spec = lib.FindFunction("jump");
+            Assert.That((spec.Doc, spec.ParameterDocs[0]), Is.EqualTo(("Jumps.", "In metres.")));
+        }
+
+        [Test]
+        public void ACallsInputPinsCarryTheirParameterText()
+        {
+            var main = new BlockFunction("main") { Start = "s" };
+            main.Add(N("s", "call", "game.spawn"));
+            main.Add(N("o", "call", "game.spawn"));
+            var editor = new BlockEditor(new BlockGraph().AddFunction(main), DocumentedLibrary());
+            var inputs = editor.PinsOf("main", "s").Where(p => p.Kind == BlockPinKind.Input).ToList();
+            Assert.That(inputs.Select(p => p.Doc), Is.EqualTo(new string[] { null, "How many to make." }));
+            Assert.That(editor.PinsOf("main", "s").Where(p => p.Kind != BlockPinKind.Input).Select(p => p.Doc), Is.All.Null);
+        }
     }
 }
