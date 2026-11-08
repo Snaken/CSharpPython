@@ -15,9 +15,14 @@ namespace CSharpPython
 
         public string Name => Module.Name;
 
-        public ModuleBuilder Constant(string name, Value value)
+        /// <summary>
+        /// Adds a constant. <paramref name="doc"/> says what it is, for hover and completion in an editor; hover shows
+        /// <c>module.NAME = value</c> with it underneath.
+        /// </summary>
+        public ModuleBuilder Constant(string name, Value value, string doc = null)
         {
             Module.Members[name] = value;
+            Module.SetDoc(name, doc);
             return this;
         }
 

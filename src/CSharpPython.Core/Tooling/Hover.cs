@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using CSharpPython.Syntax;
 
 namespace CSharpPython.Editor
@@ -41,7 +42,7 @@ namespace CSharpPython.Editor
         /// <summary>
         /// Describes the name under <paramref name="offset"/>: a function or class (with its signature and docstring),
         /// a variable or parameter, an import, a built-in, a module function or a method of a value whose type is
-        /// obvious. Returns null when the cursor is not on a name, or the name is unknown. <paramref name="vm"/>
+        /// obvious, or a constant of a host module (shown with its value and the text the host gave it). Returns null when the cursor is not on a name, or the name is unknown. <paramref name="vm"/>
         /// supplies built-ins and host modules; without one a default VM is assumed.
         /// </summary>
         public static HoverInfo Get(string source, int offset, PyVm vm = null)
@@ -74,8 +75,33 @@ namespace CSharpPython.Editor
             if (header) return null;
 
             var before = tokens.GetRange(0, index + 1);
-            if (!SignatureHelper.Describe(model, before, index, t.Start, vm, out _, out string origin, out string parameters, out var function)) return null;
+            if (!SignatureHelper.Describe(model, before, index, t.Start, vm, out _, out string origin, out string parameters, out var function))
+                return ModuleConstant(model, before, index, t, vm);
             return new HoverInfo(name + "(" + parameters + ")", origin, function?.Doc, t.Start, t.Length);
+        }
+
+        // A constant of a host module, written as module.NAME or imported by name.
+        private static HoverInfo ModuleConstant(SourceModel model, List<Token> before, int index, Token t, PyVm vm)
+        {
+            string module, member;
+            if (index >= 1 && before[index - 1].Kind == TokenKind.Dot)
+            {
+                if (!Completer.ResolveReceiver(model, before, index - 1, t.Start, out var receiver, out _) || receiver == null) return null;
+                module = receiver.Module;
+                member = t.Text;
+            }
+            else
+            {
+                var def = model.Resolve(t.Text, t.Start);
+                if (def == null || def.Kind != DefinitionKind.ImportedName) return null;
+                module = def.Module;
+                member = def.Member;
+            }
+            if (!vm.Modules.TryGetValue(module, out var m) || !m.Members.TryGetValue(member, out var v)) return null;
+            if (v.Kind == ValueKind.Native || v.Kind == ValueKind.Module || v.Kind == ValueKind.ExceptionType) return null;
+            string value = v.Repr();
+            if (value.Length > 40) value = value.Substring(0, 37) + "...";
+            return new HoverInfo(module + "." + member + " = " + value, module, m.DocOf(member), t.Start, t.Length);
         }
 
         // Script definitions, which carry more than a signature (docstrings, variable types).

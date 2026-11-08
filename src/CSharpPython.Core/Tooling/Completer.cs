@@ -193,7 +193,7 @@ namespace CSharpPython.Editor
                         items.Add(new CompletionItem(kv.Key, CompletionKind.Class, "exception"));
                         break;
                     default:
-                        items.Add(new CompletionItem(kv.Key, CompletionKind.Constant, module.Name + "." + kv.Key + " = " + Short(v.Repr())));
+                        items.Add(new CompletionItem(kv.Key, CompletionKind.Constant, module.Name + "." + kv.Key + " = " + Short(v.Repr()), module.DocOf(kv.Key)));
                         break;
                 }
             }
@@ -402,7 +402,7 @@ namespace CSharpPython.Editor
                 if (v.Kind == ValueKind.Native)
                     return new CompletionItem(d.Name, CompletionKind.Function, d.Module + "." + d.Member + Arity((NativeFunction)v.RawObject, 0), ((NativeFunction)v.RawObject).Doc);
                 if (v.Kind == ValueKind.ExceptionType) return new CompletionItem(d.Name, CompletionKind.Class, "exception");
-                return new CompletionItem(d.Name, CompletionKind.Constant, d.Module + "." + d.Member);
+                return new CompletionItem(d.Name, CompletionKind.Constant, d.Module + "." + d.Member, module.DocOf(d.Member));
             }
             return new CompletionItem(d.Name, CompletionKind.Variable, "from " + d.Module);
         }

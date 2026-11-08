@@ -15,7 +15,9 @@ namespace CSharpPython.Tests.Editor
                 .Describe("spawn", "kind: str, count: int = 1 -> none", doc: "Puts new entities in the world.")
                 .DescribeParameter("spawn", "kind", "The name of the entity.")
                 .Function("plain", a => a)
-                .Describe("plain", "x"));
+                .Describe("plain", "x")
+                .Constant("NORTH", Value.FromInt(0), "Up on the screen.")
+                .Constant("EAST", Value.FromInt(1)));
             return vm;
         }
 
@@ -79,6 +81,44 @@ namespace CSharpPython.Tests.Editor
                 m.DescribeParameter("f", "x", null);
             });
             Assert.That(((NativeFunction)vm.Modules["g"].Members["f"].RawObject).ParameterDocs, Is.Empty, "null text removes it");
+        }
+
+        [Test]
+        public void HoverShowsAConstantWithItsValueAndText()
+        {
+            var h = Hover.Get("import game\nx = game.NORTH\n", 23, Vm());
+            Assert.That(h.Label, Is.EqualTo("game.NORTH = 0"));
+            Assert.That(h.Origin, Is.EqualTo("game"));
+            Assert.That(h.Documentation, Is.EqualTo("Up on the screen."));
+
+            var bare = Hover.Get("import game\nx = game.EAST\n", 23, Vm());
+            Assert.That((bare.Label, bare.Documentation), Is.EqualTo(("game.EAST = 1", (string)null)));
+
+            var imported = Hover.Get("from game import NORTH\nx = NORTH\n", 28, Vm());
+            Assert.That((imported.Label, imported.Documentation), Is.EqualTo(("game.NORTH = 0", "Up on the screen.")));
+
+            var pi = Hover.Get("import math\nx = math.pi\n", 22, Vm());
+            Assert.That(pi.Label, Does.StartWith("math.pi = 3.14"));
+        }
+
+        [Test]
+        public void CompletionItemsForConstantsCarryTheirText()
+        {
+            var vm = Vm();
+            var items = Completer.Complete("import game\ngame.", 17, vm).Items;
+            Assert.That(items.Single(i => i.Text == "NORTH").Documentation, Is.EqualTo("Up on the screen."));
+            Assert.That(items.Single(i => i.Text == "EAST").Documentation, Is.Null);
+            Assert.That(Completer.Complete("from game import NORTH\nNO", 26, vm).Items.Single(i => i.Text == "NORTH").Documentation, Is.EqualTo("Up on the screen."));
+        }
+
+        [Test]
+        public void AConstantsTextCanBeReplacedOrRemoved()
+        {
+            var vm = new PyVm();
+            vm.RegisterModule("g", m => m.Constant("A", Value.FromInt(1), "first").Constant("A", Value.FromInt(2), "second").Constant("B", Value.FromInt(3), "x").Constant("B", Value.FromInt(3)));
+            Assert.That(vm.Modules["g"].DocOf("A"), Is.EqualTo("second"));
+            Assert.That(vm.Modules["g"].DocOf("B"), Is.Null);
+            Assert.That(vm.Modules["g"].DocOf("missing"), Is.Null);
         }
     }
 }

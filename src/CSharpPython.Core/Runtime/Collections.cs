@@ -799,6 +799,17 @@ namespace CSharpPython
         public readonly string Name;
         public readonly Dictionary<string, Value> Members = new Dictionary<string, Value>();
 
+        private Dictionary<string, string> _docs;
+
         public PyModule(string name) { Name = name; }
+
+        /// <summary>The text a host gave a constant of this module (see <c>ModuleBuilder.Constant</c>), or null.</summary>
+        public string DocOf(string member) => _docs != null && _docs.TryGetValue(member, out string doc) ? doc : null;
+
+        internal void SetDoc(string member, string doc)
+        {
+            if (string.IsNullOrWhiteSpace(doc)) _docs?.Remove(member);
+            else (_docs ?? (_docs = new Dictionary<string, string>()))[member] = doc;
+        }
     }
 }
