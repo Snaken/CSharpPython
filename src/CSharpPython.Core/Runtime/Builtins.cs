@@ -208,6 +208,10 @@ namespace CSharpPython
             if (ctx.TryGetKeyword(a, "sep", out Value s) && !s.IsNone) sep = s.AsString();
             if (ctx.TryGetKeyword(a, "end", out Value e) && !e.IsNone) end = e.AsString();
 
+            // Nobody is listening: the arguments were checked above, and that is all print does (no text is built, and a
+            // script's __str__ is not run), so output the game does not show costs next to nothing.
+            if (!ctx.HasOutput) return Value.None;
+
             var sb = new StringBuilder();
             for (int i = 0; i < ctx.PositionalCount; i++)
             {

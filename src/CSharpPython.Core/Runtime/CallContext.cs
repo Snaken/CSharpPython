@@ -21,6 +21,12 @@ namespace CSharpPython
         /// <summary>Writes text to the script's output, exactly as Python would write it to stdout.</summary>
         public void Write(string text) => OutputSink?.Invoke(text);
 
+        /// <summary>
+        /// True when something receives the script's output (see <see cref="PyTask.HasOutput"/>). A host function that
+        /// writes a lot of text can check this first and skip building it when nobody will see it.
+        /// </summary>
+        public bool HasOutput => Task != null ? Task.HasOutput : OutputSink != null;
+
         /// <summary>The number of positional arguments; keyword values follow them in the argument span.</summary>
         public int PositionalCount => _positionalCount;
 

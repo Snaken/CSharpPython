@@ -119,7 +119,7 @@ namespace CSharpPython
             Vm = vm;
             _script = script;
             _ctx.Task = this;
-            _ctx.OutputSink = s => Vm.Output?.Invoke(s);
+            _ctx.OutputSink = WriteOutput;
             var code = script.Code;
             EnsureStack(code.NumLocals + 8);
             PushFrame(code, 0, 0);
@@ -133,7 +133,7 @@ namespace CSharpPython
             Vm = vm;
             _script = script;
             _ctx.Task = this;
-            _ctx.OutputSink = s => Vm.Output?.Invoke(s);
+            _ctx.OutputSink = WriteOutput;
         }
 
         public PyVm Vm { get; }
@@ -143,6 +143,24 @@ namespace CSharpPython
 
         /// <summary>Free for the host to use, for example to remember which game object owns the task.</summary>
         public object Owner { get; set; }
+
+        /// <summary>
+        /// Where this task's <c>print</c> output goes, or null to use <see cref="PyVm.Output"/>. A host can give each task
+        /// its own (a console per game object) or leave both null so that nothing is shown, in which case
+        /// <c>print</c> does no work at all (see <see cref="HasOutput"/>). It is not saved in a snapshot: set it again on a
+        /// restored task.
+        /// </summary>
+        public System.Action<string> Output { get; set; }
+
+        /// <summary>
+        /// True when something will receive what this task prints: its own <see cref="Output"/> or the VM's
+        /// <see cref="PyVm.Output"/>. When it is false, <c>print</c> only checks its arguments: it does not turn them into
+        /// text (so a script's <c>__str__</c> is not run) and stores nothing. Set the sinks while the console is visible and
+        /// clear them while it is not, and hidden output costs a call and nothing more.
+        /// </summary>
+        public bool HasOutput => Output != null || Vm.Output != null;
+
+        private void WriteOutput(string text) => (Output ?? Vm.Output)?.Invoke(text);
 
         /// <summary>
         /// The owner as a <typeparamref name="T"/>, for a host that always gives its tasks the same kind of owner.
