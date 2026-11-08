@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using CSharpPython.Compilation;
 
 namespace CSharpPython
@@ -41,6 +42,22 @@ namespace CSharpPython
 
         /// <summary>True when a call only computes a value and changes nothing (a question such as <c>wall_ahead()</c>). The block palette then offers it as a value block that can sit inside a <c>while</c> condition.</summary>
         public bool Pure { get; set; }
+
+        /// <summary>What the function does, as given to <c>Describe</c>, for hover, signature help, completion and the block palette. Null when there is none.</summary>
+        public string Doc { get; set; }
+
+        /// <summary>What each parameter is, by name, as given to <c>DescribeParameter</c>. Empty when none has text.</summary>
+        public IReadOnlyDictionary<string, string> ParameterDocs => _parameterDocs ?? NoParameterDocs;
+
+        private static readonly IReadOnlyDictionary<string, string> NoParameterDocs = new Dictionary<string, string>();
+        private Dictionary<string, string> _parameterDocs;
+
+        internal void SetParameterDoc(string parameter, string text)
+        {
+            if (_parameterDocs == null) _parameterDocs = new Dictionary<string, string>();
+            if (string.IsNullOrEmpty(text)) _parameterDocs.Remove(parameter);
+            else _parameterDocs[parameter] = text;
+        }
 
         public NativeFunction(string name, NativeFn fn, int minArgs = 0, int maxArgs = -1, bool acceptsKeywords = false)
         {

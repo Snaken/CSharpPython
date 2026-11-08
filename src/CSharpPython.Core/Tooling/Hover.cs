@@ -12,7 +12,7 @@ namespace CSharpPython.Editor
         /// <summary>Where the name comes from: <c>script</c>, <c>built-in</c>, a module name, <c>parameter of f</c> and so on.</summary>
         public string Origin { get; }
 
-        /// <summary>The docstring of a script function or class, or null.</summary>
+        /// <summary>The docstring of a script function or class, or the <c>doc</c> a host gave <c>Describe</c>, or null.</summary>
         public string Documentation { get; }
 
         /// <summary>The hovered name's offset and length, for highlighting it.</summary>
@@ -74,8 +74,8 @@ namespace CSharpPython.Editor
             if (header) return null;
 
             var before = tokens.GetRange(0, index + 1);
-            if (!SignatureHelper.Describe(model, before, index, t.Start, vm, out _, out string origin, out string parameters)) return null;
-            return new HoverInfo(name + "(" + parameters + ")", origin, null, t.Start, t.Length);
+            if (!SignatureHelper.Describe(model, before, index, t.Start, vm, out _, out string origin, out string parameters, out var function)) return null;
+            return new HoverInfo(name + "(" + parameters + ")", origin, function?.Doc, t.Start, t.Length);
         }
 
         // Script definitions, which carry more than a signature (docstrings, variable types).

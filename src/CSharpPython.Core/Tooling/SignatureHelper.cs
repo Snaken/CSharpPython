@@ -23,8 +23,17 @@ namespace CSharpPython.Editor
         /// <summary>Where it comes from: "script", "built-in", a module name, or a type such as "str method".</summary>
         public string Origin { get; }
 
-        public SignatureHelp(string name, string label, IReadOnlyList<string> parameters, int activeParameter, string origin)
+        /// <summary>What the function does, as a host gave it to <c>Describe</c>, or null.</summary>
+        public string Documentation { get; }
+
+        /// <summary>What each of <see cref="Parameters"/> is, in the same order; an entry is null when there is no text for it.</summary>
+        public IReadOnlyList<string> ParameterDocs { get; }
+
+        public SignatureHelp(string name, string label, IReadOnlyList<string> parameters, int activeParameter, string origin,
+                             string documentation = null, IReadOnlyList<string> parameterDocs = null)
         {
+            Documentation = documentation;
+            ParameterDocs = parameterDocs ?? new string[parameters.Count];
             Name = name;
             Label = label;
             Parameters = parameters;
@@ -61,10 +70,11 @@ namespace CSharpPython.Editor
 
             var model = new SourceModel(source);
             string name, origin, parameters;
-            if (!Describe(model, before, open - 1, offset, vm, out name, out origin, out parameters)) return null;
+            if (!Describe(model, before, open - 1, offset, vm, out name, out origin, out parameters, out var function)) return null;
 
             var list = SplitParameters(parameters);
-            return new SignatureHelp(name, name + "(" + parameters + ")", list, Active(list, commas, keyword), origin);
+            var docs = list.Select(p => function != null && function.ParameterDocs.TryGetValue(ParameterName(p), out string text) ? text : null).ToList();
+            return new SignatureHelp(name, name + "(" + parameters + ")", list, Active(list, commas, keyword), origin, function?.Doc, docs);
         }
 
         // The innermost unclosed '(' of a call: its token index, how many top-level commas follow it, and the
@@ -113,9 +123,10 @@ namespace CSharpPython.Editor
         }
 
         internal static bool Describe(SourceModel model, List<Token> before, int nameIndex, int offset, PyVm vm,
-                                     out string name, out string origin, out string parameters)
+                                     out string name, out string origin, out string parameters, out NativeFunction function)
         {
             name = origin = parameters = null;
+            function = null;
             var t = before[nameIndex];
             if (t.Kind != TokenKind.Name) return false;
             name = t.Text;
@@ -124,7 +135,7 @@ namespace CSharpPython.Editor
             {
                 if (!Completer.ResolveReceiver(model, before, nameIndex - 1, offset, out var module, out var type)) return false;
                 if (module != null)
-                    return ModuleMember(vm, module.Module, name, name, out origin, out parameters);
+                    return ModuleMember(vm, module.Module, name, name, out origin, out parameters, out function);
                 if (type.HasValue) return Method(type.Value, name, out origin, out parameters);
 
                 // The type is not obvious: use the method if only one type has one by this name.
@@ -146,7 +157,7 @@ namespace CSharpPython.Editor
                         parameters = def.Signature ?? "";
                         return true;
                     case DefinitionKind.ImportedName:
-                        return ModuleMember(vm, def.Module, def.Member, name, out origin, out parameters);
+                        return ModuleMember(vm, def.Module, def.Member, name, out origin, out parameters, out function);
                     default:
                         return false;
                 }
@@ -157,7 +168,8 @@ namespace CSharpPython.Editor
                 if (builtin.Kind == ValueKind.Native)
                 {
                     origin = "built-in";
-                    parameters = Signatures.For((NativeFunction)builtin.RawObject, name, 0);
+                    function = (NativeFunction)builtin.RawObject;
+                    parameters = Signatures.For(function, name, 0);
                     return true;
                 }
                 if (builtin.Kind == ValueKind.Type)
@@ -177,14 +189,16 @@ namespace CSharpPython.Editor
             return false;
         }
 
-        private static bool ModuleMember(PyVm vm, string module, string member, string name, out string origin, out string parameters)
+        private static bool ModuleMember(PyVm vm, string module, string member, string name, out string origin, out string parameters, out NativeFunction function)
         {
             origin = parameters = null;
+            function = null;
             if (!vm.Modules.TryGetValue(module, out var m) || !m.Members.TryGetValue(member, out var v)) return false;
             origin = module;
             if (v.Kind == ValueKind.Native)
             {
-                parameters = Signatures.For((NativeFunction)v.RawObject, module + "." + member, 0);
+                function = (NativeFunction)v.RawObject;
+                parameters = Signatures.For(function, module + "." + member, 0);
                 return true;
             }
             if (v.Kind == ValueKind.ExceptionType)

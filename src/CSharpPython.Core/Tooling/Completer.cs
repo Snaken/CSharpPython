@@ -26,8 +26,12 @@ namespace CSharpPython.Editor
         /// <summary>A short description for a tooltip, such as a signature or the module it comes from.</summary>
         public string Detail { get; }
 
-        public CompletionItem(string text, CompletionKind kind, string detail = null)
+        /// <summary>A longer text on what it does (the <c>doc</c> a host gave <c>Describe</c>), or null.</summary>
+        public string Documentation { get; }
+
+        public CompletionItem(string text, CompletionKind kind, string detail = null, string documentation = null)
         {
+            Documentation = documentation;
             Text = text;
             Kind = kind;
             Detail = detail;
@@ -180,7 +184,7 @@ namespace CSharpPython.Editor
                 switch (v.Kind)
                 {
                     case ValueKind.Native:
-                        items.Add(new CompletionItem(kv.Key, CompletionKind.Function, module.Name + "." + kv.Key + Arity((NativeFunction)v.RawObject, 0)));
+                        items.Add(new CompletionItem(kv.Key, CompletionKind.Function, module.Name + "." + kv.Key + Arity((NativeFunction)v.RawObject, 0), ((NativeFunction)v.RawObject).Doc));
                         break;
                     case ValueKind.Module:
                         items.Add(new CompletionItem(kv.Key, CompletionKind.Module, "module"));
@@ -368,7 +372,7 @@ namespace CSharpPython.Editor
                 switch (kv.Value.Kind)
                 {
                     case ValueKind.Native:
-                        items.Add(new CompletionItem(kv.Key, CompletionKind.Function, "built-in " + kv.Key + Arity((NativeFunction)kv.Value.RawObject, 0)));
+                        items.Add(new CompletionItem(kv.Key, CompletionKind.Function, "built-in " + kv.Key + Arity((NativeFunction)kv.Value.RawObject, 0), ((NativeFunction)kv.Value.RawObject).Doc));
                         break;
                     case ValueKind.ExceptionType:
                         items.Add(new CompletionItem(kv.Key, CompletionKind.Class, "exception"));
@@ -396,7 +400,7 @@ namespace CSharpPython.Editor
             if (vm.Modules.TryGetValue(d.Module, out var module) && module.Members.TryGetValue(d.Member, out var v))
             {
                 if (v.Kind == ValueKind.Native)
-                    return new CompletionItem(d.Name, CompletionKind.Function, d.Module + "." + d.Member + Arity((NativeFunction)v.RawObject, 0));
+                    return new CompletionItem(d.Name, CompletionKind.Function, d.Module + "." + d.Member + Arity((NativeFunction)v.RawObject, 0), ((NativeFunction)v.RawObject).Doc);
                 if (v.Kind == ValueKind.ExceptionType) return new CompletionItem(d.Name, CompletionKind.Class, "exception");
                 return new CompletionItem(d.Name, CompletionKind.Constant, d.Module + "." + d.Member);
             }
