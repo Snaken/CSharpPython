@@ -241,7 +241,7 @@ namespace CSharpPython.Blocks
             AddBlock("and", "And", "Logic", BlockKind.Value, AB, None, false);
             AddBlock("or", "Or", "Logic", BlockKind.Value, AB, None, false);
             AddBlock("not", "Not", "Logic", BlockKind.Value, A, None, false);
-            AddBlock("contains", "Is in", "Logic", BlockKind.Value, AB, None, false);
+            AddBlock("contains", "Is in", "Logic", BlockKind.Value, new[] { "item", "collection" }, None, false);
             AddBlock("is_none", "Is nothing", "Logic", BlockKind.Value, A, None, false);
             AddBlock("choose", "Choose", "Logic", BlockKind.Value, new[] { "cond", "a", "b" }, None, false);
 
@@ -288,6 +288,24 @@ namespace CSharpPython.Blocks
 
         /// <summary>All functions the <c>call</c> block can reach, in the order they were added.</summary>
         public IReadOnlyList<FunctionSpec> Functions => _functionOrder;
+
+        /// <summary>
+        /// True when a block is a step in the execution flow (it has an execution pin in, to run after another block) and
+        /// false for a value block, which is written inline where its output is used. For the <c>call</c> block pass the
+        /// function's name: a function the library has is a step unless it is pure, and a name the library does not have
+        /// is taken to be a function of the graph, which is a step. A graph function with the same name as a pure
+        /// library function takes its place when compiling, so for a graph in an editor ask
+        /// <see cref="BlockEditor.IsStep(string, string)"/>, which knows the graph's functions.
+        /// </summary>
+        public bool IsStep(string block, string callName = null)
+        {
+            if (block == "call")
+            {
+                var function = FindFunction(callName);
+                return function == null || !function.Pure;
+            }
+            return FindBlock(block)?.Kind == BlockKind.Flow;
+        }
 
         /// <summary>Finds a block kind by name, or null.</summary>
         public BlockSpec FindBlock(string name) => name != null && _blocks.TryGetValue(name, out var spec) ? spec : null;

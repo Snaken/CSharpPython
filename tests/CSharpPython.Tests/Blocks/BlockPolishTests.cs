@@ -1,0 +1,106 @@
+using System.Linq;
+using CSharpPython.Blocks;
+
+namespace CSharpPython.Tests.Blocks
+{
+    // The "Is in" block's pins are item and collection (they were a and b), and a host can ask whether a block is a step.
+    public class BlockPolishTests
+    {
+        private static BlockNode N(string id, string block, string name = null) => new BlockNode(id, block, name);
+
+        // A graph written for the old pin names: print(2 in xs), with a reroute point on the wire into 'b'.
+        private static BlockGraph OldGraph()
+        {
+            var main = new BlockFunction("main") { Start = "p" };
+            main.Add(N("p", "call", "print").Connect("arg0", "has"));
+            main.Add(N("has", "contains").Literal("a", "2").Connect("b", "xs"));
+            main.Add(N("xs", "list").Literal("item0", "1").Literal("item1", "2"));
+            var graph = new BlockGraph().AddFunction(main);
+            graph.Editor.Wires.Add(new BlockWireBends("has", "b"));
+            graph.Editor.Wires[0].Points.Add(new BlockPoint { X = 5, Y = 6 });
+            return graph;
+        }
+
+        private static string Pins(BlockGraph g) =>
+            string.Join(",", g.Functions[0].Nodes.Single(n => n.Id == "has").Inputs.Select(i => i.Pin));
+
+        [Test]
+        public void AnOldSavedGraphIsMigratedWhenItIsRead()
+        {
+            var graph = BlockGraph.FromJson(OldGraph().ToJson());
+            Assert.That(Pins(graph), Is.EqualTo("item,collection"));
+            Assert.That(graph.Editor.Wires.Single().Pin, Is.EqualTo("collection"), "the reroute point moves with its wire");
+            var result = BlockCompiler.Compile(graph);
+            Assert.That(result.Errors.Select(e => e.ToString()), Is.Empty);
+            Assert.That(result.Source, Does.Contain("2 in "));
+        }
+
+        [Test]
+        public void AnEditorBringsAnOlderGraphUpToDate()
+        {
+            var graph = OldGraph();
+            var editor = new BlockEditor(graph);
+            Assert.That(Pins(graph), Is.EqualTo("item,collection"));
+            Assert.That(editor.Compile().Succeeded, Is.True);
+            Assert.That(editor.PinsOf("main", "has").Where(p => p.Kind == BlockPinKind.Input).Select(p => p.Name), Is.EqualTo(new[] { "item", "collection" }));
+        }
+
+        [Test]
+        public void MigrateCountsTheRenamesAndLeavesNewNamesAlone()
+        {
+            var graph = OldGraph();
+            Assert.That(graph.Migrate(), Is.EqualTo(2));
+            Assert.That(graph.Migrate(), Is.EqualTo(0), "nothing left to do");
+
+            var main = new BlockFunction("main");
+            main.Add(N("has", "contains").Literal("item", "1").Literal("a", "2"));
+            var both = new BlockGraph().AddFunction(main);
+            Assert.That(both.Migrate(), Is.EqualTo(0), "a block that already has an item pin keeps its a pin");
+            Assert.That(Pins(both), Is.EqualTo("item,a"));
+        }
+
+        [Test]
+        public void ACodeBuiltGraphWithTheOldNamesIsToldWhatChanged()
+        {
+            var errors = BlockCompiler.Compile(OldGraph()).Errors.Select(e => e.Message).ToList();
+            Assert.That(errors, Has.Some.Contains("has no input pin 'a'").And.Contains("renamed 'item'"));
+            Assert.That(errors, Has.Some.Contains("has no input pin 'b'").And.Contains("renamed 'collection'"));
+        }
+
+        [Test]
+        public void TheLibraryKnowsWhichBlocksAndCallsAreSteps()
+        {
+            var library = new BlockLibrary().AddFunction("explode", System.Array.Empty<string>(), module: "game")
+                .AddFunction("distance", new[] { "x" }, pure: true, module: "game");
+            foreach (var step in new[] { "set", "change", "if", "while", "for_each", "append", "pop", "set_add", "dict_set", "return", "comment" })
+                Assert.That(library.IsStep(step), Is.True, step);
+            foreach (var value in new[] { "literal", "get", "add", "contains", "list", "tuple", "set_of", "dict_get", "sorted", "index" })
+                Assert.That(library.IsStep(value), Is.False, value);
+            Assert.That(library.IsStep("call", "print"), Is.True);
+            Assert.That(library.IsStep("call", "game.explode"), Is.True);
+            Assert.That(library.IsStep("call", "len"), Is.False, "a pure built-in is a value");
+            Assert.That(library.IsStep("call", "game.distance"), Is.False);
+            Assert.That(library.IsStep("call", "patrol"), Is.True, "a name the library does not have is a function of the graph");
+            Assert.That(library.IsStep("nope"), Is.False);
+        }
+
+        [Test]
+        public void TheEditorKnowsWhichBlocksOfAGraphAreSteps()
+        {
+            var main = new BlockFunction("main");
+            main.Add(N("own", "call", "patrol"));
+            main.Add(N("pure", "call", "len"));
+            main.Add(N("print", "call", "print"));
+            main.Add(N("sum", "add"));
+            main.Add(N("set", "set_add"));
+            var editor = new BlockEditor(new BlockGraph().AddFunction(main).AddFunction(new BlockFunction("patrol")));
+            Assert.That(editor.IsStep("main", "own"), Is.True, "calling a function of the graph is a step");
+            Assert.That(editor.IsStep("main", "print"), Is.True);
+            Assert.That(editor.IsStep("main", "set"), Is.True);
+            Assert.That(editor.IsStep("main", "pure"), Is.False);
+            Assert.That(editor.IsStep("main", "sum"), Is.False);
+            Assert.That(editor.IsStep("main", "missing"), Is.False);
+            Assert.That(editor.IsStep("nowhere", "own"), Is.False);
+        }
+    }
+}

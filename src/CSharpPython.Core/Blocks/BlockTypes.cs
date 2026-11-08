@@ -18,7 +18,7 @@ namespace CSharpPython.Blocks
             { "eq", "a, b -> bool" }, { "ne", "a, b -> bool" }, { "lt", "a, b -> bool" },
             { "le", "a, b -> bool" }, { "gt", "a, b -> bool" }, { "ge", "a, b -> bool" },
             { "not", "a -> bool" },
-            { "contains", "a, b -> bool" },
+            { "contains", "item, collection -> bool" },
             { "is_none", "a -> bool" },
             { "choose", "cond, a: $T, b: $T -> $T" },
             { "index", "list: list[$T], index: int -> $T" },

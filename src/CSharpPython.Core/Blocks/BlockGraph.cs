@@ -190,6 +190,50 @@ namespace CSharpPython.Blocks
         /// Reads a graph written by <see cref="ToJson"/> or by <c>JsonUtility</c>. Throws <see cref="BlockGraphFormatException"/>
         /// for a bad document, or one that goes over <paramref name="limits"/> (the defaults of <see cref="BlockLimits"/> when null).
         /// </summary>
-        public static BlockGraph FromJson(string json, BlockLimits limits = null) => BlockJson.Read(json, limits ?? new BlockLimits());
+        public static BlockGraph FromJson(string json, BlockLimits limits = null)
+        {
+            var graph = BlockJson.Read(json, limits ?? new BlockLimits());
+            graph.Migrate();
+            return graph;
+        }
+
+        /// <summary>
+        /// Brings a graph written for an older version up to date, and returns how many pins it renamed. Today that is the
+        /// <c>contains</c> ("Is in") block, whose pins <c>a</c> and <c>b</c> are now <c>item</c> and <c>collection</c>; the
+        /// reroute points of their wires move with them. It is done when a graph is read with <see cref="FromJson"/> and
+        /// when a <see cref="BlockEditor"/> is made, so only a graph built in code with the old names needs to call it
+        /// itself. A pin is left alone when the block already has one with the new name.
+        /// </summary>
+        public int Migrate()
+        {
+            int renamed = 0;
+            foreach (var function in Functions)
+            {
+                if (function?.Nodes == null) continue;
+                foreach (var node in function.Nodes)
+                {
+                    if (node == null || node.Block != "contains" || node.Inputs == null) continue;
+                    renamed += RenamePin(node, "a", "item");
+                    renamed += RenamePin(node, "b", "collection");
+                }
+            }
+            return renamed;
+        }
+
+        private int RenamePin(BlockNode node, string from, string to)
+        {
+            if (node.Inputs.Exists(i => i != null && i.Pin == to)) return 0;
+            int renamed = 0;
+            foreach (var input in node.Inputs)
+            {
+                if (input == null || input.Pin != from) continue;
+                input.Pin = to;
+                renamed++;
+            }
+            if (renamed > 0 && Editor?.Wires != null)
+                foreach (var wire in Editor.Wires)
+                    if (wire != null && wire.Node == node.Id && wire.Pin == from) wire.Pin = to;
+            return renamed;
+        }
     }
 }

@@ -67,12 +67,12 @@ namespace CSharpPython.Tests.Blocks
                 N("s", "set", "xs").Connect("value", "list"),
                 Print("p1", "has"), Print("p2", "none"), Print("p3", "pick"), Print("p4", "neg"));
             f.Add(N("list", "list").Literal("item0", "1").Literal("item1", "2"));
-            f.Add(N("has", "contains").Literal("a", "2").Connect("b", "xs"));
+            f.Add(N("has", "contains").Literal("item", "2").Connect("collection", "xs"));
             f.Add(N("xs", "get", "xs"));
             f.Add(N("none", "is_none").Literal("a", "None"));
             f.Add(N("pick", "choose").Connect("cond", "has").Literal("a", "\"yes\"").Literal("b", "\"no\""));
             f.Add(N("neg", "not").Connect("a", "has2"));
-            f.Add(N("has2", "contains").Literal("a", "9").Connect("b", "xs"));
+            f.Add(N("has2", "contains").Literal("item", "9").Connect("collection", "xs"));
             // chain order: s, p1..p4 are linked by Chain in the order given
             var g = Graph(f);
             // "has" feeds two inputs, so it is worked out once; the variable read "xs" is not shared.

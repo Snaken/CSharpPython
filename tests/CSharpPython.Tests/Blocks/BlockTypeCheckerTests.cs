@@ -91,7 +91,7 @@ namespace CSharpPython.Tests.Blocks
         public void ComparisonsAndLogicGiveBool()
         {
             foreach (var op in new[] { "eq", "ne", "lt", "le", "gt", "ge", "contains" })
-                Assert.That(Out(G(N("x", op).Literal("a", "1").Literal("b", "2")), "x"), Is.EqualTo(PinType.Bool), op);
+                Assert.That(Out(G(N("x", op).Literal(op == "contains" ? "item" : "a", "1").Literal(op == "contains" ? "collection" : "b", "2")), "x"), Is.EqualTo(PinType.Bool), op);
             Assert.That(Out(G(N("x", "not").Literal("a", "1")), "x"), Is.EqualTo(PinType.Bool));
             Assert.That(Out(G(N("x", "is_none").Literal("a", "1")), "x"), Is.EqualTo(PinType.Bool));
         }

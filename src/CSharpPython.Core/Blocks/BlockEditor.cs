@@ -52,6 +52,7 @@ namespace CSharpPython.Blocks
         {
             Graph = graph ?? throw new ArgumentNullException(nameof(graph));
             Library = library ?? new BlockLibrary();
+            Graph.Migrate();
             _current = Snapshot();
         }
 
@@ -267,6 +268,18 @@ namespace CSharpPython.Blocks
         }
 
         // ---- Helpers ----
+
+        /// <summary>
+        /// True when the block is a step in the execution flow (it has an execution pin in), false for a value block, a pure
+        /// call or a block that is not there. The same rule the editor uses for <see cref="PinsOf"/>, which includes the
+        /// graph's own functions (calling one is a step).
+        /// </summary>
+        public bool IsStep(string function, string nodeId)
+        {
+            var fn = FindFunction(function);
+            var node = fn == null ? null : FindNode(fn, nodeId);
+            return node != null && IsStep(node);
+        }
 
         // 'program' is false for an edit that only changes how the graph is drawn (a block's place, a comment box, a group,
         // a reroute point): it cannot change the generated Python or its diagnostics, so it keeps the compile cache.

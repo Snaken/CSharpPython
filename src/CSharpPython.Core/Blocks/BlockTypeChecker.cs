@@ -229,11 +229,12 @@ namespace CSharpPython.Blocks
             bool order = op == "lt" || op == "le" || op == "gt" || op == "ge";
             if (!unary && !arithmetic && !order && op != "contains") return;
 
-            var a = InputType(node, "a");
-            var b = unary ? PinType.Any : InputType(node, "b");
+            string first = op == "contains" ? "item" : "a", second = op == "contains" ? "collection" : "b";
+            var a = InputType(node, first);
+            var b = unary ? PinType.Any : InputType(node, second);
             if (Allows(op, a, b)) return;
             string title = _lib.FindBlock(op)?.Title ?? op;
-            string pin = unary || KindOf(b) == Kind.Unknown ? "a" : "b";
+            string pin = unary || KindOf(b) == Kind.Unknown ? first : second;
             solution.Errors.Add(Error(node, pin, unary
                 ? "'" + title + "' needs a number, not " + a
                 : "'" + title + "' cannot take " + a + " and " + b + "."));

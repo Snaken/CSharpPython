@@ -194,7 +194,7 @@ namespace CSharpPython.Blocks
         {
             { "add", "+" }, { "sub", "-" }, { "mul", "*" }, { "div", "/" }, { "floordiv", "//" }, { "mod", "%" }, { "pow", "**" },
             { "eq", "==" }, { "ne", "!=" }, { "lt", "<" }, { "le", "<=" }, { "gt", ">" }, { "ge", ">=" },
-            { "and", "and" }, { "or", "or" }, { "contains", "in" },
+            { "and", "and" }, { "or", "or" },
         };
 
         private readonly BlockGraph _graph;
@@ -946,7 +946,8 @@ namespace CSharpPython.Blocks
                 bool known = inputs.Contains(pin) || (variadic && BlockTypes.IsVariadicPin(node.Block, pin));
                 if (!known)
                 {
-                    Error("'" + node.Block + "' has no input pin '" + pin + "'", node, pin);
+                    string renamed = node.Block == "contains" && (pin == "a" || pin == "b") ? " (it was renamed '" + (pin == "a" ? "item" : "collection") + "'; BlockGraph.Migrate brings an older graph up to date)" : "";
+                    Error("'" + node.Block + "' has no input pin '" + pin + "'" + renamed, node, pin);
                     ok = false;
                 }
                 else if (!seen.Add(pin))
@@ -1161,6 +1162,8 @@ namespace CSharpPython.Blocks
                         return new Ex(left.Atom + " " + BinaryOps[node.Block] + " " + right.Atom, true);
                     case "get_attr":
                         return new Ex(AttributeBase(Input(node, "object")) + "." + node.Name, false);
+                    case "contains":
+                        return new Ex(Input(node, "item").Atom + " in " + Input(node, "collection").Atom, true);
                     case "index":
                         return new Ex(Input(node, "list").Atom + "[" + Input(node, "index").Text + "]", false);
                     case "list":

@@ -85,8 +85,8 @@ namespace CSharpPython.Tests.Blocks
             for (int i = 1; i <= 4; i++) main.Add(N("g" + i, "get", "seen"));
             main.Add(N("len", "call", "len").Connect("arg0", "g5"));
             main.Add(N("g5", "get", "seen"));
-            main.Add(N("in5", "contains").Literal("a", "5").Connect("b", "g6"));
-            main.Add(N("in1", "contains").Literal("a", "1").Connect("b", "g7"));
+            main.Add(N("in5", "contains").Literal("item", "5").Connect("collection", "g6"));
+            main.Add(N("in1", "contains").Literal("item", "1").Connect("collection", "g7"));
             main.Add(N("g6", "get", "seen"));
             main.Add(N("g7", "get", "seen"));
             string source = Source(main, "seen");
@@ -160,9 +160,9 @@ namespace CSharpPython.Tests.Blocks
         public void MembershipLooksThroughSetsDictionariesAndTuples()
         {
             var main = Chain("main", Print("p1", "in_set"), Print("p2", "in_dict"), Print("p3", "in_tuple"));
-            main.Add(N("in_set", "contains").Literal("a", "2").Connect("b", "st"));
-            main.Add(N("in_dict", "contains").Literal("a", S("k")).Connect("b", "d"));
-            main.Add(N("in_tuple", "contains").Literal("a", "9").Connect("b", "t"));
+            main.Add(N("in_set", "contains").Literal("item", "2").Connect("collection", "st"));
+            main.Add(N("in_dict", "contains").Literal("item", S("k")).Connect("collection", "d"));
+            main.Add(N("in_tuple", "contains").Literal("item", "9").Connect("collection", "t"));
             main.Add(N("st", "set_of").Literal("item0", "2"));
             main.Add(N("d", "dict_of").Literal("key0", S("k")).Literal("value0", "1"));
             main.Add(N("t", "tuple").Literal("item0", "1"));
@@ -182,7 +182,7 @@ namespace CSharpPython.Tests.Blocks
             Assert.That(Compile(tuples).Errors.Select(e => e.Message), Has.Some.Contains("cannot take this wire"));
 
             var number = Chain("main", Print("p", "in_number"));
-            number.Add(N("in_number", "contains").Literal("a", "1").Literal("b", "5"));
+            number.Add(N("in_number", "contains").Literal("item", "1").Literal("collection", "5"));
             Assert.That(Compile(number).Errors, Is.Not.Empty, "a number is not something to look inside");
 
             var dict = Chain("main", N("put", "dict_set").Connect("dict", "d").Literal("key", S("a")).Literal("value", "1"));

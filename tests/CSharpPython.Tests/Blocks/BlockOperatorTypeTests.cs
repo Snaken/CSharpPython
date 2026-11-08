@@ -11,8 +11,8 @@ namespace CSharpPython.Tests.Blocks
             var f = new BlockFunction("main") { Start = "r" };
             f.Add(new BlockNode("r", "return").Connect("value", "o"));
             var node = new BlockNode("o", op);
-            if (a != null) node.Literal("a", a);
-            if (b != null) node.Literal("b", b);
+            if (a != null) node.Literal(op == "contains" ? "item" : "a", a);
+            if (b != null) node.Literal(op == "contains" ? "collection" : "b", b);
             f.Add(node);
             return new BlockGraph().AddFunction(f);
         }
@@ -47,8 +47,8 @@ namespace CSharpPython.Tests.Blocks
         [TestCase("mod", "1", "\"a\"", "o.b")]
         [TestCase("lt", "1", "\"a\"", "o.b")]
         [TestCase("ge", "\"a\"", "1", "o.b")]
-        [TestCase("contains", "1", "5", "o.b")]
-        [TestCase("contains", "1", "\"abc\"", "o.b")]
+        [TestCase("contains", "1", "5", "o.collection")]
+        [TestCase("contains", "1", "\"abc\"", "o.collection")]
         public void CombinationsPythonRefusesAreReported(string op, string a, string b, string where) =>
             Assert.That(Errors(Graph(op, a, b)), Is.EqualTo(new[] { where }));
 
