@@ -9,7 +9,7 @@ namespace CSharpPython
     /// Compiles scripts and starts tasks. A VM holds the host API (modules and built-ins) and the limits; the
     /// running state lives in each <see cref="PyTask"/>, so one VM can serve many game objects.
     /// </summary>
-    public sealed class PyVm
+    public sealed partial class PyVm
     {
         internal readonly Dictionary<string, Value> Builtins = new Dictionary<string, Value>();
         internal readonly Dictionary<string, PyModule> Modules = new Dictionary<string, PyModule>();
