@@ -42,7 +42,7 @@ namespace CSharpPython.Blocks
             if (problem != null) return EditResult.Refused(problem);
 
             FindFunction(name).Name = newName;
-            foreach (var call in Calls(name)) call.Name = newName;
+            foreach (var call in Calls(name).Concat(References(name))) call.Name = newName;
             return Made(EditResult.Done());
         }
 
@@ -191,6 +191,10 @@ namespace CSharpPython.Blocks
 
         private IEnumerable<BlockNode> Calls(string function) =>
             Graph.Functions.Where(f => f != null).SelectMany(f => f.Nodes).Where(n => n != null && n.Block == "call" && n.Name == function);
+
+        // The function blocks that hold a function as a value (see BlockCompiler); renaming the function renames them too.
+        private IEnumerable<BlockNode> References(string function) =>
+            Graph.Functions.Where(f => f != null).SelectMany(f => f.Nodes).Where(n => n != null && n.Block == "function_ref" && n.Name == function);
 
         private string CheckName(string name, string what)
         {

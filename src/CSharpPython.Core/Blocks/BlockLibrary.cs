@@ -274,7 +274,8 @@ namespace CSharpPython.Blocks
             AddBlock("dict_get", "Dictionary item or default", "Collections", BlockKind.Value, new[] { "dict", "key", "default" }, None, false);
             AddBlock("dict_set", "Set dictionary item", "Collections", BlockKind.Flow, new[] { "dict", "key", "value" }, Next, false);
             AddBlock("dict_remove", "Remove dictionary item", "Collections", BlockKind.Flow, new[] { "dict", "key" }, Next, false);
-            AddBlock("sorted", "Sorted list", "Collections", BlockKind.Value, new[] { "items", "reverse" }, None, false);
+            AddBlock("sorted", "Sorted list", "Collections", BlockKind.Value, new[] { "items", "reverse", "key" }, None, false);
+            AddBlock("function_ref", "Function", "Function values", BlockKind.Value, None, None, true);
             AddBlock("get_attr", "Get field", "Objects", BlockKind.Value, new[] { "object" }, None, true);
             AddBlock("set_attr", "Set field", "Objects", BlockKind.Flow, new[] { "object", "value" }, Next, true);
 

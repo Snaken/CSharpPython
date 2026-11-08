@@ -34,7 +34,7 @@ namespace CSharpPython.Blocks
             { "dict_get", "dict: dict, key, default -> any" },
             { "dict_set", "dict: dict, key, value" },
             { "dict_remove", "dict: dict, key" },
-            { "sorted", "items, reverse: bool -> list[any]" },
+            { "sorted", "items, reverse: bool, key -> list[any]" },
             { "repeat", "count: int" },
             { "for_range", "start: int, stop: int, step: int" },
         };

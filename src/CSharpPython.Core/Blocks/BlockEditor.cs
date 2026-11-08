@@ -61,7 +61,7 @@ namespace CSharpPython.Blocks
         /// <summary>
         /// Adds a block to a function at a place on the canvas, with a new id that no block of the graph has. For a
         /// <c>call</c> block, <paramref name="name"/> is the function and it must be one the library has or the graph
-        /// defines. For a block that needs a name (a variable, a field) the name can be left out and set with
+        /// defines; so must the name of a <c>function_ref</c> block, which may be left out and set later. For a block that needs a name (a variable, a field) the name can be left out and set with
         /// <see cref="SetName"/> once it is typed. The new block is in <see cref="EditResult.Node"/>.
         /// </summary>
         public EditResult AddNode(string function, string block, string name = null, float x = 0, float y = 0)
@@ -77,6 +77,11 @@ namespace CSharpPython.Blocks
                 if (problem != null) return EditResult.Refused(problem);
             }
             else if (Library.FindBlock(block) == null) return EditResult.Refused("There is no block type '" + block + "'.");
+            else if (block == "function_ref" && !string.IsNullOrEmpty(name))
+            {
+                string problem = CheckCallName(name);
+                if (problem != null) return EditResult.Refused(problem);
+            }
 
             if (fn.Nodes.Count >= Limits.MaxNodesPerFunction)
                 return EditResult.Refused("The function '" + function + "' already has the most blocks it may have (" + Limits.MaxNodesPerFunction + ").");
@@ -131,7 +136,7 @@ namespace CSharpPython.Blocks
             if (fn == null) return EditResult.Refused(NoFunction(function));
             var node = FindNode(fn, nodeId);
             if (node == null) return EditResult.Refused(NoNode(function, nodeId));
-            if (node.Block == "call")
+            if (node.Block == "call" || node.Block == "function_ref")
             {
                 string problem = CheckCallName(name);
                 if (problem != null) return EditResult.Refused(problem);

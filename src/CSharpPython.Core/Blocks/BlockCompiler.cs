@@ -945,7 +945,7 @@ namespace CSharpPython.Blocks
                 inputs = spec.Inputs;
                 flows = spec.FlowPins;
                 bool optionalName = node.Block == "repeat" && string.IsNullOrEmpty(node.Name);
-                if ((spec.NeedsName || node.Block == "repeat") && !optionalName && !IsIdentifier(node.Name))
+                if ((spec.NeedsName || node.Block == "repeat") && node.Block != "function_ref" && !optionalName && !IsIdentifier(node.Name))
                 {
                     Error("'" + node.Name + "' is not a valid " + (node.Block == "get_attr" || node.Block == "set_attr" ? "field" : "variable") + " name", node);
                     ok = false;
@@ -1200,7 +1200,11 @@ namespace CSharpPython.Blocks
                     case "sorted":
                         var toSort = Input(node, "items");
                         var backwards = Input(node, "reverse", optional: true);
-                        return new Ex("sorted(" + toSort.Text + (backwards.Text == null ? "" : ", reverse=" + backwards.Text) + ")", false);
+                        CheckKeyFunction(node);
+                        var by = Input(node, "key", optional: true);
+                        return new Ex("sorted(" + toSort.Text + (by.Text == null ? "" : ", key=" + by.Text) + (backwards.Text == null ? "" : ", reverse=" + backwards.Text) + ")", false);
+                    case "function_ref":
+                        return FunctionRef(node);
                     case "list_of_size":
                         return new Ex("[" + Input(node, "value").Text + "] * " + Input(node, "count").Atom, true);
                     case "call":
@@ -1236,6 +1240,49 @@ namespace CSharpPython.Blocks
                 parts.Add(Input(node, pin).Text);
             }
             return parts;
+        }
+
+        // A function as a value: the name of a function of the graph, or of one the library has (with its module, which
+        // is imported), to wire into a pin that takes a function, such as the key of a sort.
+        private Ex FunctionRef(BlockNode node)
+        {
+            string name = node.Name;
+            if (string.IsNullOrEmpty(name))
+            {
+                Error("a function block needs the name of a function", node);
+                return new Ex("None", false);
+            }
+            if (_functions.ContainsKey(name)) return new Ex(name, false);
+            var spec = _lib.FindFunction(name);
+            if (spec == null)
+            {
+                Error(UnknownFunction(name), node);
+                return new Ex("None", false);
+            }
+            if (spec.Module == null) return new Ex(spec.Name, false);
+            if (!_imports.Contains(spec.Module)) _imports.Add(spec.Module);
+            return new Ex(spec.Module + "." + spec.Name, false);
+        }
+
+        // A sort calls its key with one item, so a function wired to the key pin must take one parameter.
+        private void CheckKeyFunction(BlockNode node)
+        {
+            string from = null;
+            foreach (var i in node.Inputs ?? new List<BlockInput>())
+                if (i != null && i.Pin == "key") from = i.From;
+            if (string.IsNullOrEmpty(from) || !_nodes.TryGetValue(from, out var source) || source.Block != "function_ref" || string.IsNullOrEmpty(source.Name)) return;
+
+            int most, fewest;
+            if (_functions.TryGetValue(source.Name, out var user)) most = fewest = user.Parameters.Count;
+            else
+            {
+                var spec = _lib.FindFunction(source.Name);
+                if (spec == null) return;
+                most = spec.Parameters.Count;
+                fewest = spec.RequiredParameters;
+            }
+            if (fewest > 1 || most < 1)
+                Error("a sort's key function takes one item, but '" + source.Name + "' takes " + (fewest == most ? most.ToString(CultureInfo.InvariantCulture) : fewest + " to " + most) + " parameters", node, "key");
         }
 
         private Ex DictOf(BlockNode node)

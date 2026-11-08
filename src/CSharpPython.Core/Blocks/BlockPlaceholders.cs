@@ -27,7 +27,7 @@ namespace CSharpPython.Blocks
             Function = function;
             NodeId = node.Id;
             Block = node.Block;
-            Name = node.Block == "call" ? node.Name : null;
+            Name = node.Block == "call" || node.Block == "function_ref" ? node.Name : null;
             Reason = reason;
         }
     }
@@ -48,6 +48,11 @@ namespace CSharpPython.Blocks
                 {
                     if (node == null) continue;
                     if (node.Block == "call")
+                    {
+                        if (!string.IsNullOrEmpty(node.Name) && !own.Contains(node.Name) && lib.FindFunction(node.Name) == null)
+                            found.Add(new BlockPlaceholder(fn.Name, node, "the function '" + node.Name + "' is not available"));
+                    }
+                    else if (node.Block == "function_ref")
                     {
                         if (!string.IsNullOrEmpty(node.Name) && !own.Contains(node.Name) && lib.FindFunction(node.Name) == null)
                             found.Add(new BlockPlaceholder(fn.Name, node, "the function '" + node.Name + "' is not available"));
