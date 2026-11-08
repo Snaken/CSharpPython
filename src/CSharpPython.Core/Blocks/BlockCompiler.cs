@@ -619,11 +619,7 @@ namespace CSharpPython.Blocks
                         Emit(depth, "if " + Input(node, "cond").Text + ":", node);
                         EmitBody(FlowTarget(node, "then"), depth + 1);
                         string other = FlowTarget(node, "else");
-                        if (other != null)
-                        {
-                            Emit(depth, "else:", node);
-                            EmitBody(other, depth + 1);
-                        }
+                        if (other != null) EmitElse(node, other, depth);
                         break;
                     case "while":
                         _noResults = true;
@@ -643,7 +639,7 @@ namespace CSharpPython.Blocks
                         var start = Input(node, "start", optional: true);
                         var step = Input(node, "step", optional: true);
                         string range = step.Text != null ? (start.Text ?? "0") + ", " + stop.Text + ", " + step.Text
-                            : start.Text != null ? start.Text + ", " + stop.Text : stop.Text;
+                            : start.Text != null && start.Text != "0" ? start.Text + ", " + stop.Text : stop.Text;
                         Emit(depth, "for " + RequireVariable(node, false) + " in range(" + range + "):", node);
                         EmitLoopBody(node, depth);
                         break;
@@ -674,6 +670,24 @@ namespace CSharpPython.Blocks
                 _scope.Done.Add(id);
                 id = next;
             }
+        }
+
+        // The else branch of an `if`. When the branch is nothing but another `if`, it is written as `elif`.
+        private void EmitElse(BlockNode node, string other, int depth)
+        {
+            int at = _out.Count;
+            Emit(depth, "else:", node);
+            EmitBody(other, depth + 1);
+            if (at + 1 >= _out.Count || _out[at + 1].NodeId != other) return;
+            if (!_nodes.TryGetValue(other, out var inner) || inner.Block != "if" || FlowTarget(inner, "next") != null) return;
+            string header = _out[at + 1].Text;
+            string prefix = Indent(depth + 1) + "if ";
+            if (!header.StartsWith(prefix, StringComparison.Ordinal)) return;
+
+            _out[at + 1] = new Line(Indent(depth) + "elif " + header.Substring(prefix.Length), other);
+            for (int i = at + 2; i < _out.Count; i++)
+                _out[i] = new Line(_out[i].Text.Substring(4), _out[i].NodeId);
+            _out.RemoveAt(at);
         }
 
         private void EmitLoopBody(BlockNode node, int depth)

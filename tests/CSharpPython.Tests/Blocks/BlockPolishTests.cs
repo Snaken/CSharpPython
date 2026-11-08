@@ -102,5 +102,48 @@ namespace CSharpPython.Tests.Blocks
             Assert.That(editor.IsStep("main", "missing"), Is.False);
             Assert.That(editor.IsStep("nowhere", "own"), Is.False);
         }
+
+        private static string Source(BlockFunction f) => BlockCompiler.Compile(new BlockGraph().AddFunction(f)).Source;
+
+        [Test]
+        public void AnIfAloneInAnElseBranchIsWrittenAsElif()
+        {
+            var f = new BlockFunction("main", "n");
+            f.Start = "a";
+            f.Add(N("a", "if").Connect("cond", "c1").Then("then", "p1").Then("else", "b"));
+            f.Add(N("b", "if").Connect("cond", "c2").Then("then", "p2").Then("else", "p3"));
+            f.Add(N("c1", "gt").Connect("a", "n").Literal("b", "5"));
+            f.Add(N("c2", "gt").Connect("a", "n").Literal("b", "2"));
+            f.Add(N("n", "get", "n"));
+            foreach (var id in new[] { "p1", "p2", "p3" })
+                f.Add(N(id, "call", "print").Literal("arg0", "\"" + id + "\""));
+            string source = Source(f);
+            Assert.That(source, Is.EqualTo(
+                "def main(n):\n    if n > 5:\n        print(\"p1\")\n    elif n > 2:\n        print(\"p2\")\n    else:\n        print(\"p3\")\n"));
+            Assert.That(Vm.Py.Run(source + "main(9)\nmain(3)\nmain(0)\n"), Is.EqualTo("p1\np2\np3\n"));
+        }
+
+        [Test]
+        public void AnIfWithBlocksAfterItStaysNestedInTheElse()
+        {
+            var f = new BlockFunction("main");
+            f.Start = "a";
+            f.Add(N("a", "if").Literal("cond", "False").Then("else", "b"));
+            f.Add(N("b", "if").Literal("cond", "True").Then("then", "p1").Then("next", "p2"));
+            f.Add(N("p1", "call", "print").Literal("arg0", "1"));
+            f.Add(N("p2", "call", "print").Literal("arg0", "2"));
+            string source = Source(f);
+            Assert.That(source, Does.Contain("    else:\n        if True:").And.Not.Contain("elif"));
+            Assert.That(Vm.Py.Run(source + "main()\n"), Is.EqualTo("1\n2\n"));
+        }
+
+        [Test]
+        public void ARangeThatStartsAtZeroIsWrittenWithJustTheStop()
+        {
+            var f = new BlockFunction("main");
+            f.Start = "r";
+            f.Add(N("r", "for_range", "i").Literal("start", "0").Literal("stop", "4"));
+            Assert.That(Source(f), Does.Contain("for i in range(4):"));
+        }
     }
 }
