@@ -36,11 +36,10 @@ namespace CSharpPython.Syntax
         }
 
         /// <summary>Parses a whole script. Throws <see cref="PySyntaxError"/> on invalid input.</summary>
-        public static ModuleNode ParseModule(string source)
-        {
-            var parser = new Parser(Lexer.Tokenize(source), 0, 0);
-            return parser.ParseModuleBody();
-        }
+        public static ModuleNode ParseModule(string source) => ParseModule(Lexer.Tokenize(source));
+
+        /// <summary>Parses tokens a caller has already made with <see cref="Lexer.Tokenize"/> (or with no lexical problems).</summary>
+        internal static ModuleNode ParseModule(List<Token> tokens) => new Parser(tokens, 0, 0).ParseModuleBody();
 
         /// <summary>Parses a single expression, such as the contents of an f-string replacement field.</summary>
         public static Expr ParseExpression(string source) => ParseEmbedded(source, 1, 1);

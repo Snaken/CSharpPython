@@ -8,7 +8,7 @@ namespace CSharpPython.Tests.Vm
         [Test]
         public void NoTasksAddUpToNothing()
         {
-            foreach (var totals in new[] { TaskTotals.Of(null), TaskTotals.Of(new PyTask[0]), TaskTotals.Of(new PyTask[] { null }) })
+            foreach (var totals in new[] { TaskTotals.Of(null), TaskTotals.Of(System.Array.Empty<PyTask>()), TaskTotals.Of(new PyTask[] { null }) })
             {
                 Assert.That(totals.Tasks, Is.EqualTo(0));
                 Assert.That(totals.StepsExecuted, Is.EqualTo(0));

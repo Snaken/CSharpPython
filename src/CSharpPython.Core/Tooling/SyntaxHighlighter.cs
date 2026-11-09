@@ -39,16 +39,23 @@ namespace CSharpPython.Editor
         public readonly int Length;
         public readonly HighlightKind Kind;
 
-        public HighlightSpan(int start, int length, HighlightKind kind)
+        /// <summary>
+        /// The message of the problem that covers this stretch, or null. It is set only on spans from
+        /// <see cref="EditorView"/>, which splits a span where a problem starts or ends.
+        /// </summary>
+        public readonly string Problem;
+
+        public HighlightSpan(int start, int length, HighlightKind kind, string problem = null)
         {
             Start = start;
             Length = length;
             Kind = kind;
+            Problem = problem;
         }
 
         public int End => Start + Length;
 
-        public override string ToString() => Kind + " [" + Start + ", " + End + ")";
+        public override string ToString() => Kind + " [" + Start + ", " + End + ")" + (Problem == null ? "" : " problem: " + Problem);
     }
 
     /// <summary>
@@ -64,8 +71,13 @@ namespace CSharpPython.Editor
         public static List<HighlightSpan> Highlight(string source, PyVm vm = null)
         {
             source = source ?? "";
+            return Highlight(source, Lexer.TokenizeTolerant(source, out _), vm);
+        }
+
+        // For callers that have lexed the text already.
+        internal static List<HighlightSpan> Highlight(string source, List<Token> tokens, PyVm vm)
+        {
             vm = vm ?? EditorDefaults.Vm;
-            var tokens = Lexer.TokenizeTolerant(source, out _);
             var spans = new List<HighlightSpan>();
             HashSet<string> defined = null;
             int cursor = 0; // end of the last thing emitted; gaps after it may hold comments

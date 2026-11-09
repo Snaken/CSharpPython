@@ -14,11 +14,17 @@ namespace CSharpPython.Editor
         public static List<Diagnostic> Analyze(string source)
         {
             source = source ?? "";
-            Lexer.TokenizeTolerant(source, out var diagnostics);
+            var tokens = Lexer.TokenizeTolerant(source, out var diagnostics);
+            return Analyze(tokens, diagnostics);
+        }
+
+        // For callers that have lexed the text already: tokens and the lexical problems found with them.
+        internal static List<Diagnostic> Analyze(List<Token> tokens, List<Diagnostic> diagnostics)
+        {
             if (diagnostics.Count > 0) return diagnostics;
             try
             {
-                Compiler.Compile(Parser.ParseModule(source), "<script>");
+                Compiler.Compile(Parser.ParseModule(tokens), "<script>");
             }
             catch (PySyntaxError e)
             {
