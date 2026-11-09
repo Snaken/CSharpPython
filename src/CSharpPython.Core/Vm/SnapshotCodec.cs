@@ -63,6 +63,98 @@ namespace CSharpPython
             return name;
         }
 
+        // Numbers are written 7 bits at a time, so a small one takes a byte or two, not eight. A signed number is
+        // zigzagged first (0, -1, 1, -2, ... become 0, 1, 2, 3, ...) so that small negatives stay short.
+        public static void WriteVarint(BinaryWriter w, ulong value)
+        {
+            while (value >= 0x80)
+            {
+                w.Write((byte)(value | 0x80));
+                value >>= 7;
+            }
+            w.Write((byte)value);
+        }
+
+        public static void WriteZigzag(BinaryWriter w, long value) => WriteVarint(w, (ulong)((value << 1) ^ (value >> 63)));
+
+        public static ulong ReadVarint(BinaryReader r)
+        {
+            ulong result = 0;
+            for (int shift = 0; shift < 70; shift += 7)
+            {
+                byte b = r.ReadByte();
+                if (shift == 63 && b > 1) throw new SnapshotException("the snapshot is damaged");
+                result |= (ulong)(b & 0x7F) << shift;
+                if (b < 0x80) return result;
+            }
+            throw new SnapshotException("the snapshot is damaged");
+        }
+
+        public static long ReadZigzag(BinaryReader r)
+        {
+            ulong v = ReadVarint(r);
+            return (long)(v >> 1) ^ -(long)(v & 1);
+        }
+
+        // The tags of the pieces a list is written in (version 17 on): a value repeated (an int has a shorter form), a block of ints, a block of
+        // bools and a block of any other values, each with its length. A list of per-cell numbers or flags, which is
+        // mostly one value or small numbers, takes a byte or two an item, or less, where it took nine.
+        internal const byte ListRepeat = 1, ListInts = 2, ListBools = 3, ListValues = 4, ListRepeatInt = 5;
+
+        // A run shorter than this is not worth a piece of its own.
+        private const int MinRun = 4;
+
+        private static bool Same(Value a, Value b) =>
+            a.Kind == b.Kind && a.RawInt == b.RawInt && a.RawAux == b.RawAux && ReferenceEquals(a.RawObject, b.RawObject);
+
+        // How many items from 'at' on equal the one at 'at', counting no further than 'cap'.
+        private static int RunLength(List<Value> items, int at, int cap)
+        {
+            int n = 1;
+            while (n < cap && at + n < items.Count && Same(items[at], items[at + n])) n++;
+            return n;
+        }
+
+        public static void WriteList(BinaryWriter w, List<Value> items, SnapshotWriter values)
+        {
+            w.Write(items.Count);
+            int i = 0;
+            while (i < items.Count)
+            {
+                int run = RunLength(items, i, int.MaxValue);
+                if (run >= MinRun)
+                {
+                    bool integer = items[i].Kind == ValueKind.Int;
+                    w.Write(integer ? ListRepeatInt : ListRepeat);
+                    WriteVarint(w, (ulong)run);
+                    if (integer) WriteZigzag(w, items[i].RawInt);
+                    else values.WriteValue(w, items[i]);
+                    i += run;
+                    continue;
+                }
+
+                var kind = items[i].Kind;
+                bool number = kind == ValueKind.Int || kind == ValueKind.Bool;
+                int end = i + 1;
+                while (end < items.Count && (number ? items[end].Kind == kind : items[end].Kind != ValueKind.Int && items[end].Kind != ValueKind.Bool)
+                       && RunLength(items, end, MinRun) < MinRun) end++;
+
+                w.Write(!number ? ListValues : kind == ValueKind.Int ? ListInts : ListBools);
+                WriteVarint(w, (ulong)(end - i));
+                if (!number)
+                {
+                    for (; i < end; i++) values.WriteValue(w, items[i]);
+                    continue;
+                }
+
+                for (; i < end; i++)
+                {
+                    if (kind == ValueKind.Int) WriteZigzag(w, items[i].RawInt);
+                    else w.Write(items[i].RawInt != 0);
+                }
+            }
+        }
+
         // Reads a count and rejects it if the rest of the data could not possibly hold that many items.
         public static int ReadCount(BinaryReader r, int minBytesPerItem)
         {
@@ -103,6 +195,8 @@ namespace CSharpPython
 
         public void Collect(Value v)
         {
+            // Numbers and None hold no other object; a list of 100,000 of them should not pay for a stack check each.
+            if (v.Kind == ValueKind.Int || v.Kind == ValueKind.Bool || v.Kind == ValueKind.Float || v.Kind == ValueKind.None) return;
             SnapshotIo.CheckStack(false);
             switch (v.Kind)
             {
@@ -314,9 +408,7 @@ namespace CSharpPython
                     case ValueKind.List:
                     {
                         w.Write(ContainerList);
-                        var items = ((PyList)c.RawObject).Items;
-                        pw.Write(items.Count);
-                        foreach (var item in items) WriteValue(pw, item);
+                        SnapshotIo.WriteList(pw, ((PyList)c.RawObject).Items, this);
                         break;
                     }
                     case ValueKind.Deque:
@@ -849,6 +941,54 @@ namespace CSharpPython
             _filled = true;
         }
 
+        // A list written in pieces (see SnapshotIo.WriteList). A repeated value makes the list longer than the data that
+        // holds it, so the count is checked against the data, or else against the longest list a script could build.
+        private void ReadList(BinaryReader r, List<Value> items)
+        {
+            int n = r.ReadInt32();
+            long remaining = r.BaseStream.Length - r.BaseStream.Position;
+            if (n < 0 || (n > remaining && n > _vm.Options.MaxSequenceLength)) throw new SnapshotException("the snapshot is damaged");
+            items.Capacity = n;
+            while (items.Count < n)
+            {
+                byte tag = r.ReadByte();
+                ulong length = SnapshotIo.ReadVarint(r);
+                if (length == 0 || length > (ulong)(n - items.Count)) throw new SnapshotException("the snapshot is damaged");
+                int count = (int)length;
+                switch (tag)
+                {
+                    case SnapshotIo.ListRepeat:
+                    {
+                        Value item = ReadValue(r);
+                        for (int i = 0; i < count; i++) items.Add(item);
+                        break;
+                    }
+                    case SnapshotIo.ListRepeatInt:
+                    {
+                        Value item = Value.FromInt(SnapshotIo.ReadZigzag(r));
+                        for (int i = 0; i < count; i++) items.Add(item);
+                        break;
+                    }
+                    case SnapshotIo.ListInts:
+                        for (int i = 0; i < count; i++) items.Add(Value.FromInt(SnapshotIo.ReadZigzag(r)));
+                        break;
+                    case SnapshotIo.ListBools:
+                        for (int i = 0; i < count; i++)
+                        {
+                            byte b = r.ReadByte();
+                            if (b > 1) throw new SnapshotException("the snapshot is damaged");
+                            items.Add(Value.FromBool(b == 1));
+                        }
+                        break;
+                    case SnapshotIo.ListValues:
+                        for (int i = 0; i < count; i++) items.Add(ReadValue(r));
+                        break;
+                    default:
+                        throw new SnapshotException("the snapshot is damaged");
+                }
+            }
+        }
+
         private BinaryReader Block(int id) =>
             new BinaryReader(new MemoryStream(_data, _blockOffset[id], _blockLength[id], false));
 
@@ -859,8 +999,13 @@ namespace CSharpPython
             {
                 case PyList list:
                 {
-                    int n = SnapshotIo.ReadCount(r, 1);
-                    for (int i = 0; i < n; i++) list.Items.Add(ReadValue(r));
+                    if (_version < 17)
+                    {
+                        int count = SnapshotIo.ReadCount(r, 1);
+                        for (int i = 0; i < count; i++) list.Items.Add(ReadValue(r));
+                        break;
+                    }
+                    ReadList(r, list.Items);
                     break;
                 }
                 case PyTuple tuple:

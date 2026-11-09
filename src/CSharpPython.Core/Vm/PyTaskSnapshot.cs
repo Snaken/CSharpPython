@@ -7,9 +7,9 @@ namespace CSharpPython
 {
     public sealed partial class PyTask
     {
-        private const ushort SnapshotVersion = 16;
+        private const ushort SnapshotVersion = 17;
 
-        // Version 14 added the itertools iterators, 15 the functools callables and caches and 16 the cause and context of exceptions; older saves have none of them, so they are read as they are.
+        // Version 14 added the itertools iterators, 15 the functools callables and caches 16 the cause and context of exceptions and 17 the runs and number blocks of a list (see SnapshotIo.WriteList); older saves have none of them, so they are read as they are.
         private const ushort OldestReadableVersion = 13;
         private static readonly byte[] SnapshotMagic = { (byte)'C', (byte)'S', (byte)'P', (byte)'Y' };
 

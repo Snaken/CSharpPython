@@ -17,7 +17,8 @@ task2.FastForward(ticksSinceSave);                // skips quickly over waits to
 - Host functions are saved by name, so every function a script can reach must be a built-in or a module member. A function the VM cannot find again makes `Save` throw.
 - The state of `random` is saved with the task, so a restored task carries on with the same sequence of numbers (about 2.5 KB, and only for a task that used the module).
 - `Owner` is not saved; reattach it after restoring.
-- Damaged or foreign data always raises `SnapshotException`; it never crashes the host. The format is versioned.
+- Damaged or foreign data always raises `SnapshotException`; it never crashes the host. The format is versioned: the library reads the snapshots of earlier versions (13 and up) but writes the newest, so a save made by a newer library cannot be read by an older one.
+- Lists are saved compactly: a long run of one value takes a few bytes, and ints and bools take a byte or two each, so a per-cell list of a 301 by 301 maze takes a small fraction of the space it did (about a tenth in the measurement in the changelog). A snapshot of a script that keeps its state in lists, dictionaries of ints or sets is therefore small, and a task that keeps big collections of tuples or strings is not (they are saved value by value).
 
 ## Snapshots are untrusted input unless you protect them
 
