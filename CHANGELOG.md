@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- New: `TaskTotals.Of(tasks)` adds up `task.GetDiagnostics()` for any group of tasks: how many, the steps and memory walks, the memory the last walks found (sum and largest), the walk time, and `TasksNearMemoryLimit`, how many tasks are due a walk and so may be stopped by the next slice, which lets a game pause or warn before the library stops a script. It never walks a heap. The VM keeps no list of its tasks, so the host passes the ones it holds.
 - New: `task.GetOwner<T>()` returns `task.Owner` as a `T` and throws `InvalidOperationException` (saying whether the owner is missing or of another type) when it is not one, and `task.TryGetOwner<T>(out owner)` returns false instead. `Owner` itself is still an `object` that the host sets, so nothing changes for existing code.
 - Faster: a short tuple of numbers, strings and the like (such as a key `(x, y)`) is hashed and compared without the walk budget that guards nested values, about 25% quicker to compare; nested or long tuples and tuples that hold script objects are still budgeted. Results are the same.
 - Faster: measuring a task's memory (for `MaxMemoryBytes` and `EstimatedMemoryBytes`) counts a tuple of plain values without entering it in the set of objects already seen, which was most of the cost for a script that keeps many such tuples: a 48 MB task took about 9 ms to measure instead of 28. A plain tuple held in several places is now counted each time, a few bytes too many.
