@@ -731,6 +731,7 @@ namespace CSharpPython
         {
             if (list.Count < 2) return list;
             if (list.Count <= SmallSort && SortSmall(list, keys, reverse)) return list;
+            if (keys == null && SortInts(list, reverse)) return list;
             if (keys == null) keys = list.ToArray();
             List<Value> simple = SortSimple(list, keys, reverse);
             if (simple != null) return simple;
@@ -751,6 +752,24 @@ namespace CSharpPython
         }
 
         private const int SmallSort = 16;
+
+        // A list of plain ints and no key: equal ints cannot be told apart, so the order among them does not matter and
+        // the numbers are sorted as one array and written back, with no key, order or result arrays. The list belongs
+        // to the sort (see SortOwned). Returns false, having changed nothing, if any item is not an int.
+        private static bool SortInts(List<Value> list, bool reverse)
+        {
+            int n = list.Count;
+            var k = new long[n];
+            for (int i = 0; i < n; i++)
+            {
+                if (list[i].Kind != ValueKind.Int) return false;
+                k[i] = list[i].RawInt;
+            }
+            Array.Sort(k);
+            if (reverse) Array.Reverse(k);
+            for (int i = 0; i < n; i++) list[i] = Value.FromInt(k[i]);
+            return true;
+        }
 
         // A short list whose keys are all ints, all floats (none NaN) or all strings is sorted where it is, by a stable
         // insertion sort, which allocates nothing (the general path makes four arrays and a second list). The list and the
