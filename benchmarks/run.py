@@ -1,48 +1,48 @@
 #!/usr/bin/env python3
-"""Times every script in CSharpPython.Benchmarks/scripts on CSharpPython and on CPython, and prints a Markdown table.
+"""Runs the benchmark scripts on every config under benchmarks/configs and on CPython, then writes the chart and table.
 
-    python3 benchmarks/run.py            # builds and runs everything
+    python3 benchmarks/run.py                      # every config that can run here
+    python3 benchmarks/run.py dotnet unity-7-il2cpp  # only these
+    python3 benchmarks/run.py --report-only        # rebuild docs/performance.svg and results/table.md from results/*.json
+
+A config is a folder in benchmarks/configs with a config.json and a run.py; one whose editor or module is not installed
+is skipped. Each config can also be run alone: python3 benchmarks/configs/<name>/run.py
 """
-import glob
 import os
-import platform
 import subprocess
 import sys
-import time
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(HERE)
-RUNS = 7
+import common
+import report
 
 
-def cpython(path):
-    code = compile(open(path).read(), path, "exec")
-    best = float("inf")
-    for _ in range(RUNS + 1):
-        start = time.perf_counter()
-        exec(code, {})
-        best = min(best, time.perf_counter() - start)
-    return best * 1000
+def main(argv):
+    report_only = "--report-only" in argv
+    wanted = [a for a in argv if not a.startswith("--")]
+    available = sorted(d for d in os.listdir(common.CONFIGS) if os.path.exists(os.path.join(common.CONFIGS, d, "run.py")))
+    unknown = [w for w in wanted if w not in available]
+    if unknown:
+        print("unknown config(s): " + ", ".join(unknown) + ". Available: " + ", ".join(available))
+        return 2
 
-
-def csharp():
-    project = os.path.join(HERE, "CSharpPython.Benchmarks")
-    out = subprocess.run(["dotnet", "run", "-c", "Release", "--project", project],
-                         check=True, capture_output=True, text=True, cwd=ROOT).stdout
-    return {name: float(ms) for name, ms in (line.split("\t") for line in out.strip().splitlines())}
-
-
-def main():
-    ours = csharp()
-    print(f"CPython {platform.python_version()}, .NET {subprocess.run(['dotnet', '--version'], capture_output=True, text=True).stdout.strip()}, "
-          f"{platform.system()} {platform.machine()}, best of {RUNS} runs\n")
-    print("| Script | CSharpPython | CPython | Slower by |")
-    print("| --- | ---: | ---: | ---: |")
-    for path in sorted(glob.glob(os.path.join(HERE, "CSharpPython.Benchmarks", "scripts", "*.py"))):
-        name = os.path.splitext(os.path.basename(path))[0]
-        py = cpython(path)
-        print(f"| {name} | {ours[name]:.1f} ms | {py:.1f} ms | {ours[name] / py:.1f}x |")
+    failed = []
+    if not report_only:
+        print("CPython ...", flush=True)
+        common.write_cpython()
+        for name in wanted or available:
+            print("\n== " + name, flush=True)
+            code = subprocess.run([sys.executable, os.path.join(common.CONFIGS, name, "run.py")], cwd=common.ROOT).returncode
+            if code == common.SKIPPED:
+                print("(skipped)")
+            elif code != 0:
+                failed.append(name)
+        print()
+    report.write_report()
+    if failed:
+        print("failed: " + ", ".join(failed))
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))

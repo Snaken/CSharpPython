@@ -10,7 +10,7 @@ python3 scripts/check-coverage.py <coverage.cobertura.xml> 95
 python3 scripts/generate-unity-meta.py          # after adding or removing source files (add --check to verify)
 git config core.hooksPath scripts/git-hooks      # once: commits then regenerate and include the .meta files
 python3 scripts/update-expected.py               # regenerate tests/CSharpPython.Tests/Scripts/**/*.expected from CPython
-python3 benchmarks/run.py                        # timings against CPython (see docs/performance.md)
+python3 benchmarks/run.py                        # timings on .NET and Unity against CPython, with the chart (see docs/performance.md)
 ```
 
 The test suite is large and uses CPython 3 as an oracle for language semantics (generated test cases hold the output CPython produced); each fixed bug gets a regression test. New language and library behaviour is best tested as a pair of files under `tests/CSharpPython.Tests/Scripts`: a readable `name.py` and a `name.expected` that `scripts/update-expected.py` fills in from CPython. A script that must fail goes in `Scripts/errors`: that folder's files hold short snippets separated by a line `# ---`, and the `.expected` file names the exception CPython raises for each one. CI builds with warnings as errors, runs the tests on Linux, macOS and Windows, and enforces a line-coverage floor.

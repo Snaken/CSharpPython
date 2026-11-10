@@ -1,0 +1,22 @@
+{
+  "name": "cpython",
+  "label": "CPython 3.14.7",
+  "runtime": "CPython 3.14.7",
+  "machine": {
+    "os": "Darwin arm64",
+    "cpu": "Apple M5 Pro"
+  },
+  "date": "2026-11-10",
+  "ms": {
+    "builtins_stream": 64.28766599856317,
+    "classes": 5.967624951153994,
+    "collections_ops": 11.038500000722706,
+    "dict_ops": 3.1260839896276593,
+    "fib": 1.947666984051466,
+    "generators": 3.5270421067252755,
+    "list_ops": 5.250292015261948,
+    "loop_sum": 17.240290995687246,
+    "random_math": 11.729999911040068,
+    "strings": 2.03820806927979
+  }
+}

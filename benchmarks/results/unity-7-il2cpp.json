@@ -1,0 +1,22 @@
+{
+  "name": "unity-7-il2cpp",
+  "label": "Unity 7 IL2CPP",
+  "runtime": "Unity 7000.0.0a16 IL2CPP release",
+  "machine": {
+    "os": "Darwin arm64",
+    "cpu": "Apple M5 Pro"
+  },
+  "date": "2026-11-10",
+  "ms": {
+    "builtins_stream": 113.808,
+    "classes": 34.015,
+    "collections_ops": 30.108,
+    "dict_ops": 8.843,
+    "fib": 6.462,
+    "generators": 14.606,
+    "list_ops": 14.788,
+    "loop_sum": 45.302,
+    "random_math": 16.743,
+    "strings": 4.816
+  }
+}

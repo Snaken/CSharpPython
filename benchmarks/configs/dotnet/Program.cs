@@ -5,7 +5,7 @@ using System.Linq;
 using CSharpPython;
 
 // Times each script in scripts/ on the CSharpPython VM and prints "name<TAB>milliseconds" (best of several runs after a warm-up).
-// Compile time is measured separately from run time. See run.py for the comparison with CPython.
+// Compile time is measured separately from run time. See ../../run.py for the comparison with CPython.
 namespace CSharpPython.Benchmarks
 {
     internal static class Program

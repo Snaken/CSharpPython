@@ -1,23 +1,27 @@
 # Performance
 
-CSharpPython is a bytecode interpreter written in plain C#, built to be safe and predictable inside a game rather than to be fast. As a rough guide it runs **between as fast as CPython and about 3 times slower**, which is itself a slow-ish language. Scripts that do game logic once per tick are nowhere near this limit; heavy number crunching belongs in C#, exposed as a [native function](https://github.com/Snaken/CSharpPython/blob/main/docs/host-api.md).
+CSharpPython is a bytecode interpreter written in plain C#, built to be safe and predictable inside a game rather than to be fast. As a rough guide it runs **between as fast as CPython and about 3 times slower on .NET, and about 1.5 to 6 times slower in a Unity IL2CPP player**, which is itself a slow-ish language (about 6 to 19 times slower under Unity's Mono). Scripts that do game logic once per tick are nowhere near this limit; heavy number crunching belongs in C#, exposed as a [native function](https://github.com/Snaken/CSharpPython/blob/main/docs/host-api.md).
 
 ## Results
 
-CPython 3.14.7, .NET 10.0.402, macOS arm64 (Apple M5 Pro), best of 7 runs after a one-second warm-up (so the .NET JIT has optimised the interpreter, as it would in a game that has been running for a while):
+![Time relative to CPython for each benchmark script on .NET and in Unity players](performance.svg)
 
-| Script | CSharpPython | CPython | Slower by |
-| --- | ---: | ---: | ---: |
-| builtins_stream | 62.0 ms | 61.2 ms | 1.0x |
-| classes | 14.9 ms | 5.6 ms | 2.7x |
-| collections_ops | 25.2 ms | 10.8 ms | 2.3x |
-| dict_ops | 5.2 ms | 3.0 ms | 1.7x |
-| fib | 4.6 ms | 1.8 ms | 2.5x |
-| generators | 9.1 ms | 3.3 ms | 2.7x |
-| list_ops | 9.5 ms | 4.9 ms | 1.9x |
-| loop_sum | 27.0 ms | 16.6 ms | 1.6x |
-| random_math | 11.5 ms | 11.4 ms | 1.0x |
-| strings | 2.1 ms | 1.9 ms | 1.1x |
+The chart shows how many times slower than CPython each runtime is (the dashed line is CPython, and the scale is logarithmic). Measured with CPython 3.14.7, .NET 10.0.402, Unity 6000.3.27f2 and Unity 7000.0.0a16 (an alpha), on macOS arm64 (Apple M5 Pro), release players, best of 7 runs after a one-second warm-up (so a JIT has optimised the interpreter, as it would in a game that has been running for a while):
+
+| Script | CPython 3.14.7 | .NET 10 (JIT) | Unity 7 IL2CPP | Unity 6.3 IL2CPP | Unity 6.3 Mono |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| builtins_stream | 64.3 ms | 63.2 ms (1.0x) | 113.8 ms (1.8x) | 115.9 ms (1.8x) | 365.9 ms (5.7x) |
+| classes | 6.0 ms | 15.8 ms (2.6x) | 34.0 ms (5.7x) | 50.8 ms (8.5x) | 111.2 ms (18.6x) |
+| collections_ops | 11.0 ms | 25.1 ms (2.3x) | 30.1 ms (2.7x) | 35.5 ms (3.2x) | 86.0 ms (7.8x) |
+| dict_ops | 3.1 ms | 5.1 ms (1.6x) | 8.8 ms (2.8x) | 9.1 ms (2.9x) | 27.1 ms (8.7x) |
+| fib | 1.9 ms | 4.8 ms (2.5x) | 6.5 ms (3.3x) | 8.1 ms (4.2x) | 20.4 ms (10.5x) |
+| generators | 3.5 ms | 9.4 ms (2.7x) | 14.6 ms (4.1x) | 15.4 ms (4.4x) | 44.9 ms (12.7x) |
+| list_ops | 5.3 ms | 9.4 ms (1.8x) | 14.8 ms (2.8x) | 15.3 ms (2.9x) | 43.8 ms (8.3x) |
+| loop_sum | 17.2 ms | 26.9 ms (1.6x) | 45.3 ms (2.6x) | 47.7 ms (2.8x) | 169.4 ms (9.8x) |
+| random_math | 11.7 ms | 11.5 ms (1.0x) | 16.7 ms (1.4x) | 20.7 ms (1.8x) | 70.2 ms (6.0x) |
+| strings | 2.0 ms | 2.1 ms (1.0x) | 4.8 ms (2.4x) | 7.1 ms (3.5x) | 13.3 ms (6.5x) |
+
+On .NET the scripts run from as fast as CPython to about 2.6 times slower. A game does not run on .NET, though: under Unity's IL2CPP they run 1.4 to 8.5 times slower than CPython (1.4 to 5.7 on the Unity 7 alpha), and under Unity's Mono 5.7 to 18.6 times slower. Object creation (`classes`), calls (`fib`) and generators are the slowest paths on every runtime, so they are where the work goes next.
 
 What each script does:
 
@@ -32,15 +36,19 @@ What each script does:
 - **random_math**: 50,000 rounds of `random` and `math` calls, 50 shuffles of 1,000 items and a `sample`.
 - **strings**: build and split 20,000 f-strings, `join`, `upper`, `count`.
 
-These numbers are one machine and one run, so treat them as an order of magnitude. Unity builds differ: IL2CPP and WebGL are typically slower than the .NET JIT used here, so measure in your own target.
+These numbers are one machine and one run, so treat them as an order of magnitude. WebGL and mobile builds are not measured here, and a phone is much slower than this laptop, so measure in your own target.
 
 ## Running it yourself
 
 ```
-python3 benchmarks/run.py
+python3 benchmarks/run.py                          # every config that can run on this machine
+python3 benchmarks/run.py dotnet unity-7-il2cpp    # only these
+python3 benchmarks/run.py --report-only            # rebuild the chart and table from benchmarks/results
 ```
 
-This builds and runs [the benchmark project](https://github.com/Snaken/CSharpPython/tree/main/benchmarks) and prints the table above for your machine. Each script in `benchmarks/CSharpPython.Benchmarks/scripts` is ordinary Python that runs unchanged on both interpreters (it checks its own result with `assert`), so you can add your own.
+Each folder in `benchmarks/configs` is one way of running the scripts: `dotnet` (a console app), `unity-6.3-mono`, `unity-6.3-il2cpp` and `unity-7-il2cpp`. A Unity config builds a small headless player from `benchmarks/unity/Bench` with the [Unity CLI](https://unity.com/) (`unity`), runs it, and reads the timings it writes; it needs that editor version and the platform's Mono or IL2CPP module installed, and a config whose editor is missing is skipped. The builds happen in `benchmarks/.work`, which git ignores. Each config can also be run alone (`python3 benchmarks/configs/unity-6.3-il2cpp/run.py`), and a new one is a folder with a `config.json` and a `run.py`.
+
+Every run writes `benchmarks/results/<config>.json`, then `docs/performance.svg` (the chart above) and `benchmarks/results/table.md` (the table above). The scripts in `benchmarks/scripts` are ordinary Python that runs unchanged on both interpreters (each checks its own result with `assert`), so you can add your own.
 
 ## Keeping scripts fast
 

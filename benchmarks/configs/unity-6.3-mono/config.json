@@ -1,0 +1,6 @@
+{
+  "name": "unity-6.3-mono",
+  "label": "Unity 6.3 Mono",
+  "editor": "6000.3",
+  "backend": "Mono"
+}

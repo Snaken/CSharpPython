@@ -8,11 +8,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\CSharpPython.Core\CSharpPython.Core.csproj" />
+    <ProjectReference Include="..\..\..\src\CSharpPython.Core\CSharpPython.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="scripts\*.py" CopyToOutputDirectory="PreserveNewest" LinkBase="scripts" />
+    <None Include="..\..\scripts\*.py" CopyToOutputDirectory="PreserveNewest" LinkBase="scripts" />
   </ItemGroup>
 
 </Project>

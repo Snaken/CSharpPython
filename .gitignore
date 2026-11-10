@@ -14,3 +14,7 @@ coverage-report/
 # macOS
 .DS_Store
 /.vscode
+
+# Benchmark builds (benchmarks/run.py)
+benchmarks/.work/
+__pycache__/

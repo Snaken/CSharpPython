@@ -1,0 +1,6 @@
+{
+  "name": "unity-7-il2cpp",
+  "label": "Unity 7 IL2CPP",
+  "editor": "7000.0",
+  "backend": "IL2CPP"
+}

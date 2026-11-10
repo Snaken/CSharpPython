@@ -1,0 +1,22 @@
+{
+  "name": "unity-6.3-mono",
+  "label": "Unity 6.3 Mono",
+  "runtime": "Unity 6000.3.27f2 Mono release",
+  "machine": {
+    "os": "Darwin arm64",
+    "cpu": "Apple M5 Pro"
+  },
+  "date": "2026-11-10",
+  "ms": {
+    "builtins_stream": 365.858,
+    "classes": 111.194,
+    "collections_ops": 85.988,
+    "dict_ops": 27.134,
+    "fib": 20.413,
+    "generators": 44.89,
+    "list_ops": 43.783,
+    "loop_sum": 169.375,
+    "random_math": 70.161,
+    "strings": 13.281
+  }
+}

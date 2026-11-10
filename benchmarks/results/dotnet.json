@@ -1,0 +1,22 @@
+{
+  "name": "dotnet",
+  "label": ".NET 10 (JIT)",
+  "runtime": ".NET 10.0.402",
+  "machine": {
+    "os": "Darwin arm64",
+    "cpu": "Apple M5 Pro"
+  },
+  "date": "2026-11-10",
+  "ms": {
+    "builtins_stream": 63.156,
+    "classes": 15.751,
+    "collections_ops": 25.07,
+    "dict_ops": 5.111,
+    "fib": 4.781,
+    "generators": 9.428,
+    "list_ops": 9.444,
+    "loop_sum": 26.94,
+    "random_math": 11.539,
+    "strings": 2.091
+  }
+}
