@@ -71,6 +71,9 @@ namespace CSharpPython
 
         public static string Repr(Value v)
         {
+            // A number needs no walk, scope or builder.
+            if (v.Kind == ValueKind.Int) return v.RawInt.ToString(CultureInfo.InvariantCulture);
+            if (v.Kind == ValueKind.Float) return FloatRepr(v.RawFloat);
             var sb = new StringBuilder();
             using (Work.Walk()) WriteRepr(sb, v, new List<object>());
             return sb.ToString();

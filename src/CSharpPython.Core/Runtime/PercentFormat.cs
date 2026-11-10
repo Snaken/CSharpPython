@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Text;
 
 namespace CSharpPython
@@ -176,6 +177,10 @@ namespace CSharpPython
                 if (type != 'd' && type != 'i' && type != 'u') throw TypeError("%" + type + " format: an integer is required, not float");
                 v = FloatToInt(v.RawFloat);
             }
+
+            // Plain %d of an int needs no format spec.
+            if (v.Kind == ValueKind.Int && (type == 'd' || type == 'i' || type == 'u') && !left && !plus && !space && !alt && !zero && width < 0 && precision < 0)
+                return v.RawInt.ToString(CultureInfo.InvariantCulture);
 
             var spec = new StringBuilder();
             if (left) spec.Append('<');

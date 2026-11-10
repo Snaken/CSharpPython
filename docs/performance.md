@@ -17,7 +17,7 @@ CPython 3.14.7, .NET 10.0.402, macOS arm64 (Apple M5 Pro), best of 7 runs after 
 | list_ops | 11.1 ms | 4.9 ms | 2.3x |
 | loop_sum | 27.0 ms | 16.6 ms | 1.6x |
 | random_math | 15.8 ms | 11.6 ms | 1.4x |
-| strings | 5.2 ms | 1.9 ms | 2.7x |
+| strings | 2.1 ms | 1.9 ms | 1.1x |
 
 What each script does:
 
