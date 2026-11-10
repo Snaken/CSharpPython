@@ -142,6 +142,17 @@ namespace CSharpPython
             return r;
         }
 
+        /// <summary><see cref="RandBelow"/> for an n that fits in 31 bits, drawing the same bits without a BigInteger.</summary>
+        public long RandBelowSmall(int n)
+        {
+            int k = 0;
+            for (uint m = (uint)n; m != 0; m >>= 1) k++;
+            int shift = 32 - k;
+            long r = NextUInt32() >> shift;
+            while (r >= n) r = NextUInt32() >> shift;
+            return r;
+        }
+
         public void Write(BinaryWriter w)
         {
             w.Write(_index);

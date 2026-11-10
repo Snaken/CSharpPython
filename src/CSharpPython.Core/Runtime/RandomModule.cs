@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.Numerics;
 
@@ -27,11 +28,16 @@ namespace CSharpPython
             }
         }
 
+        private delegate Value RandomFunction(RandomState s, ReadOnlySpan<Value> p);
+
         public static PyModule Create()
         {
             var m = new PyModule("random");
-            void Add(string name, string[] names, int required, Func<RandomState, Value[], Value> fn) =>
-                m.Members[name] = Value.FromNative(new NativeFunction(name, (c, a) => fn(State, Bind(c, a, name, names, required)), 0, names.Length, true));
+            // A call that gives every parameter by position hands its arguments straight on; any other call is matched
+            // to the parameter names first, which makes an array.
+            void Add(string name, string[] names, int required, RandomFunction fn) =>
+                m.Members[name] = Value.FromNative(new NativeFunction(name, (c, a) =>
+                    !c.KeywordNames.Any() && a.Length == names.Length ? fn(State, a) : fn(State, Bind(c, a, name, names, required)), 0, names.Length, true));
 
             Add("seed", new[] { "a", "version" }, 0, (s, p) =>
             {
@@ -52,6 +58,8 @@ namespace CSharpPython
             Add("randrange", new[] { "start", "stop", "step" }, 1, RandRange);
             Add("randint", new[] { "a", "b" }, 2, (s, p) =>
             {
+                if (p[0].Kind == ValueKind.Int && p[1].Kind == ValueKind.Int && p[1].RawInt >= p[0].RawInt && p[1].RawInt - p[0].RawInt < int.MaxValue)
+                    return Value.FromInt(p[0].RawInt + s.RandBelowSmall((int)(p[1].RawInt - p[0].RawInt + 1)));
                 var a = MathExtras.IntArg(p[0]);
                 var b = MathExtras.IntArg(p[1]);
                 if (b < a) throw Ops.ValueError("empty range in randint(" + a + ", " + b + ")");
@@ -61,7 +69,7 @@ namespace CSharpPython
             {
                 long n = Ops.Length(p[0]);
                 if (n == 0) throw new PyError("IndexError", "Cannot choose from an empty sequence");
-                return Ops.GetItem(p[0], Value.FromInt((long)s.RandBelow(n)));
+                return Ops.GetItem(p[0], Value.FromInt(n < int.MaxValue ? s.RandBelowSmall((int)n) : (long)s.RandBelow(n)));
             });
             Add("shuffle", new[] { "x" }, 1, (s, p) =>
             {
@@ -73,7 +81,7 @@ namespace CSharpPython
                 var items = p[0].AsList().Items;
                 for (int i = items.Count - 1; i >= 1; i--)
                 {
-                    int j = (int)s.RandBelow(i + 1);
+                    int j = (int)s.RandBelowSmall(i + 1);
                     var tmp = items[i];
                     items[i] = items[j];
                     items[j] = tmp;
@@ -174,7 +182,7 @@ namespace CSharpPython
             return result;
         }
 
-        private static Value RandRange(RandomState s, Value[] p)
+        private static Value RandRange(RandomState s, ReadOnlySpan<Value> p)
         {
             var start = MathExtras.IntArg(p[0]);
             if (p[1].Kind == ValueKind.Unbound || p[1].IsNone)
@@ -239,7 +247,7 @@ namespace CSharpPython
             }
         }
 
-        private static Value Sample(RandomState s, Value[] p)
+        private static Value Sample(RandomState s, ReadOnlySpan<Value> p)
         {
             var at = Sequence(p[0], out long n);
             if (p[2].Kind != ValueKind.Unbound && !p[2].IsNone) throw Ops.TypeError("sample() does not support counts");
@@ -274,7 +282,7 @@ namespace CSharpPython
             return Value.FromList(new PyList(result));
         }
 
-        private static Value Choices(RandomState s, Value[] p)
+        private static Value Choices(RandomState s, ReadOnlySpan<Value> p)
         {
             var population = p[0];
             long n = Ops.Length(population);

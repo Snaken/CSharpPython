@@ -14,9 +14,9 @@ CPython 3.14.7, .NET 10.0.402, macOS arm64 (Apple M5 Pro), best of 7 runs after 
 | dict_ops | 5.6 ms | 3.0 ms | 1.8x |
 | fib | 4.6 ms | 1.8 ms | 2.5x |
 | generators | 9.1 ms | 3.3 ms | 2.7x |
-| list_ops | 11.1 ms | 4.9 ms | 2.3x |
+| list_ops | 9.7 ms | 4.9 ms | 2.0x |
 | loop_sum | 27.0 ms | 16.6 ms | 1.6x |
-| random_math | 15.8 ms | 11.6 ms | 1.4x |
+| random_math | 13.5 ms | 11.4 ms | 1.2x |
 | strings | 2.1 ms | 1.9 ms | 1.1x |
 
 What each script does:
