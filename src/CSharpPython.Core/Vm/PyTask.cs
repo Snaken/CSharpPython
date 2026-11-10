@@ -1074,6 +1074,20 @@ namespace CSharpPython
                                 break;
                             }
                         }
+                        else if (_stack[calleeIndex].Kind == ValueKind.Native)
+                        {
+                            // A native function given only positional arguments, within what it accepts: called at once.
+                            // The receiver of a native method sits in front of its arguments and counts as the first.
+                            var fn = (NativeFunction)_stack[calleeIndex].RawObject;
+                            bool hasSelf = isMethod && _stack[calleeIndex + 1].Kind != ValueKind.Unbound;
+                            int argc = hasSelf ? ins.Arg + 1 : ins.Arg;
+                            if (fn.StepKind == 0 && argc >= fn.MinArgs && (fn.MaxArgs < 0 || argc <= fn.MaxArgs))
+                            {
+                                if (InvokeNative(fn, calleeIndex, calleeIndex + (isMethod && !hasSelf ? 2 : 1), argc, argc, null) == CallWait)
+                                    return TaskState.Waiting;
+                                break;
+                            }
+                        }
                         goto case Op.CallEx;
                     }
                     case Op.CallKw:
@@ -2017,6 +2031,12 @@ namespace CSharpPython
                 if (stepped >= 0) return stepped;
             }
 
+            return InvokeNative(fn, calleeIndex, start, count, positional, kwNames);
+        }
+
+        // Runs a native function whose arguments have been checked, and leaves its result on the stack.
+        private int InvokeNative(NativeFunction fn, int calleeIndex, int start, int count, int positional, string[] kwNames)
+        {
             _ctx.SetCall(positional, kwNames);
             _ctx.WaitTicks = -1;
             Value result = fn.Fn(_ctx, new ReadOnlySpan<Value>(_stack, start, count));

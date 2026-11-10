@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Faster: a call to a built-in function or method (`len(x)`, `d.get(k)`, `math.sqrt(x)`) that gives only positional arguments within what the function accepts is made directly by the instruction loop, which saves about 3 ns on each call. Calls with keyword arguments, calls that give the wrong number of arguments (still a `TypeError` with the same text) and `next()`/`send()` on a generator take the same path as before. The `dict_ops` benchmark takes 5.2 ms (CPython: 3.0).
 - Faster: reading a member of a module (`math.sqrt`, `random.random`) goes straight to the module's members instead of through the general attribute lookup, which saves about 5 ns on every such read. The `random_math` benchmark takes 12.0 ms (CPython: 11.5).
 - Faster: `random.randint`, `random.choice` and `random.shuffle` draw their numbers without a `BigInteger` when the range fits in 31 bits, and every `random` function called with all its arguments by position no longer makes an array to hold them. The numbers drawn for a given seed are the same. The `random_math` benchmark takes 13.5 ms instead of 15.8 (CPython: 11.4).
 - Faster: `sorted()` and `list.sort()` of a list of plain ints with no `key` sort one array and write it back, instead of building key, order and result arrays and a second list. The result is the same. The `list_ops` benchmark takes 9.7 ms instead of 11.1 (CPython: 4.9).

@@ -11,12 +11,12 @@ CPython 3.14.7, .NET 10.0.402, macOS arm64 (Apple M5 Pro), best of 7 runs after 
 | builtins_stream | 62.0 ms | 61.2 ms | 1.0x |
 | classes | 14.9 ms | 5.6 ms | 2.7x |
 | collections_ops | 25.2 ms | 10.8 ms | 2.3x |
-| dict_ops | 5.6 ms | 3.0 ms | 1.8x |
+| dict_ops | 5.2 ms | 3.0 ms | 1.7x |
 | fib | 4.6 ms | 1.8 ms | 2.5x |
 | generators | 9.1 ms | 3.3 ms | 2.7x |
-| list_ops | 9.7 ms | 4.9 ms | 2.0x |
+| list_ops | 9.5 ms | 4.9 ms | 1.9x |
 | loop_sum | 27.0 ms | 16.6 ms | 1.6x |
-| random_math | 12.0 ms | 11.5 ms | 1.0x |
+| random_math | 11.5 ms | 11.4 ms | 1.0x |
 | strings | 2.1 ms | 1.9 ms | 1.1x |
 
 What each script does:
