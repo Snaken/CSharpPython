@@ -1,0 +1,9 @@
+3.141592653589793 4.0 2 None True
+module
+3.0 [1.0, 2.0, 3.0]
+AttributeError module 'math' has no attribute 'nothing'
+AttributeError module 'math' has no attribute 'sqroot'
+AttributeError module 'math' has no attribute '__nope__'
+AttributeError module 'math' has no attribute 'nothing'
+AttributeError module 'math' has no attribute 'nothing'
+True False True

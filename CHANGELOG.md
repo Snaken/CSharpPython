@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Faster: reading a member of a module (`math.sqrt`, `random.random`) goes straight to the module's members instead of through the general attribute lookup, which saves about 5 ns on every such read. The `random_math` benchmark takes 12.0 ms (CPython: 11.5).
 - Faster: `random.randint`, `random.choice` and `random.shuffle` draw their numbers without a `BigInteger` when the range fits in 31 bits, and every `random` function called with all its arguments by position no longer makes an array to hold them. The numbers drawn for a given seed are the same. The `random_math` benchmark takes 13.5 ms instead of 15.8 (CPython: 11.4).
 - Faster: `sorted()` and `list.sort()` of a list of plain ints with no `key` sort one array and write it back, instead of building key, order and result arrays and a second list. The result is the same. The `list_ops` benchmark takes 9.7 ms instead of 11.1 (CPython: 4.9).
 - Faster: turning an int or float into text (`str(n)`, `repr(n)`, f-strings, `%s` and a plain `%d`) no longer builds a string builder, a seen-list and a walk scope for each number, and a plain `%d` of an int skips building and parsing a format spec. A 20,000-line string-building script took 2.1 ms instead of 5.2 (CPython: 1.9). Output is the same.

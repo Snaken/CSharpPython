@@ -607,7 +607,7 @@ namespace CSharpPython
                         }
                         else
                         {
-                            Push(Ops.GetAttr(obj, name));
+                            Push(GetAttribute(obj, name));
                             Push(Value.Unbound);
                         }
                         break;
@@ -1692,6 +1692,10 @@ namespace CSharpPython
             if (obj.Kind == ValueKind.Instance && !PyClass.HooksExist && !PyDescriptor.PropertiesExist && !(name.Length == 9 && name == "__class__")
                 && ((PyInstance)obj.RawObject).Fields.TryGetStr(name, out Value field))
                 return field;
+            // A module's member, found without entering the general attribute lookup (a large method that costs more to
+            // enter than the dictionary lookup does).
+            if (obj.Kind == ValueKind.Module && ((PyModule)obj.RawObject).Members.TryGetValue(name, out Value member))
+                return member;
             return Ops.GetAttr(obj, name);
         }
 
