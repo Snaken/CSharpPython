@@ -595,8 +595,25 @@ namespace CSharpPython
                     {
                         Value obj = _stack[--_sp];
                         string name = code.Names[ins.Arg];
-                        if (obj.Kind == ValueKind.Instance && Ops.TryGetScriptMethod(obj, name, out PyFunction scriptMethod))
+                        Shape siteShape = obj.Kind == ValueKind.Instance ? ((PyInstance)obj.RawObject).SlotShape : null;
+                        MethodSite site;
+                        if (siteShape != null && code.ScriptSites != null && (site = code.ScriptSites[pc - 1]) != null
+                            && site.Shape == siteShape && site.Epoch == PyClass.Epoch)
                         {
+                            // The same shape as last time at this call: no attribute of this name, and the same method.
+                            Push(Value.FromFunction(site.Function));
+                            Push(obj);
+                        }
+                        else if (obj.Kind == ValueKind.Instance && Ops.TryGetScriptMethod(obj, name, out PyFunction scriptMethod))
+                        {
+                            if (siteShape != null)
+                            {
+                                if (code.ScriptSites == null) code.ScriptSites = new MethodSite[code.Instructions.Length];
+                                site = code.ScriptSites[pc - 1] ?? (code.ScriptSites[pc - 1] = new MethodSite());
+                                site.Shape = siteShape;
+                                site.Epoch = PyClass.Epoch;
+                                site.Function = scriptMethod;
+                            }
                             Push(Value.FromFunction(scriptMethod));
                             Push(obj);
                         }

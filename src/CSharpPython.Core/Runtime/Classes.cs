@@ -142,6 +142,14 @@ namespace CSharpPython
     /// names in the same order share one shape, and each keeps only its values (in an array), where a dictionary of its
     /// own would cost four objects. A shape is never changed: adding a name leads to the next shape.
     /// </summary>
+    /// <summary>What a method call site last found: for objects of this shape, the script method of this name (valid while the epoch holds).</summary>
+    internal sealed class MethodSite
+    {
+        public Shape Shape;
+        public int Epoch;
+        public PyFunction Function;
+    }
+
     internal sealed class Shape
     {
         private static readonly string[] NoNames = new string[0];
@@ -228,6 +236,9 @@ namespace CSharpPython
         }
 
         /// <summary>True while the attributes are in slots (not a dictionary).</summary>
+        /// <summary>The shape of an object that keeps its attributes in slots, or null once it uses a dictionary.</summary>
+        internal Shape SlotShape => _shape;
+
         public bool InSlots => _shape != null;
 
         public int SlotCount => _shape.Count;

@@ -10,18 +10,18 @@ The chart shows how many times slower than CPython each runtime is (the dashed l
 
 | Script | CPython 3.14.7 | .NET 10 (JIT) | Unity 7 IL2CPP | Unity 6.3 IL2CPP | Unity 6.3 Mono |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| builtins_stream | 60.1 ms | 70.1 ms (1.2x) | 109.8 ms (1.8x) | 111.6 ms (1.9x) | 347.0 ms (5.8x) |
-| classes | 5.5 ms | 12.2 ms (2.2x) | 20.8 ms (3.8x) | 28.4 ms (5.2x) | 68.2 ms (12.4x) |
-| collections_ops | 10.6 ms | 24.1 ms (2.3x) | 29.4 ms (2.8x) | 35.0 ms (3.3x) | 79.5 ms (7.5x) |
-| dict_ops | 3.0 ms | 5.4 ms (1.8x) | 8.7 ms (2.9x) | 8.7 ms (2.9x) | 25.8 ms (8.6x) |
-| fib | 2.0 ms | 4.7 ms (2.4x) | 6.1 ms (3.1x) | 7.8 ms (3.9x) | 20.3 ms (10.3x) |
-| generators | 3.3 ms | 8.9 ms (2.7x) | 14.0 ms (4.3x) | 15.1 ms (4.6x) | 43.5 ms (13.2x) |
-| list_ops | 4.9 ms | 10.1 ms (2.0x) | 14.4 ms (2.9x) | 14.8 ms (3.0x) | 42.0 ms (8.5x) |
-| loop_sum | 16.3 ms | 29.3 ms (1.8x) | 41.8 ms (2.6x) | 46.1 ms (2.8x) | 163.3 ms (10.0x) |
-| random_math | 11.5 ms | 11.4 ms (1.0x) | 16.1 ms (1.4x) | 20.5 ms (1.8x) | 66.9 ms (5.8x) |
-| strings | 1.8 ms | 2.1 ms (1.1x) | 4.5 ms (2.5x) | 6.7 ms (3.6x) | 13.2 ms (7.1x) |
+| builtins_stream | 61.1 ms | 62.1 ms (1.0x) | 111.3 ms (1.8x) | 112.2 ms (1.8x) | 344.3 ms (5.6x) |
+| classes | 5.6 ms | 11.1 ms (2.0x) | 19.9 ms (3.5x) | 25.9 ms (4.6x) | 63.1 ms (11.2x) |
+| collections_ops | 10.4 ms | 24.0 ms (2.3x) | 30.7 ms (2.9x) | 34.3 ms (3.3x) | 80.1 ms (7.7x) |
+| dict_ops | 3.0 ms | 5.2 ms (1.7x) | 8.9 ms (2.9x) | 8.8 ms (2.9x) | 26.0 ms (8.6x) |
+| fib | 1.8 ms | 4.7 ms (2.5x) | 6.3 ms (3.4x) | 7.7 ms (4.2x) | 19.3 ms (10.6x) |
+| generators | 3.2 ms | 9.3 ms (2.9x) | 13.8 ms (4.3x) | 14.7 ms (4.5x) | 43.4 ms (13.4x) |
+| list_ops | 4.8 ms | 9.5 ms (2.0x) | 14.4 ms (3.0x) | 14.7 ms (3.1x) | 42.2 ms (8.8x) |
+| loop_sum | 16.4 ms | 26.8 ms (1.6x) | 42.7 ms (2.6x) | 46.0 ms (2.8x) | 163.8 ms (10.0x) |
+| random_math | 11.3 ms | 11.3 ms (1.0x) | 16.2 ms (1.4x) | 19.7 ms (1.7x) | 68.0 ms (6.0x) |
+| strings | 1.9 ms | 2.1 ms (1.1x) | 4.5 ms (2.4x) | 6.9 ms (3.7x) | 13.0 ms (6.9x) |
 
-On .NET the scripts run from as fast as CPython to about 2.7 times slower. A game does not run on .NET, though: under Unity's IL2CPP they run 1.8 to 5.2 times slower than CPython (1.4 to 4.3 on the Unity 7 alpha), and under Unity's Mono 5.8 to 13.2 times slower. Calls (`fib`), generators and object creation (`classes`) are the slowest paths on every runtime, so they are where the work goes next.
+On .NET the scripts run from as fast as CPython to about 2.9 times slower. A game does not run on .NET, though: under Unity's IL2CPP they run 1.7 to 4.6 times slower than CPython (1.4 to 4.3 on the Unity 7 alpha), and under Unity's Mono 5.6 to 13.4 times slower. Calls (`fib`), generators and object creation (`classes`) are the slowest paths on every runtime, so they are where the work goes next.
 
 What each script does:
 
