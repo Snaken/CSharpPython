@@ -10,18 +10,18 @@ The chart shows how many times slower than CPython each runtime is (the dashed l
 
 | Script | CPython 3.14.7 | .NET 10 (JIT) | Unity 7 IL2CPP | Unity 6.3 IL2CPP | Unity 6.3 Mono |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| builtins_stream | 61.7 ms | 62.5 ms (1.0x) | 112.0 ms (1.8x) | 113.1 ms (1.8x) | 347.9 ms (5.6x) |
-| classes | 5.7 ms | 10.8 ms (1.9x) | 19.5 ms (3.4x) | 24.5 ms (4.3x) | 59.6 ms (10.5x) |
-| collections_ops | 10.5 ms | 23.6 ms (2.3x) | 28.7 ms (2.7x) | 33.6 ms (3.2x) | 75.9 ms (7.2x) |
-| dict_ops | 3.0 ms | 5.3 ms (1.8x) | 8.7 ms (2.9x) | 8.8 ms (3.0x) | 26.0 ms (8.8x) |
-| fib | 1.8 ms | 4.1 ms (2.3x) | 5.4 ms (3.0x) | 5.6 ms (3.1x) | 14.8 ms (8.2x) |
-| generators | 3.3 ms | 9.2 ms (2.8x) | 14.1 ms (4.3x) | 14.8 ms (4.5x) | 43.4 ms (13.3x) |
-| list_ops | 4.9 ms | 9.5 ms (1.9x) | 14.4 ms (2.9x) | 14.8 ms (3.0x) | 42.1 ms (8.6x) |
-| loop_sum | 16.4 ms | 26.7 ms (1.6x) | 43.3 ms (2.6x) | 46.9 ms (2.9x) | 164.8 ms (10.0x) |
-| random_math | 11.4 ms | 9.7 ms (0.9x) | 15.1 ms (1.3x) | 18.1 ms (1.6x) | 57.9 ms (5.1x) |
-| strings | 1.9 ms | 2.0 ms (1.1x) | 4.7 ms (2.4x) | 6.9 ms (3.5x) | 12.8 ms (6.6x) |
+| builtins_stream | 63.8 ms | 64.8 ms (1.0x) | 112.9 ms (1.8x) | 115.5 ms (1.8x) | 354.1 ms (5.6x) |
+| classes | 5.9 ms | 11.2 ms (1.9x) | 19.5 ms (3.3x) | 25.2 ms (4.3x) | 58.7 ms (9.9x) |
+| collections_ops | 11.0 ms | 24.0 ms (2.2x) | 29.4 ms (2.7x) | 34.8 ms (3.2x) | 75.4 ms (6.8x) |
+| dict_ops | 3.1 ms | 5.3 ms (1.7x) | 8.9 ms (2.9x) | 8.9 ms (2.9x) | 26.3 ms (8.5x) |
+| fib | 1.9 ms | 3.9 ms (2.0x) | 5.3 ms (2.7x) | 5.4 ms (2.8x) | 13.8 ms (7.2x) |
+| generators | 3.3 ms | 8.7 ms (2.6x) | 12.8 ms (3.8x) | 13.8 ms (4.1x) | 36.0 ms (10.8x) |
+| list_ops | 5.1 ms | 9.8 ms (1.9x) | 14.6 ms (2.9x) | 15.2 ms (3.0x) | 42.6 ms (8.4x) |
+| loop_sum | 17.0 ms | 27.8 ms (1.6x) | 42.7 ms (2.5x) | 47.8 ms (2.8x) | 166.0 ms (9.7x) |
+| random_math | 11.8 ms | 10.2 ms (0.9x) | 15.3 ms (1.3x) | 18.8 ms (1.6x) | 57.9 ms (4.9x) |
+| strings | 1.9 ms | 2.1 ms (1.1x) | 4.7 ms (2.5x) | 7.0 ms (3.7x) | 13.0 ms (6.8x) |
 
-On .NET the scripts run from slightly faster than CPython to about 2.8 times slower. A game does not run on .NET, though: under Unity's IL2CPP they run 1.6 to 4.5 times slower than CPython (1.3 to 4.3 on the Unity 7 alpha), and under Unity's Mono 5.1 to 13.3 times slower. Calls (`fib`), generators and object creation (`classes`) are the slowest paths on every runtime, so they are where the work goes next.
+On .NET the scripts run from slightly faster than CPython to about 2.6 times slower. A game does not run on .NET, though: under Unity's IL2CPP they run 1.6 to 4.3 times slower than CPython (1.3 to 3.8 on the Unity 7 alpha), and under Unity's Mono 4.9 to 10.8 times slower. Calls (`fib`), generators and object creation (`classes`) are the slowest paths on every runtime, so they are where the work goes next.
 
 What each script does:
 
@@ -61,3 +61,23 @@ Every run writes `benchmarks/results/<config>.json`, then `docs/performance.svg`
 ## The first script in a process
 
 Where the .NET runtime compiles code the first time it runs (desktop .NET, Mono, and so the Unity editor), the first script a process compiles and runs pays for that, whatever the script is: measured on net10.0 with an Explorer-like script, about 13 ms for the first compile and 11 ms for the first `Update`, then 0.05 ms and 1.3 ms for 192 tasks. A game that starts many tasks at once sees this as one slow first frame. Call `PyVm.WarmUp()` while the game loads: it runs a short script on a VM of its own (about 50 ms the first time, under 1 ms after), also saves and restores a task, and takes the first compile and the first tick of 192 tasks down to 0.2 and 1.4 ms. `BlockEditor.WarmUp()` does the same for the block compiler and editor (about 25 ms; the first block compile and editor use fall from 28 ms to 0.4 ms). Both touch nothing of yours, never throw, and can be called more than once. Under IL2CPP the code is compiled ahead of time and there is little to gain.
+
+## Unity's incremental GC
+
+Unity 6 builds with **Use incremental GC** turned on by default. Under IL2CPP that makes every store of a reference into the heap call into the garbage collector (a write barrier), and an interpreter stores a `Value` (which holds a reference) on almost every instruction. In a profile of `fib` under IL2CPP the barrier was about a quarter of the time. Turning the setting off (Project Settings, Player, Other Settings, Configuration) makes the same player run the scripts like this (Unity 6.3 IL2CPP, ms, best of 7):
+
+| Script | Incremental GC on (the default) | Off | Faster by |
+| --- | ---: | ---: | ---: |
+| builtins_stream | 115.5 | 99.4 | 14% |
+| classes | 25.2 | 18.2 | 28% |
+| collections_ops | 34.8 | 21.9 | 37% |
+| dict_ops | 8.9 | 8.2 | 9% |
+| fib | 5.4 | 4.7 | 13% |
+| generators | 13.8 | 10.5 | 24% |
+| list_ops | 15.2 | 13.4 | 12% |
+| loop_sum | 47.8 | 44.1 | 8% |
+| random_math | 18.8 | 13.3 | 30% |
+| strings | 7.0 | 4.2 | 40% |
+
+What you give up is the spreading of collection work over several frames: with the setting off a collection stops the game for as long as it takes, which is usually a few milliseconds for a small heap and more for a large one. A game that already keeps its allocations down, or one that is not sensitive to a rare longer frame, can take the speed; one with a large heap and a steady frame budget should keep it on. The library does not change the setting. `benchmarks/unity` builds the players with the default, and `BENCH_GC_INCREMENTAL=0` builds one without it.
+

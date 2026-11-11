@@ -1088,8 +1088,8 @@ namespace CSharpPython
                                 for (int i = argc; i < numLocals; i++) _stack[argStart + i] = Value.Unbound;
                                 _sp = argStart + numLocals;
                                 frame = PushFrame(target, argStart, calleeIndex);
-                                frame.Closure = callee.Closure;
-                                frame.Owner = callee.Owner;
+                                if (callee.Closure != null) frame.Closure = callee.Closure;
+                                if (callee.Owner != null) frame.Owner = callee.Owner;
                                 code = target;
                                 instructions = target.Fast;
                                 pc = 0;
@@ -1113,8 +1113,8 @@ namespace CSharpPython
                                 for (int i = ins.Arg + 1; i < numLocals; i++) _stack[calleeIndex + i] = Value.Unbound;
                                 _sp = calleeIndex + numLocals;
                                 frame = PushFrame(target, calleeIndex, calleeIndex);
-                                frame.Closure = init.Closure;
-                                frame.Owner = init.Owner;
+                                if (init.Closure != null) frame.Closure = init.Closure;
+                                if (init.Owner != null) frame.Owner = init.Owner;
                                 frame.IsConstructor = true;
                                 frame.Constructed = self;
                                 code = target;
@@ -2613,27 +2613,36 @@ namespace CSharpPython
             Array.Resize(ref _stack, length);
         }
 
-        private Frame PushFrame(Code code, int bas, int calleeIndex)
+        // A resumed generator sets the closure, owner, generator and default itself, so it asks for those to be left alone.
+        private Frame PushFrame(Code code, int bas, int calleeIndex, bool resuming = false)
         {
             if (_frameCount == _frames.Length) Array.Resize(ref _frames, _frameCount * 2);
             Frame f = _frames[_frameCount] ?? (_frames[_frameCount] = new Frame());
             _frameCount++;
-            f.Code = code;
+            if (f.Code != code) f.Code = code;
             f.Pc = 0;
             f.Base = bas;
             f.CalleeIndex = calleeIndex;
             f.IsEvent = false;
             f.IsBoundary = false;
-            f.Closure = null;
+            // Most frames hold none of these, and storing a reference costs more than testing it (a GC write barrier,
+            // which under IL2CPP is a function call), so only a slot that holds something is cleared.
+            if (!resuming && f.Closure != null) f.Closure = null;
             f.HandlerCount = 0;
-            f.ExcInfo = default;
-            f.IsConstructor = false;
-            f.Constructed = default;
-            f.Owner = null;
-            f.Generator = null;
+            if (!f.ExcInfo.IsDefault) f.ExcInfo = default;
+            if (f.IsConstructor)
+            {
+                f.IsConstructor = false;
+                f.Constructed = default;
+            }
+            if (!resuming)
+            {
+                if (f.Owner != null) f.Owner = null;
+                if (f.Generator != null) f.Generator = null;
+                if (!f.GenDefault.IsDefault) f.GenDefault = default;
+            }
             f.GenMode = GenMode.None;
-            f.GenDefault = default;
-            f.CacheOwner = null;
+            if (f.CacheOwner != null) f.CacheOwner = null;
             return f;
         }
     }

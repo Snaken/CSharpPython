@@ -5,7 +5,8 @@ using UnityEditor.Build.Reporting;
 using UnityEditor.SceneManagement;
 
 // Builds the benchmark player. Called by unity/run_unity.py through "unity build --execute-method BuildBench.Build" with
-// BENCH_BACKEND (Mono or IL2CPP), BENCH_TARGET (a BuildTarget name) and BENCH_OUT (the player path) in the environment.
+// BENCH_BACKEND (Mono or IL2CPP), BENCH_TARGET (a BuildTarget name) and BENCH_OUT (the player path) in the environment, and
+// optionally BENCH_GC_INCREMENTAL=0 to turn off the incremental GC (Unity's default is on).
 public static class BuildBench
 {
     public static void Build()
@@ -15,6 +16,7 @@ public static class BuildBench
         var buildTarget = (BuildTarget)Enum.Parse(typeof(BuildTarget), Environment.GetEnvironmentVariable("BENCH_TARGET") ?? "StandaloneOSX");
         var target = NamedBuildTarget.Standalone;
         PlayerSettings.productName = "Bench";
+        PlayerSettings.gcIncremental = Environment.GetEnvironmentVariable("BENCH_GC_INCREMENTAL") != "0";
         PlayerSettings.SetScriptingBackend(target, backend == "IL2CPP" ? ScriptingImplementation.IL2CPP : ScriptingImplementation.Mono2x);
         PlayerSettings.SetManagedStrippingLevel(target, ManagedStrippingLevel.Disabled);
         EditorUserBuildSettings.development = false;

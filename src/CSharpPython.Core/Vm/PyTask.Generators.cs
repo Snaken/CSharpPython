@@ -19,15 +19,16 @@ namespace CSharpPython
             EnsureStack(bas + g.Saved.Length + g.Code.NumLocals + 8);
             CopyValues(g.Saved, _stack, bas, g.Saved.Length);
             _sp = bas + g.Saved.Length;
-            PushFrame(g.Code, bas, calleeIndex);
-            Frame f = _frames[_frameCount - 1];
-            f.Closure = g.Closure;
-            f.Owner = g.Owner;
+            Frame f = PushFrame(g.Code, bas, calleeIndex, true);
+            // The frame slot is usually the one this generator ran in last time, so most of these are already right; storing
+            // a reference costs a GC write barrier, which under IL2CPP is a function call.
+            if (f.Closure != g.Closure) f.Closure = g.Closure;
+            if (f.Owner != g.Owner) f.Owner = g.Owner;
             f.Pc = g.Pc;
-            f.ExcInfo = g.ExcInfo;
-            f.Generator = g;
+            if (!g.ExcInfo.IsDefault) f.ExcInfo = g.ExcInfo;
+            if (f.Generator != g) f.Generator = g;
             f.GenMode = mode;
-            f.GenDefault = dflt;
+            if (dflt.Kind != ValueKind.Unbound || f.GenDefault.Kind != ValueKind.Unbound) f.GenDefault = dflt;
             for (int i = 0; i < g.HandlerAddresses.Length; i++)
             {
                 if (f.HandlerCount == f.Handlers.Length) Array.Resize(ref f.Handlers, f.HandlerCount * 2);
@@ -62,9 +63,20 @@ namespace CSharpPython
             g.Spare = null;
             CopyValues(_stack, f.Base, g.Saved, 0, g.Saved.Length);
             g.Pc = f.Pc;
-            g.ExcInfo = f.ExcInfo;
-            g.HandlerAddresses = f.HandlerCount == 0 ? Array.Empty<int>() : new int[f.HandlerCount];
-            g.HandlerHeights = f.HandlerCount == 0 ? Array.Empty<int>() : new int[f.HandlerCount];
+            if (!f.ExcInfo.IsDefault || !g.ExcInfo.IsDefault) g.ExcInfo = f.ExcInfo;
+            if (f.HandlerCount == 0)
+            {
+                if (g.HandlerAddresses.Length != 0)
+                {
+                    g.HandlerAddresses = Array.Empty<int>();
+                    g.HandlerHeights = Array.Empty<int>();
+                }
+            }
+            else
+            {
+                g.HandlerAddresses = new int[f.HandlerCount];
+                g.HandlerHeights = new int[f.HandlerCount];
+            }
             for (int i = 0; i < f.HandlerCount; i++)
             {
                 g.HandlerAddresses[i] = f.Handlers[i].Address;

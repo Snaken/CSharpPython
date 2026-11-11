@@ -25,6 +25,9 @@ namespace CSharpPython
 
         // ---- Construction ---------------------------------------------------------------------------------------
 
+        /// <summary>True for <c>default(Value)</c>, which is None with nothing in it (a cheap test before overwriting a slot with it).</summary>
+        internal bool IsDefault => Kind == 0 && _obj == null;
+
         public static readonly Value None = default;
         public static readonly Value True = new Value(ValueKind.Bool, 1, null);
         public static readonly Value False = new Value(ValueKind.Bool, 0, null);
