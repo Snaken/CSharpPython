@@ -288,7 +288,7 @@ namespace CSharpPython
                     }
                     return MixHash(unchecked((ulong)BitConverter.DoubleToInt64Bits(d)));
                 }
-                case ValueKind.Str: return HashString((string)v.RawObject);
+                case ValueKind.Str: return v.RawInt != 0 ? (int)v.RawInt : HashString((string)v.RawObject);
                 case ValueKind.Tuple:
                 {
                     CheckStack();
@@ -386,6 +386,9 @@ namespace CSharpPython
         // Strings are hashed here, not with string.GetHashCode(): that is randomized per process on .NET Core but not on
         // every runtime a game may use (Unity's Mono and IL2CPP), where a script could find colliding strings offline.
         // The accumulator starts from the process seed, so a collision of the accumulator is not the same for every run.
+        /// <summary>A string value that carries its hash (see <see cref="Value.FromHashedString"/>).</summary>
+        internal static Value HashedString(string s) => Value.FromHashedString(s, HashString(s));
+
         private static int HashString(string s)
         {
             ulong h = 14695981039346656037UL ^ HashSeed;

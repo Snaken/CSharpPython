@@ -928,7 +928,7 @@ namespace CSharpPython.Compilation
                 case long l: return Value.FromInt(l);
                 case System.Numerics.BigInteger big: return Value.FromBig(big);
                 case double d: return Value.FromFloat(d);
-                default: return Value.FromString((string)o);
+                default: return Ops.HashedString((string)o);
             }
         }
 

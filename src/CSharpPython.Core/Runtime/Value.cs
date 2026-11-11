@@ -44,6 +44,12 @@ namespace CSharpPython
         public static Value FromString(string s) =>
             s == null ? None : new Value(ValueKind.Str, 0, s);
 
+        // A string with its hash already worked out, kept in the bits a string does not otherwise use (bit 32 marks it as
+        // present, so a hash of 0 is not mistaken for none). Used for the string constants of a script, which are looked up
+        // as dictionary keys over and over. It equals the same string without one.
+        internal static Value FromHashedString(string s, int hash) =>
+            new Value(ValueKind.Str, (1L << 32) | (uint)hash, s);
+
         public static Value FromList(PyList list) => new Value(ValueKind.List, 0, list);
 
         internal static Value FromDeque(PyDeque deque) => new Value(ValueKind.Deque, 0, deque);

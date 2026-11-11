@@ -1,0 +1,12 @@
+1 1 2 3 none
+[('', 3), ('alpha', 10), ('beta', 2), ('gamma', 4)]
+True True True
+2 True True False
+a b
+[('end', 1), ('lazy', 1), ('quick', 1), ('the', 3)]
+True True
+6 6 True
+alpha 10
+alpha gone
+alpha gone
+['', 'beta', 'gamma']
