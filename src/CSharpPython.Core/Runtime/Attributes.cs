@@ -272,6 +272,7 @@ namespace CSharpPython
             if (obj.Kind == ValueKind.Class)
             {
                 var cls = (PyClass)obj.RawObject;
+                PyClass.Epoch++;
                 if (!cls.Namespace.Remove(key)) throw new PyError("AttributeError", "type object '" + cls.Name + "' has no attribute '" + name + "'");
                 return;
             }
@@ -307,6 +308,7 @@ namespace CSharpPython
             }
             if (obj.Kind == ValueKind.Class)
             {
+                PyClass.Epoch++;
                 ((PyClass)obj.RawObject).Namespace.Set(Value.FromString(name), value);
                 if (PyClass.IsHookName(name)) PyClass.HooksExist = true;
                 return;

@@ -57,6 +57,32 @@ namespace CSharpPython
             Namespace = ns;
         }
 
+        /// <summary>Raised whenever a class attribute is assigned or deleted, so cached lookups on classes know to look again.</summary>
+        public static int Epoch;
+
+        private int _initEpoch = -1;
+        private PyFunction _plainInit;
+
+        /// <summary>
+        /// The <c>__init__</c> of a class whose construction needs nothing special (not an exception, not a generator),
+        /// or null. Cached until any class attribute changes.
+        /// </summary>
+        public PyFunction PlainInit
+        {
+            get
+            {
+                if (_initEpoch != Epoch)
+                {
+                    _plainInit = null;
+                    if (ExceptionRoot == null && TryFind("__init__", out Value init) && init.Kind == ValueKind.Function
+                        && !((PyFunction)init.RawObject).Code.IsGenerator)
+                        _plainInit = (PyFunction)init.RawObject;
+                    _initEpoch = Epoch;
+                }
+                return _plainInit;
+            }
+        }
+
         /// <summary>Looks a name up in this class and then its parents.</summary>
         public bool TryFind(string name, out Value value)
         {

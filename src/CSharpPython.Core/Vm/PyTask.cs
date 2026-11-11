@@ -1074,6 +1074,33 @@ namespace CSharpPython
                                 break;
                             }
                         }
+                        else if (_stack[calleeIndex].Kind == ValueKind.Class && !isMethod)
+                        {
+                            // A script class whose __init__ is plain, given exactly its arguments: the instance takes the
+                            // callee's slot as self, and __init__ starts as a frame that returns it.
+                            var cls = (PyClass)_stack[calleeIndex].RawObject;
+                            PyFunction init = cls.PlainInit;
+                            if (init != null && ins.Arg + 1 == init.Code.NumParams && init.Code.IsPlain && _frameCount < Vm.Options.MaxCallDepth)
+                            {
+                                Code target = init.Code;
+                                int numLocals = target.NumLocals;
+                                if (calleeIndex + numLocals + 8 > _stack.Length) EnsureStack(calleeIndex + numLocals + 8);
+                                var self = Value.FromInstance(new PyInstance(cls));
+                                _stack[calleeIndex] = self;
+                                for (int i = ins.Arg + 1; i < numLocals; i++) _stack[calleeIndex + i] = Value.Unbound;
+                                _sp = calleeIndex + numLocals;
+                                frame = PushFrame(target, calleeIndex, calleeIndex);
+                                frame.Closure = init.Closure;
+                                frame.Owner = init.Owner;
+                                frame.IsConstructor = true;
+                                frame.Constructed = self;
+                                code = target;
+                                instructions = target.Fast;
+                                pc = 0;
+                                bas = calleeIndex;
+                                break;
+                            }
+                        }
                         else if (_stack[calleeIndex].Kind == ValueKind.Native)
                         {
                             // A native function given only positional arguments, within what it accepts: called at once.

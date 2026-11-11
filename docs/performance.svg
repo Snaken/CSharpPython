@@ -21,55 +21,55 @@ text{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;fill:var(--
 <line class="b" x1="58" x2="944" y1="386.1" y2="386.1"/>
 <line class="b" x1="832" x2="856" y1="28" y2="28"/>
 <text x="944" y="33" font-size="12" text-anchor="end">CPython (1x)</text>
-<rect x="67.4" y="386.1" width="16.7" height="1.0" fill="#0072B2"><title>.NET 10 (JIT), builtins_stream: 62.0 ms, 1.0x CPython</title></rect>
-<rect x="85.1" y="318.3" width="16.7" height="67.7" fill="#009E73"><title>Unity 7 IL2CPP, builtins_stream: 111.9 ms, 1.8x CPython</title></rect>
-<rect x="102.8" y="315.6" width="16.7" height="70.5" fill="#E69F00"><title>Unity 6.3 IL2CPP, builtins_stream: 114.6 ms, 1.8x CPython</title></rect>
-<rect x="120.5" y="186.5" width="16.7" height="199.5" fill="#D55E00"><title>Unity 6.3 Mono, builtins_stream: 347.9 ms, 5.6x CPython</title></rect>
+<rect x="67.4" y="368.2" width="16.7" height="17.9" fill="#0072B2"><title>.NET 10 (JIT), builtins_stream: 70.1 ms, 1.2x CPython</title></rect>
+<rect x="85.1" y="316.1" width="16.7" height="69.9" fill="#009E73"><title>Unity 7 IL2CPP, builtins_stream: 109.8 ms, 1.8x CPython</title></rect>
+<rect x="102.8" y="314.3" width="16.7" height="71.8" fill="#E69F00"><title>Unity 6.3 IL2CPP, builtins_stream: 111.6 ms, 1.9x CPython</title></rect>
+<rect x="120.5" y="182.5" width="16.7" height="203.6" fill="#D55E00"><title>Unity 6.3 Mono, builtins_stream: 347.0 ms, 5.8x CPython</title></rect>
 <text x="102.3" y="430" font-size="11" text-anchor="middle">builtins_stream</text>
-<rect x="156.0" y="295.1" width="16.7" height="91.0" fill="#0072B2"><title>.NET 10 (JIT), classes: 12.7 ms, 2.2x CPython</title></rect>
-<rect x="173.7" y="229.3" width="16.7" height="156.8" fill="#009E73"><title>Unity 7 IL2CPP, classes: 22.4 ms, 3.9x CPython</title></rect>
-<rect x="191.4" y="195.8" width="16.7" height="190.3" fill="#E69F00"><title>Unity 6.3 IL2CPP, classes: 29.9 ms, 5.1x CPython</title></rect>
-<rect x="209.1" y="91.7" width="16.7" height="294.4" fill="#D55E00"><title>Unity 6.3 Mono, classes: 73.3 ms, 12.6x CPython</title></rect>
+<rect x="156.0" y="294.1" width="16.7" height="91.9" fill="#0072B2"><title>.NET 10 (JIT), classes: 12.2 ms, 2.2x CPython</title></rect>
+<rect x="173.7" y="232.1" width="16.7" height="154.0" fill="#009E73"><title>Unity 7 IL2CPP, classes: 20.8 ms, 3.8x CPython</title></rect>
+<rect x="191.4" y="195.5" width="16.7" height="190.6" fill="#E69F00"><title>Unity 6.3 IL2CPP, classes: 28.4 ms, 5.2x CPython</title></rect>
+<rect x="209.1" y="93.9" width="16.7" height="292.2" fill="#D55E00"><title>Unity 6.3 Mono, classes: 68.2 ms, 12.4x CPython</title></rect>
 <text x="190.9" y="430" font-size="11" text-anchor="middle">classes</text>
-<rect x="244.6" y="294.0" width="16.7" height="92.1" fill="#0072B2"><title>.NET 10 (JIT), collections_ops: 24.0 ms, 2.2x CPython</title></rect>
-<rect x="262.3" y="270.7" width="16.7" height="115.3" fill="#009E73"><title>Unity 7 IL2CPP, collections_ops: 29.3 ms, 2.7x CPython</title></rect>
-<rect x="280.0" y="252.2" width="16.7" height="133.9" fill="#E69F00"><title>Unity 6.3 IL2CPP, collections_ops: 34.4 ms, 3.2x CPython</title></rect>
-<rect x="297.7" y="158.6" width="16.7" height="227.4" fill="#D55E00"><title>Unity 6.3 Mono, collections_ops: 77.0 ms, 7.1x CPython</title></rect>
+<rect x="244.6" y="290.5" width="16.7" height="95.6" fill="#0072B2"><title>.NET 10 (JIT), collections_ops: 24.1 ms, 2.3x CPython</title></rect>
+<rect x="262.3" y="267.4" width="16.7" height="118.7" fill="#009E73"><title>Unity 7 IL2CPP, collections_ops: 29.4 ms, 2.8x CPython</title></rect>
+<rect x="280.0" y="246.9" width="16.7" height="139.2" fill="#E69F00"><title>Unity 6.3 IL2CPP, collections_ops: 35.0 ms, 3.3x CPython</title></rect>
+<rect x="297.7" y="151.6" width="16.7" height="234.5" fill="#D55E00"><title>Unity 6.3 Mono, collections_ops: 79.5 ms, 7.5x CPython</title></rect>
 <text x="279.5" y="430" font-size="11" text-anchor="middle">collections_ops</text>
-<rect x="333.2" y="325.6" width="16.7" height="60.4" fill="#0072B2"><title>.NET 10 (JIT), dict_ops: 5.3 ms, 1.7x CPython</title></rect>
-<rect x="350.9" y="265.8" width="16.7" height="120.3" fill="#009E73"><title>Unity 7 IL2CPP, dict_ops: 8.8 ms, 2.8x CPython</title></rect>
-<rect x="368.6" y="265.0" width="16.7" height="121.1" fill="#E69F00"><title>Unity 6.3 IL2CPP, dict_ops: 8.9 ms, 2.8x CPython</title></rect>
-<rect x="386.3" y="140.7" width="16.7" height="245.4" fill="#D55E00"><title>Unity 6.3 Mono, dict_ops: 25.9 ms, 8.3x CPython</title></rect>
+<rect x="333.2" y="318.7" width="16.7" height="67.4" fill="#0072B2"><title>.NET 10 (JIT), dict_ops: 5.4 ms, 1.8x CPython</title></rect>
+<rect x="350.9" y="262.8" width="16.7" height="123.3" fill="#009E73"><title>Unity 7 IL2CPP, dict_ops: 8.7 ms, 2.9x CPython</title></rect>
+<rect x="368.6" y="262.8" width="16.7" height="123.3" fill="#E69F00"><title>Unity 6.3 IL2CPP, dict_ops: 8.7 ms, 2.9x CPython</title></rect>
+<rect x="386.3" y="136.3" width="16.7" height="249.7" fill="#D55E00"><title>Unity 6.3 Mono, dict_ops: 25.8 ms, 8.6x CPython</title></rect>
 <text x="368.1" y="430" font-size="11" text-anchor="middle">dict_ops</text>
-<rect x="421.8" y="274.8" width="16.7" height="111.2" fill="#0072B2"><title>.NET 10 (JIT), fib: 4.8 ms, 2.6x CPython</title></rect>
-<rect x="439.5" y="245.7" width="16.7" height="140.4" fill="#009E73"><title>Unity 7 IL2CPP, fib: 6.2 ms, 3.3x CPython</title></rect>
-<rect x="457.2" y="218.7" width="16.7" height="167.3" fill="#E69F00"><title>Unity 6.3 IL2CPP, fib: 7.8 ms, 4.2x CPython</title></rect>
-<rect x="474.9" y="105.4" width="16.7" height="280.7" fill="#D55E00"><title>Unity 6.3 Mono, fib: 20.7 ms, 11.2x CPython</title></rect>
+<rect x="421.8" y="286.2" width="16.7" height="99.9" fill="#0072B2"><title>.NET 10 (JIT), fib: 4.7 ms, 2.4x CPython</title></rect>
+<rect x="439.5" y="255.0" width="16.7" height="131.0" fill="#009E73"><title>Unity 7 IL2CPP, fib: 6.1 ms, 3.1x CPython</title></rect>
+<rect x="457.2" y="226.7" width="16.7" height="159.4" fill="#E69F00"><title>Unity 6.3 IL2CPP, fib: 7.8 ms, 3.9x CPython</title></rect>
+<rect x="474.9" y="115.6" width="16.7" height="270.5" fill="#D55E00"><title>Unity 6.3 Mono, fib: 20.3 ms, 10.3x CPython</title></rect>
 <text x="456.7" y="430" font-size="11" text-anchor="middle">fib</text>
-<rect x="510.4" y="270.4" width="16.7" height="115.7" fill="#0072B2"><title>.NET 10 (JIT), generators: 9.3 ms, 2.7x CPython</title></rect>
-<rect x="528.1" y="222.8" width="16.7" height="163.3" fill="#009E73"><title>Unity 7 IL2CPP, generators: 14.1 ms, 4.1x CPython</title></rect>
-<rect x="545.8" y="215.6" width="16.7" height="170.5" fill="#E69F00"><title>Unity 6.3 IL2CPP, generators: 15.0 ms, 4.3x CPython</title></rect>
-<rect x="563.5" y="91.5" width="16.7" height="294.6" fill="#D55E00"><title>Unity 6.3 Mono, generators: 43.6 ms, 12.6x CPython</title></rect>
+<rect x="510.4" y="270.1" width="16.7" height="115.9" fill="#0072B2"><title>.NET 10 (JIT), generators: 8.9 ms, 2.7x CPython</title></rect>
+<rect x="528.1" y="217.8" width="16.7" height="168.3" fill="#009E73"><title>Unity 7 IL2CPP, generators: 14.0 ms, 4.3x CPython</title></rect>
+<rect x="545.8" y="209.6" width="16.7" height="176.5" fill="#E69F00"><title>Unity 6.3 IL2CPP, generators: 15.1 ms, 4.6x CPython</title></rect>
+<rect x="563.5" y="86.3" width="16.7" height="299.8" fill="#D55E00"><title>Unity 6.3 Mono, generators: 43.5 ms, 13.2x CPython</title></rect>
 <text x="545.3" y="430" font-size="11" text-anchor="middle">generators</text>
-<rect x="599.0" y="312.6" width="16.7" height="73.5" fill="#0072B2"><title>.NET 10 (JIT), list_ops: 9.6 ms, 1.9x CPython</title></rect>
-<rect x="616.7" y="265.9" width="16.7" height="120.2" fill="#009E73"><title>Unity 7 IL2CPP, list_ops: 14.3 ms, 2.8x CPython</title></rect>
-<rect x="634.4" y="261.8" width="16.7" height="124.3" fill="#E69F00"><title>Unity 6.3 IL2CPP, list_ops: 14.9 ms, 2.9x CPython</title></rect>
-<rect x="652.1" y="139.8" width="16.7" height="246.3" fill="#D55E00"><title>Unity 6.3 Mono, list_ops: 42.5 ms, 8.3x CPython</title></rect>
+<rect x="599.0" y="303.2" width="16.7" height="82.9" fill="#0072B2"><title>.NET 10 (JIT), list_ops: 10.1 ms, 2.0x CPython</title></rect>
+<rect x="616.7" y="262.0" width="16.7" height="124.1" fill="#009E73"><title>Unity 7 IL2CPP, list_ops: 14.4 ms, 2.9x CPython</title></rect>
+<rect x="634.4" y="258.8" width="16.7" height="127.2" fill="#E69F00"><title>Unity 6.3 IL2CPP, list_ops: 14.8 ms, 3.0x CPython</title></rect>
+<rect x="652.1" y="137.4" width="16.7" height="248.6" fill="#D55E00"><title>Unity 6.3 Mono, list_ops: 42.0 ms, 8.5x CPython</title></rect>
 <text x="633.9" y="430" font-size="11" text-anchor="middle">list_ops</text>
-<rect x="687.6" y="331.6" width="16.7" height="54.5" fill="#0072B2"><title>.NET 10 (JIT), loop_sum: 27.1 ms, 1.6x CPython</title></rect>
-<rect x="705.3" y="277.2" width="16.7" height="108.9" fill="#009E73"><title>Unity 7 IL2CPP, loop_sum: 43.3 ms, 2.6x CPython</title></rect>
-<rect x="723.0" y="266.0" width="16.7" height="120.1" fill="#E69F00"><title>Unity 6.3 IL2CPP, loop_sum: 47.6 ms, 2.8x CPython</title></rect>
-<rect x="740.7" y="122.0" width="16.7" height="264.0" fill="#D55E00"><title>Unity 6.3 Mono, loop_sum: 164.5 ms, 9.7x CPython</title></rect>
+<rect x="687.6" y="318.4" width="16.7" height="67.6" fill="#0072B2"><title>.NET 10 (JIT), loop_sum: 29.3 ms, 1.8x CPython</title></rect>
+<rect x="705.3" y="277.0" width="16.7" height="109.1" fill="#009E73"><title>Unity 7 IL2CPP, loop_sum: 41.8 ms, 2.6x CPython</title></rect>
+<rect x="723.0" y="265.6" width="16.7" height="120.5" fill="#E69F00"><title>Unity 6.3 IL2CPP, loop_sum: 46.1 ms, 2.8x CPython</title></rect>
+<rect x="740.7" y="118.7" width="16.7" height="267.3" fill="#D55E00"><title>Unity 6.3 Mono, loop_sum: 163.3 ms, 10.0x CPython</title></rect>
 <text x="722.5" y="430" font-size="11" text-anchor="middle">loop_sum</text>
-<rect x="776.2" y="386.1" width="16.7" height="1.0" fill="#0072B2"><title>.NET 10 (JIT), random_math: 11.6 ms, 1.0x CPython</title></rect>
-<rect x="793.9" y="347.4" width="16.7" height="38.7" fill="#009E73"><title>Unity 7 IL2CPP, random_math: 16.2 ms, 1.4x CPython</title></rect>
-<rect x="811.6" y="323.2" width="16.7" height="62.8" fill="#E69F00"><title>Unity 6.3 IL2CPP, random_math: 19.9 ms, 1.7x CPython</title></rect>
-<rect x="829.3" y="181.4" width="16.7" height="204.7" fill="#D55E00"><title>Unity 6.3 Mono, random_math: 67.4 ms, 5.8x CPython</title></rect>
+<rect x="776.2" y="386.1" width="16.7" height="1.0" fill="#0072B2"><title>.NET 10 (JIT), random_math: 11.4 ms, 1.0x CPython</title></rect>
+<rect x="793.9" y="346.9" width="16.7" height="39.2" fill="#009E73"><title>Unity 7 IL2CPP, random_math: 16.1 ms, 1.4x CPython</title></rect>
+<rect x="811.6" y="318.9" width="16.7" height="67.2" fill="#E69F00"><title>Unity 6.3 IL2CPP, random_math: 20.5 ms, 1.8x CPython</title></rect>
+<rect x="829.3" y="181.4" width="16.7" height="204.7" fill="#D55E00"><title>Unity 6.3 Mono, random_math: 66.9 ms, 5.8x CPython</title></rect>
 <text x="811.1" y="430" font-size="11" text-anchor="middle">random_math</text>
-<rect x="864.8" y="378.5" width="16.7" height="7.6" fill="#0072B2"><title>.NET 10 (JIT), strings: 2.1 ms, 1.1x CPython</title></rect>
-<rect x="882.5" y="279.7" width="16.7" height="106.4" fill="#009E73"><title>Unity 7 IL2CPP, strings: 4.9 ms, 2.5x CPython</title></rect>
-<rect x="900.2" y="242.5" width="16.7" height="143.6" fill="#E69F00"><title>Unity 6.3 IL2CPP, strings: 6.7 ms, 3.4x CPython</title></rect>
-<rect x="917.9" y="166.8" width="16.7" height="219.3" fill="#D55E00"><title>Unity 6.3 Mono, strings: 12.9 ms, 6.6x CPython</title></rect>
+<rect x="864.8" y="370.2" width="16.7" height="15.8" fill="#0072B2"><title>.NET 10 (JIT), strings: 2.1 ms, 1.1x CPython</title></rect>
+<rect x="882.5" y="282.0" width="16.7" height="104.1" fill="#009E73"><title>Unity 7 IL2CPP, strings: 4.5 ms, 2.5x CPython</title></rect>
+<rect x="900.2" y="235.9" width="16.7" height="150.1" fill="#E69F00"><title>Unity 6.3 IL2CPP, strings: 6.7 ms, 3.6x CPython</title></rect>
+<rect x="917.9" y="157.7" width="16.7" height="228.4" fill="#D55E00"><title>Unity 6.3 Mono, strings: 13.2 ms, 7.1x CPython</title></rect>
 <text x="899.7" y="430" font-size="11" text-anchor="middle">strings</text>
 <rect x="58" y="22" width="12" height="12" fill="#0072B2"/>
 <text x="76" y="33" font-size="12">.NET 10 (JIT)</text>
