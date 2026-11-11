@@ -173,6 +173,7 @@ namespace CSharpPython.Compilation
 
         /// <summary>The native method a <see cref="Op.LoadMethod"/> instruction found last time, by instruction index.</summary>
         public MethodSite[] ScriptSites;
+        public GlobalSite[] GlobalSites;
         public NativeFunction[] MethodCache;
         public ValueKind[] MethodCacheKind;
 

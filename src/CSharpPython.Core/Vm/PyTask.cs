@@ -139,7 +139,7 @@ namespace CSharpPython
         public PyVm Vm { get; }
 
         /// <summary>The script's global variables. Handlers are the functions stored here.</summary>
-        public Dictionary<string, Value> Globals { get; } = new Dictionary<string, Value>();
+        public Globals Globals { get; } = new Globals();
 
         /// <summary>Free for the host to use, for example to remember which game object owns the task.</summary>
         public object Owner { get; set; }
@@ -551,9 +551,15 @@ namespace CSharpPython
                         break;
                     case Op.LoadGlobal:
                     {
-                        string name = code.Names[ins.Arg];
-                        if (Globals.TryGetValue(name, out Value v) || Vm.Builtins.TryGetValue(name, out v)) Push(v);
-                        else throw new PyError("NameError", "name '" + name + "' is not defined");
+                        GlobalSite[] globalSites = code.GlobalSites;
+                        GlobalSite globalSite;
+                        if (globalSites != null && (globalSite = globalSites[pc - 1]) != null && globalSite.Globals == Globals
+                            && globalSite.Version == Globals.Version && globalSite.BuiltinsVersion == Vm.BuiltinsVersion)
+                        {
+                            Push(globalSite.Cell != null ? globalSite.Cell.Value : globalSite.Value);
+                            break;
+                        }
+                        Push(LoadGlobalSlow(code, pc - 1, code.Names[ins.Arg]));
                         break;
                     }
                     case Op.StoreGlobal:
@@ -1376,6 +1382,30 @@ namespace CSharpPython
             if (cell.Value.Kind == ValueKind.Unbound)
                 throw new PyError("NameError", "cannot access free variable '" + code.FreeNames[ins.Arg] + "' where it is not associated with a value in enclosing scope");
             cell.Value = Value.Unbound;
+        }
+
+        // Looks a global (then a built-in) up and remembers the answer at this place in the code, for the reads that follow.
+        private Value LoadGlobalSlow(Code code, int site, string name)
+        {
+            if (code.GlobalSites == null) code.GlobalSites = new GlobalSite[code.Instructions.Length];
+            GlobalSite s = code.GlobalSites[site] ?? (code.GlobalSites[site] = new GlobalSite());
+            s.Globals = Globals;
+            s.Version = Globals.Version;
+            s.BuiltinsVersion = Vm.BuiltinsVersion;
+            if (Globals.TryGetCell(name, out GlobalCell cell))
+            {
+                s.Cell = cell;
+                return cell.Value;
+            }
+            s.Cell = null;
+            if (Vm.Builtins.TryGetValue(name, out Value builtin))
+            {
+                s.Value = builtin;
+                return builtin;
+            }
+            // Not found: leave the site empty so that it looks again (and raises again) next time.
+            s.Globals = null;
+            throw new PyError("NameError", "name '" + name + "' is not defined");
         }
 
         private void ColdDeleteGlobal(Instruction ins, Code code)

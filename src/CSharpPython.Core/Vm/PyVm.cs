@@ -12,6 +12,9 @@ namespace CSharpPython
     public sealed partial class PyVm
     {
         internal readonly Dictionary<string, Value> Builtins = new Dictionary<string, Value>();
+
+        /// <summary>Goes up whenever a built-in is added or replaced, which makes the global reads that remembered one look again.</summary>
+        internal int BuiltinsVersion;
         internal readonly Dictionary<string, PyModule> Modules = new Dictionary<string, PyModule>();
 
         public VmOptions Options { get; }
@@ -71,7 +74,11 @@ namespace CSharpPython
                 ? child.Substring(parent.Length + 1) : null;
 
         /// <summary>Adds a name that every script can use without importing, such as a global helper function.</summary>
-        public void SetBuiltin(string name, Value value) => Builtins[name] = value;
+        public void SetBuiltin(string name, Value value)
+        {
+            Builtins[name] = value;
+            BuiltinsVersion++;
+        }
 
         /// <summary>
         /// Defines an exception class that host functions can raise with <c>new PyError(name, message)</c> and that
@@ -84,6 +91,7 @@ namespace CSharpPython
                 throw new ArgumentException("unknown parent exception type '" + parent + "'", nameof(parent));
             var type = ExceptionTypes.Register(name, parentType);
             Builtins[name] = Value.FromExceptionType(type);
+            BuiltinsVersion++;
             return type;
         }
 

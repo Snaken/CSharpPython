@@ -1,0 +1,16 @@
+3 4
+-1 -2
+3 4
+[2, 4, 6, 8]
+100
+200
+1
+NameError
+2
+name 'nothing_here' is not defined
+name 'nothing_here' is not defined
+not yet
+now
+[5, 5, 'shadow', 5]
+610
+K
