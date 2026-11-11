@@ -8,15 +8,15 @@
   },
   "date": "2026-11-11",
   "ms": {
-    "builtins_stream": 112.885,
-    "classes": 19.51,
-    "collections_ops": 29.396,
-    "dict_ops": 8.909,
-    "fib": 5.271,
-    "generators": 12.787,
-    "list_ops": 14.592,
-    "loop_sum": 42.691,
-    "random_math": 15.329,
-    "strings": 4.741
+    "builtins_stream": 114.129,
+    "classes": 19.54,
+    "collections_ops": 29.871,
+    "dict_ops": 8.98,
+    "fib": 5.214,
+    "generators": 13.095,
+    "list_ops": 12.001,
+    "loop_sum": 43.66,
+    "random_math": 15.306,
+    "strings": 4.78
   }
 }

@@ -1,0 +1,21 @@
+random0 0 True True True True ()
+random1 1 True True True True (34447, 34447, 34447, 34447)
+random2 2 True True True True (-156353, 57582, 57582, -156353)
+random127 127 True True True True (-978833, 969393, 969393, -978833)
+random128 128 True True True True (-998186, 999578, 999578, -998186)
+random129 129 True True True True (-936128, 979409, 979409, -936128)
+random255 255 True True True True (-999646, 993328, 993328, -999646)
+random1000 1000 True True True True (-994839, 999499, 999499, -994839)
+random5000 5000 True True True True (-999908, 999414, 999414, -999908)
+small values 3000 True True True True (-10, 9, 9, -10)
+big values 3000 True True True True (-2305842781549968190, -2296839028952442746, -2296839028952442746, -2305842781549968190)
+equal 500 True True True True (5, 5, 5, 5)
+sorted 600 True True True True (-300, 299, 299, -300)
+reversed 600 True True True True (-299, 300, 300, -299)
+extremes 210 True True True True (-9223372036854775808, 9223372036854775807, 9223372036854775807, -9223372036854775808)
+one high byte differs 200 True True True True (-7205759403792793600, 7133701809754865664, 7133701809754865664, -7205759403792793600)
+only the sign differs 400 True True True True (-1, 0, 0, -1)
+[-500, -499, -499, -499, -499, -499, -498, -498, -497, -496] [495, 496, 497, 497, 498, 498, 498, 498, 499, 499]
+[499, 499, 498, 498, 498, 498, 497, 497, 496, 495]
+347822162
+[-49, -49, -48] [49, 49, 49]

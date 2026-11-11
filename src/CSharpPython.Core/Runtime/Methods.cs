@@ -765,10 +765,51 @@ namespace CSharpPython
                 if (list[i].Kind != ValueKind.Int) return false;
                 k[i] = list[i].RawInt;
             }
-            Array.Sort(k);
+            if (n >= RadixSortFrom) RadixSort(k);
+            else Array.Sort(k);
             if (reverse) Array.Reverse(k);
             for (int i = 0; i < n; i++) list[i] = Value.FromInt(k[i]);
             return true;
+        }
+
+        private const int RadixSortFrom = 128;
+
+        // Sorts the numbers a byte at a time, from the lowest byte up, and skips a byte that is the same in all of them (the
+        // high bytes of small numbers). It does the same work whatever the order of the input, and it has no comparer to
+        // call, which matters under IL2CPP, where Array.Sort of longs goes through shared generic code.
+        private static void RadixSort(long[] a)
+        {
+            const ulong Sign = 0x8000000000000000UL;
+            int n = a.Length;
+            var counts = new int[8 * 256];
+            for (int i = 0; i < n; i++)
+            {
+                ulong x = (ulong)a[i] ^ Sign;
+                for (int p = 0; p < 8; p++) counts[p * 256 + (int)((x >> (8 * p)) & 255)]++;
+            }
+            var other = new long[n];
+            long[] from = a, to = other;
+            for (int p = 0; p < 8; p++)
+            {
+                int shift = 8 * p, at = p * 256;
+                if (counts[at + (int)((((ulong)from[0]) ^ Sign) >> shift & 255)] == n) continue;
+                int sum = 0;
+                for (int d = 0; d < 256; d++)
+                {
+                    int c = counts[at + d];
+                    counts[at + d] = sum;
+                    sum += c;
+                }
+                for (int i = 0; i < n; i++)
+                {
+                    long v = from[i];
+                    to[counts[at + (int)((((ulong)v) ^ Sign) >> shift & 255)]++] = v;
+                }
+                long[] t = from;
+                from = to;
+                to = t;
+            }
+            if (from != a) Array.Copy(from, a, n);
         }
 
         // A short list whose keys are all ints, all floats (none NaN) or all strings is sorted where it is, by a stable
