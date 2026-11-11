@@ -186,7 +186,7 @@ namespace CSharpPython
                 }
                 var items = new Value[a.Length - 1];
                 for (int i = 0; i < items.Length; i++) items[i] = a[i + 1];
-                instance.Fields.Set(Value.FromString("args"), Value.FromTuple(new PyTuple(items)));
+                instance.SetField("args", Value.FromTuple(new PyTuple(items)));
                 return Value.None;
             });
             Add(t, "object", "__setattr__", 2, 2, (c, a) =>

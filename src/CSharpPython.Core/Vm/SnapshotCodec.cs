@@ -249,7 +249,7 @@ namespace CSharpPython
                     {
                         var inst = (PyInstance)v.RawObject;
                         Collect(Value.FromClass(inst.Class));
-                        CollectPairs(inst.Fields);
+                        CollectPairs(inst.FieldsView());
                     }
                     break;
                 case ValueKind.DictView:
@@ -468,7 +468,7 @@ namespace CSharpPython
                         w.Write(ContainerInstance);
                         var inst = (PyInstance)c.RawObject;
                         WriteValue(pw, Value.FromClass(inst.Class));
-                        WritePairs(pw, inst.Fields);
+                        WritePairs(pw, inst.FieldsView());
                         break;
                     }
                     default:

@@ -19,7 +19,7 @@ namespace CSharpPython
         {
             function = null;
             var inst = (PyInstance)obj.RawObject;
-            if (inst.Fields.ContainsKey(Value.FromString(name))) return false;
+            if (inst.HasField(name)) return false;
             if (!inst.Class.TryFind(name, out Value member) || member.Kind != ValueKind.Function) return false;
             function = (PyFunction)member.RawObject;
             return true;
@@ -131,7 +131,7 @@ namespace CSharpPython
                     var inst = (PyInstance)obj.RawObject;
                     if (PyDescriptor.PropertiesExist && inst.Class.TryFind(name, out Value prop) && IsProperty(prop))
                         return BindMember(prop, obj, inst.Class, name);
-                    if (inst.Fields.TryGetValue(Value.FromString(name), out Value field)) return field;
+                    if (inst.TryGetField(name, out Value field)) return field;
                     if (inst.Class.TryFind(name, out Value member)) return BindMember(member, obj, inst.Class, name);
                     if (inst.Class.ExceptionRoot != null && PyExceptionValue.TryDefaultChainAttribute(name, out Value chain)) return chain;
                     throw NoAttribute(obj, name);
@@ -266,7 +266,7 @@ namespace CSharpPython
                     CallAccessor(deleter, obj, null);
                     return;
                 }
-                if (!inst.Fields.Remove(key)) throw NoAttribute(obj, name);
+                if (!inst.RemoveField(name)) throw NoAttribute(obj, name);
                 return;
             }
             if (obj.Kind == ValueKind.Class)
@@ -302,7 +302,7 @@ namespace CSharpPython
                     CallAccessor(setter, obj, value);
                     return;
                 }
-                inst.Fields.Set(Value.FromString(name), value);
+                inst.SetField(name, value);
                 return;
             }
             if (obj.Kind == ValueKind.Class)

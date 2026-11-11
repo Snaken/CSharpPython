@@ -1704,7 +1704,7 @@ namespace CSharpPython
         private static Value GetAttribute(Value obj, string name)
         {
             if (obj.Kind == ValueKind.Instance && !PyClass.HooksExist && !PyDescriptor.PropertiesExist && !(name.Length == 9 && name == "__class__")
-                && ((PyInstance)obj.RawObject).Fields.TryGetStr(name, out Value field))
+                && ((PyInstance)obj.RawObject).TryGetField(name, out Value field))
                 return field;
             // A module's member, found without entering the general attribute lookup (a large method that costs more to
             // enter than the dictionary lookup does).
@@ -1716,7 +1716,7 @@ namespace CSharpPython
         private static void SetAttribute(Value obj, string name, Value value)
         {
             if (obj.Kind == ValueKind.Instance && !PyClass.HooksExist && !PyDescriptor.PropertiesExist)
-                ((PyInstance)obj.RawObject).Fields.Set(Value.FromString(name), value);
+                ((PyInstance)obj.RawObject).SetField(name, value);
             else Ops.SetAttr(obj, name, value);
         }
 
@@ -1929,7 +1929,7 @@ namespace CSharpPython
                 // Like BaseException, the positional arguments become .args whatever __init__ does with them.
                 var given = new Value[positional];
                 Array.Copy(_stack, argStart, given, 0, positional);
-                ((PyInstance)self.RawObject).Fields.Set(Value.FromString("args"), Value.FromTuple(new PyTuple(given)));
+                ((PyInstance)self.RawObject).SetField("args", Value.FromTuple(new PyTuple(given)));
             }
             if (cls.TryFind("__init__", out Value init))
             {

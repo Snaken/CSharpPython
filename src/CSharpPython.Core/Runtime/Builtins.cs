@@ -688,7 +688,7 @@ namespace CSharpPython
                 case ValueKind.Instance:
                 {
                     var inst = (PyInstance)v.RawObject;
-                    foreach (var kv in inst.Fields.Pairs()) if (kv.Key.Kind == ValueKind.Str) names.Add((string)kv.Key.RawObject);
+                    foreach (var kv in inst.FieldsView().Pairs()) if (kv.Key.Kind == ValueKind.Str) names.Add((string)kv.Key.RawObject);
                     for (var cls = inst.Class; cls != null; cls = cls.Base) AddNames(names, cls.Namespace);
                     break;
                 }
@@ -728,7 +728,7 @@ namespace CSharpPython
             switch (v.Kind)
             {
                 case ValueKind.Instance:
-                    foreach (var kv in ((PyInstance)v.RawObject).Fields.Pairs()) copy.Set(kv.Key, kv.Value);
+                    foreach (var kv in ((PyInstance)v.RawObject).FieldsView().Pairs()) copy.Set(kv.Key, kv.Value);
                     break;
                 case ValueKind.Class:
                     foreach (var kv in ((PyClass)v.RawObject).Namespace.Pairs())

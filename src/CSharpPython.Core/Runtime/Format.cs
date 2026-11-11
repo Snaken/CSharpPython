@@ -27,7 +27,7 @@ namespace CSharpPython
         }
 
         private static PyTuple ArgsOf(PyInstance instance) =>
-            instance.Fields.TryGetValue(Value.FromString("args"), out Value args) && args.Kind == ValueKind.Tuple
+            instance.TryGetField("args", out Value args) && args.Kind == ValueKind.Tuple
                 ? (PyTuple)args.RawObject
                 : new PyTuple(new Value[0]);
 

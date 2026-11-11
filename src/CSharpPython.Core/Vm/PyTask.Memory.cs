@@ -264,7 +264,13 @@ namespace CSharpPython
                         var inst = (PyInstance)v.RawObject;
                         _bytes += MemorySizes.Object;
                         Visit(Value.FromClass(inst.Class));
-                        Visit(Value.FromDict(inst.Fields));
+                        if (inst.InSlots)
+                        {
+                            // The values in an array of their own (the names are shared with the other instances of the shape).
+                            _bytes += MemorySizes.Object + MemorySizes.Slot * inst.SlotCount;
+                            for (int i = 0; i < inst.SlotCount; i++) Visit(inst.SlotAt(i));
+                        }
+                        else Visit(Value.FromDict(inst.Fields));
                     }
                     break;
                 case ValueKind.Function:

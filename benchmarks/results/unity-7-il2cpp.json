@@ -6,17 +6,17 @@
     "os": "Darwin arm64",
     "cpu": "Apple M5 Pro"
   },
-  "date": "2026-11-10",
+  "date": "2026-11-11",
   "ms": {
-    "builtins_stream": 113.808,
-    "classes": 34.015,
-    "collections_ops": 30.108,
-    "dict_ops": 8.843,
-    "fib": 6.462,
-    "generators": 14.606,
-    "list_ops": 14.788,
-    "loop_sum": 45.302,
-    "random_math": 16.743,
-    "strings": 4.816
+    "builtins_stream": 111.895,
+    "classes": 22.429,
+    "collections_ops": 29.345,
+    "dict_ops": 8.827,
+    "fib": 6.184,
+    "generators": 14.072,
+    "list_ops": 14.346,
+    "loop_sum": 43.255,
+    "random_math": 16.154,
+    "strings": 4.891
   }
 }

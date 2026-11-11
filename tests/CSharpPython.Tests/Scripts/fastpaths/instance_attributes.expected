@@ -1,0 +1,21 @@
+{'x': 1, 'y': 2} {'x': 3, 'y': 4}
+4 {'x': 2, 'y': 2, 'z': 4} {'x': 3, 'y': 4}
+['hello', 'move', 'x', 'y', 'z'] True False none
+{'y': 6, 'x': 50} ['y', 'x']
+['y', 'x', 'w'] 50 6 1
+['x', 'y', 'q', 'p'] ['x', 'y']
+['x', 'y', 'p'] False
+AttributeError
+AttributeError
+AttributeError
+42 0 961 1024 1521 400 ['x', 'y', 'n0', 'n1'] ['n38', 'n39']
+99 -5 False 41 100
+class method
+instance shadowed ['hello', 'k']
+class method {}
+{'base': 1, 'child': 2} {'mine': 0, 'base': 1} {'base': 1}
+8 {'_v': 8, 'extra': [1, 2, 3]}
+2 11 missing c {'a': 2, 'b': 11}
+('outer',) 7 outer ValueError('inner') 7
+[29, 28, 27, 26, 25] 10 7500
+4

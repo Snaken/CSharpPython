@@ -87,7 +87,7 @@ namespace CSharpPython
                         string name = c.Names[ins.Arg];
                         if (obj.Kind == ValueKind.Instance && !PyClass.HooksExist && !PyDescriptor.PropertiesExist && !(name.Length == 9 && name == "__class__"))
                         {
-                            if (!((PyInstance)obj.RawObject).Fields.TryGetStr(name, out stack[sp - 1])) return false;
+                            if (!((PyInstance)obj.RawObject).TryGetField(name, out stack[sp - 1])) return false;
                         }
                         else if (obj.Kind == ValueKind.Module)
                         {

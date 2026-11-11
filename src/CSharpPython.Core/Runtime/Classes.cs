@@ -1,3 +1,4 @@
+using System;
 using System.Runtime.CompilerServices;
 
 namespace CSharpPython
@@ -41,6 +42,13 @@ namespace CSharpPython
             foreach (var kv in Namespace.Pairs())
                 if (kv.Key.Kind == ValueKind.Str && IsHookName((string)kv.Key.RawObject)) HooksExist = true;
         }
+
+        /// <summary>The shape of an instance of this class that has no attributes yet (see <see cref="Shape"/>).</summary>
+        public Shape RootShape => _rootShape ?? (_rootShape = new Shape());
+        private Shape _rootShape;
+
+        /// <summary>The most attributes an instance of this class has had, so a new instance makes room for them all at once.</summary>
+        public int SlotHint;
 
         public PyClass(string name, PyClass baseClass, PyDict ns)
         {
@@ -103,13 +111,65 @@ namespace CSharpPython
         }
     }
 
+    /// <summary>
+    /// The attribute names an instance has, in the order they were first assigned. Instances that were given the same
+    /// names in the same order share one shape, and each keeps only its values (in an array), where a dictionary of its
+    /// own would cost four objects. A shape is never changed: adding a name leads to the next shape.
+    /// </summary>
+    internal sealed class Shape
+    {
+        private static readonly string[] NoNames = new string[0];
+        private static readonly Shape[] NoShapes = new Shape[0];
+
+        public readonly string[] Names;
+        private Shape[] _next = NoShapes;
+
+        public Shape() { Names = NoNames; }
+
+        private Shape(string[] names) { Names = names; }
+
+        public int Count => Names.Length;
+
+        public int IndexOf(string name)
+        {
+            string[] names = Names;
+            for (int i = 0; i < names.Length; i++)
+            {
+                string s = names[i];
+                if ((object)s == name || (s.Length == name.Length && s == name)) return i;
+            }
+            return -1;
+        }
+
+        /// <summary>The shape with <paramref name="name"/> added after these names.</summary>
+        public Shape Add(string name)
+        {
+            foreach (Shape shape in _next)
+                if (shape.Names[shape.Names.Length - 1] == name) return shape;
+            var names = new string[Names.Length + 1];
+            Array.Copy(Names, names, Names.Length);
+            names[Names.Length] = name;
+            var child = new Shape(names);
+            Array.Resize(ref _next, _next.Length + 1);
+            _next[_next.Length - 1] = child;
+            return child;
+        }
+    }
+
     /// <summary>An object created by calling a script class.</summary>
     internal sealed class PyInstance
     {
+        // More attributes than this and an instance keeps them in a dictionary, so finding one stays quick.
+        private const int MaxSlots = 32;
+
         public PyClass Class;
 
-        /// <summary>The instance attributes, assigned with <c>self.name = value</c>.</summary>
-        public readonly PyDict Fields = new PyDict();
+        // The attributes assigned with self.name = value live either in _slots, named by _shape, or, in dictionary mode
+        // (_shape is null), in _fields. An instance goes to dictionary mode for good when a script deletes an attribute,
+        // has too many, or when something asks for the dictionary itself (Fields).
+        private PyDict _fields;
+        private Shape _shape;
+        private Value[] _slots;
 
         /// <summary>The traceback of an exception instance that has been raised, kept so a re-raise continues it.</summary>
         public System.Collections.Generic.List<TraceFrame> Trace;
@@ -117,6 +177,101 @@ namespace CSharpPython
         public PyInstance(PyClass cls)
         {
             Class = cls;
+            // A class that is not known yet (an instance being restored from a snapshot) starts with a dictionary.
+            if (cls == null) _fields = new PyDict();
+            else _shape = cls.RootShape;
+        }
+
+        /// <summary>The instance attributes as a dictionary. Asking for it moves the instance to dictionary mode for good; use <see cref="FieldsView"/> to read them.</summary>
+        public PyDict Fields
+        {
+            get
+            {
+                if (_fields == null) ToDictionary();
+                return _fields;
+            }
+        }
+
+        /// <summary>The attributes in a dictionary for reading: the live one in dictionary mode, otherwise a copy that leaves the instance as it is.</summary>
+        public PyDict FieldsView()
+        {
+            if (_fields != null) return _fields;
+            var copy = new PyDict();
+            for (int i = 0; i < _shape.Count; i++) copy.Set(Value.FromString(_shape.Names[i]), _slots[i]);
+            return copy;
+        }
+
+        /// <summary>True while the attributes are in slots (not a dictionary).</summary>
+        public bool InSlots => _shape != null;
+
+        public int SlotCount => _shape.Count;
+
+        public Value SlotAt(int index) => _slots[index];
+
+        private void ToDictionary()
+        {
+            _fields = FieldsView();
+            _shape = null;
+            _slots = null;
+        }
+
+        public bool TryGetField(string name, out Value value)
+        {
+            if (_shape != null)
+            {
+                int i = _shape.IndexOf(name);
+                if (i >= 0)
+                {
+                    value = _slots[i];
+                    return true;
+                }
+                value = default;
+                return false;
+            }
+            return _fields.TryGetStr(name, out value);
+        }
+
+        public bool HasField(string name) =>
+            _shape != null ? _shape.IndexOf(name) >= 0 : _fields.ContainsKey(Value.FromString(name));
+
+        public void SetField(string name, Value value)
+        {
+            if (_shape != null)
+            {
+                int i = _shape.IndexOf(name);
+                if (i >= 0)
+                {
+                    _slots[i] = value;
+                    return;
+                }
+                if (_shape.Count < MaxSlots)
+                {
+                    AddSlot(name, value);
+                    return;
+                }
+                ToDictionary();
+            }
+            _fields.Set(Value.FromString(name), value);
+        }
+
+        private void AddSlot(string name, Value value)
+        {
+            int n = _shape.Count;
+            if (_slots == null) _slots = new Value[Math.Max(Class.SlotHint, 1)];
+            else if (n == _slots.Length) Array.Resize(ref _slots, n * 2);
+            _shape = _shape.Add(name);
+            _slots[n] = value;
+            if (n + 1 > Class.SlotHint) Class.SlotHint = n + 1;
+        }
+
+        public bool RemoveField(string name)
+        {
+            if (_shape != null)
+            {
+                if (_shape.IndexOf(name) < 0) return false;
+                ToDictionary();
+            }
+            return _fields.Remove(Value.FromString(name));
         }
 
         /// <summary>The text <c>repr</c> gives for an object that does not define <c>__repr__</c>.</summary>
