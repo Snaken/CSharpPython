@@ -102,7 +102,7 @@ For a block script, `SourceMap.Path(error)` gives the blocks on that path, inner
 
 ## Threads
 
-A `PyTask` and its `PyVm` are not thread-safe: call `Update()`, `QueueEvent()` and the rest of one task from one thread at a time. Different VMs may run on different threads at once (the running task and its limits are tracked for each thread), but exception types are one registry shared by every VM in the process: `RegisterExceptionType` adds to it and it never shrinks (it holds at most 4,096 names; further unknown names become plain `Exception`).
+A `PyTask` and its `PyVm` are not thread-safe: call `Update()`, `QueueEvent()` and the rest of one task from one thread at a time. Different VMs may run on different threads at once (the running task and its limits are tracked for each thread; a test runs eight at once), but a compiled `Script` is not safe to share between threads (each call site remembers what it last found, without a lock), so compile once for each thread. Also, exception types are one registry shared by every VM in the process: `RegisterExceptionType` adds to it and it never shrinks (it holds at most 4,096 names; further unknown names become plain `Exception`).
 
 ## Limits
 

@@ -62,7 +62,7 @@ namespace CSharpPython.Tests.Vm
         public void TasksDueAWalkAreCountedAsNearTheLimit()
         {
             // A limit of one slice's growth makes a task due a walk as soon as it has run; an untouched task is not due.
-            var vm = new PyVm(new VmOptions { MaxMemoryBytes = 4096, StepsPerSlice = 1000 });
+            var vm = new PyVm(new VmOptions { MaxMemoryBytes = 1024, StepsPerSlice = 1000 });
             var busy = vm.Start("i = 0\nwhile True:\n    i += 1\n");
             busy.Run();
             var fresh = vm.Start("x = 1\n");

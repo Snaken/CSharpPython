@@ -60,6 +60,9 @@ namespace CSharpPython
         /// <summary>Raised whenever a class attribute is assigned or deleted, so cached lookups on classes know to look again.</summary>
         public static int Epoch;
 
+        /// <summary>Raises <see cref="Epoch"/>. Atomic, because VMs on different threads share the counter.</summary>
+        public static void BumpEpoch() => System.Threading.Interlocked.Increment(ref Epoch);
+
         private int _initEpoch = -1;
         private PyFunction _plainInit;
 

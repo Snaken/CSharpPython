@@ -87,9 +87,9 @@ namespace CSharpPython
         private readonly CallContext _ctx = new CallContext();
         private readonly Queue<PendingEvent> _events = new Queue<PendingEvent>();
 
-        private Value[] _stack = new Value[256];
+        private Value[] _stack = new Value[32];
         private int _sp;
-        private Frame[] _frames = new Frame[16];
+        private Frame[] _frames = new Frame[4];
         private int _frameCount;
 
         private TaskState _state = TaskState.Running;
@@ -718,7 +718,7 @@ namespace CSharpPython
                         ColdFormatValue(ins);
                         break;
                     case Op.Negate:
-                        _stack[_sp - 1] = Ops.Negate(_stack[_sp - 1]);
+                        SetTop(Ops.Negate(_stack[_sp - 1]));
                         break;
                     case Op.Plus:
                         ColdPlus();
@@ -729,37 +729,37 @@ namespace CSharpPython
                     case Op.Add:
                     {
                         Value b = _stack[--_sp];
-                        _stack[_sp - 1] = ins.Arg != 0 ? Ops.AddInPlace(_stack[_sp - 1], b) : Ops.Add(_stack[_sp - 1], b);
+                        SetTop(ins.Arg != 0 ? Ops.AddInPlace(_stack[_sp - 1], b) : Ops.Add(_stack[_sp - 1], b));
                         break;
                     }
                     case Op.Sub:
                     {
                         Value b = _stack[--_sp];
-                        _stack[_sp - 1] = ins.Arg != 0 ? Ops.SubInPlace(_stack[_sp - 1], b) : Ops.Sub(_stack[_sp - 1], b);
+                        SetTop(ins.Arg != 0 ? Ops.SubInPlace(_stack[_sp - 1], b) : Ops.Sub(_stack[_sp - 1], b));
                         break;
                     }
                     case Op.Mul:
                     {
                         Value b = _stack[--_sp];
-                        _stack[_sp - 1] = ins.Arg != 0 ? Ops.MulInPlace(_stack[_sp - 1], b) : Ops.Mul(_stack[_sp - 1], b);
+                        SetTop(ins.Arg != 0 ? Ops.MulInPlace(_stack[_sp - 1], b) : Ops.Mul(_stack[_sp - 1], b));
                         break;
                     }
                     case Op.Div:
                     {
                         Value b = _stack[--_sp];
-                        _stack[_sp - 1] = ins.Arg != 0 ? Ops.DivInPlace(_stack[_sp - 1], b) : Ops.Div(_stack[_sp - 1], b);
+                        SetTop(ins.Arg != 0 ? Ops.DivInPlace(_stack[_sp - 1], b) : Ops.Div(_stack[_sp - 1], b));
                         break;
                     }
                     case Op.FloorDiv:
                     {
                         Value b = _stack[--_sp];
-                        _stack[_sp - 1] = ins.Arg != 0 ? Ops.FloorDivInPlace(_stack[_sp - 1], b) : Ops.FloorDiv(_stack[_sp - 1], b);
+                        SetTop(ins.Arg != 0 ? Ops.FloorDivInPlace(_stack[_sp - 1], b) : Ops.FloorDiv(_stack[_sp - 1], b));
                         break;
                     }
                     case Op.Mod:
                     {
                         Value b = _stack[--_sp];
-                        _stack[_sp - 1] = ins.Arg != 0 ? Ops.ModInPlace(_stack[_sp - 1], b) : Ops.Mod(_stack[_sp - 1], b);
+                        SetTop(ins.Arg != 0 ? Ops.ModInPlace(_stack[_sp - 1], b) : Ops.Mod(_stack[_sp - 1], b));
                         break;
                     }
                     case Op.BitOr:
@@ -786,37 +786,37 @@ namespace CSharpPython
                     case Op.Eq:
                     {
                         Value b = _stack[--_sp];
-                        _stack[_sp - 1] = Ops.EqualOp(_stack[_sp - 1], b);
+                        SetTop(Ops.EqualOp(_stack[_sp - 1], b));
                         break;
                     }
                     case Op.Ne:
                     {
                         Value b = _stack[--_sp];
-                        _stack[_sp - 1] = Ops.NotEqualOp(_stack[_sp - 1], b);
+                        SetTop(Ops.NotEqualOp(_stack[_sp - 1], b));
                         break;
                     }
                     case Op.Lt:
                     {
                         Value b = _stack[--_sp];
-                        _stack[_sp - 1] = Ops.CompareOp(_stack[_sp - 1], b, Ops.Order.Lt);
+                        SetTop(Ops.CompareOp(_stack[_sp - 1], b, Ops.Order.Lt));
                         break;
                     }
                     case Op.Le:
                     {
                         Value b = _stack[--_sp];
-                        _stack[_sp - 1] = Ops.CompareOp(_stack[_sp - 1], b, Ops.Order.Le);
+                        SetTop(Ops.CompareOp(_stack[_sp - 1], b, Ops.Order.Le));
                         break;
                     }
                     case Op.Gt:
                     {
                         Value b = _stack[--_sp];
-                        _stack[_sp - 1] = Ops.CompareOp(_stack[_sp - 1], b, Ops.Order.Gt);
+                        SetTop(Ops.CompareOp(_stack[_sp - 1], b, Ops.Order.Gt));
                         break;
                     }
                     case Op.Ge:
                     {
                         Value b = _stack[--_sp];
-                        _stack[_sp - 1] = Ops.CompareOp(_stack[_sp - 1], b, Ops.Order.Ge);
+                        SetTop(Ops.CompareOp(_stack[_sp - 1], b, Ops.Order.Ge));
                         break;
                     }
                     case Op.Is:
@@ -1046,7 +1046,7 @@ namespace CSharpPython
                     }
                     case Op.ConstArith:
                     {
-                        _stack[_sp - 1] = Arithmetic(instructions[pc], _stack[_sp - 1], code.Constants[ins.Arg]);
+                        SetTop(Arithmetic(instructions[pc], _stack[_sp - 1], code.Constants[ins.Arg]));
                         pc++;
                         _budget--;
                         break;
@@ -1558,48 +1558,48 @@ namespace CSharpPython
 
         private void ColdPlus()
         {
-            _stack[_sp - 1] = Ops.Plus(_stack[_sp - 1]);
+            SetTop(Ops.Plus(_stack[_sp - 1]));
         }
 
         private void ColdBitOr(Instruction ins)
         {
             Value b = _stack[--_sp];
-            _stack[_sp - 1] = ins.Arg != 0 ? Ops.BitOrInPlace(_stack[_sp - 1], b) : Ops.BitOr(_stack[_sp - 1], b);
+            SetTop(ins.Arg != 0 ? Ops.BitOrInPlace(_stack[_sp - 1], b) : Ops.BitOr(_stack[_sp - 1], b));
         }
 
         private void ColdBitXor(Instruction ins)
         {
             Value b = _stack[--_sp];
-            _stack[_sp - 1] = ins.Arg != 0 ? Ops.BitXorInPlace(_stack[_sp - 1], b) : Ops.BitXor(_stack[_sp - 1], b);
+            SetTop(ins.Arg != 0 ? Ops.BitXorInPlace(_stack[_sp - 1], b) : Ops.BitXor(_stack[_sp - 1], b));
         }
 
         private void ColdBitAnd(Instruction ins)
         {
             Value b = _stack[--_sp];
-            _stack[_sp - 1] = ins.Arg != 0 ? Ops.BitAndInPlace(_stack[_sp - 1], b) : Ops.BitAnd(_stack[_sp - 1], b);
+            SetTop(ins.Arg != 0 ? Ops.BitAndInPlace(_stack[_sp - 1], b) : Ops.BitAnd(_stack[_sp - 1], b));
         }
 
         private void ColdLShift(Instruction ins)
         {
             Value b = _stack[--_sp];
-            _stack[_sp - 1] = ins.Arg != 0 ? Ops.LShiftInPlace(_stack[_sp - 1], b) : Ops.LShift(_stack[_sp - 1], b);
+            SetTop(ins.Arg != 0 ? Ops.LShiftInPlace(_stack[_sp - 1], b) : Ops.LShift(_stack[_sp - 1], b));
         }
 
         private void ColdRShift(Instruction ins)
         {
             Value b = _stack[--_sp];
-            _stack[_sp - 1] = ins.Arg != 0 ? Ops.RShiftInPlace(_stack[_sp - 1], b) : Ops.RShift(_stack[_sp - 1], b);
+            SetTop(ins.Arg != 0 ? Ops.RShiftInPlace(_stack[_sp - 1], b) : Ops.RShift(_stack[_sp - 1], b));
         }
 
         private void ColdInvert()
         {
-            _stack[_sp - 1] = Ops.Invert(_stack[_sp - 1]);
+            SetTop(Ops.Invert(_stack[_sp - 1]));
         }
 
         private void ColdPow(Instruction ins)
         {
             Value b = _stack[--_sp];
-            _stack[_sp - 1] = ins.Arg != 0 ? Ops.PowInPlace(_stack[_sp - 1], b) : Ops.Pow(_stack[_sp - 1], b);
+            SetTop(ins.Arg != 0 ? Ops.PowInPlace(_stack[_sp - 1], b) : Ops.Pow(_stack[_sp - 1], b));
         }
 
         private void ColdAfterThrow(Frame frame)
@@ -2598,6 +2598,10 @@ namespace CSharpPython
                 throw new PyError("TypeError", "cannot unpack non-iterable " + seq.TypeName + " object");
             return Ops.ToList(seq);
         }
+
+        // Replaces the top of the stack. The value is worked out before the array is read, because working it out can run
+        // script code (an operator's __mul__) that grows the stack and so replaces the array.
+        private void SetTop(Value v) => _stack[_sp - 1] = v;
 
         private void Push(Value v)
         {
